@@ -39,6 +39,8 @@ python manage.py makemigrations --check --dry-run   # no unmigrated model change
 python manage.py collectstatic --noinput
 ```
 
+- **Never commit directly to `main`.** Every task gets its own branch (`git switch -c <slug>` from
+  an up-to-date `main`); changes land on `main` via PR.
 - Git hooks (opt-in): `git config core.hooksPath .githooks` — ruff on commit, full suite on push
   (`git push --no-verify` skips once).
 - **Dependencies are locked.** Changed `requirements*.txt`? Use the `update-dependencies` skill to
