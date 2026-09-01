@@ -10,10 +10,10 @@ Step-by-step for taking a new release of `main` live on the `docker-compose.prod
    cp .env.prod.example .env.prod
    ```
    Only `docker-compose.prod.yml` and `.env.prod` are needed on the server — no checkout. Fetch them
-   from a release tag:
+   from `main` (matches the `latest` image; substitute a `vX.Y.Z` tag to pin a release):
    ```bash
-   curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/v1.0.0/docker-compose.prod.yml
-   curl -fsSL -o .env.prod https://raw.githubusercontent.com/montegrotto/SaldoVibe/v1.0.0/.env.prod.example
+   curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/docker-compose.prod.yml
+   curl -fsSL -o .env.prod https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/.env.prod.example
    ```
    At minimum change `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` from `change-me`, and set
    `SALDOVIBE_PUBLIC_URL` to the real public URL (this drives `ALLOWED_HOSTS` and
