@@ -161,6 +161,25 @@ def parse_sie_accounts(text: str) -> dict[str, str]:
     return accounts
 
 
+def parse_sie_accounting_year(text: str) -> tuple[dt.date, dt.date] | None:
+    """Return (start, end) from the file's `#RAR 0` row, or None if absent or unparseable.
+    A file may carry several #RAR rows (-1, -2, ... for comparison balances), but
+    #VER rows always belong to year 0, so that is the only one to match against."""
+
+    for line_number, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line.startswith("#"):
+            continue
+        parts = _tokenize_sie_line(line, line_number, [])
+        if len(parts) < 4 or parts[0].upper() != "#RAR" or parts[1] != "0":
+            continue
+        try:
+            return _parse_date(parts[2]), _parse_date(parts[3])
+        except ValueError:
+            return None
+    return None
+
+
 def parse_sie_balances(text: str, tag: str) -> dict[str, Decimal]:
     """Parse #IB/#UB lines for year 0 (this year) into {account_number: amount}.
     Comparison-year rows (-1, -2, ...) are ignored - this app only imports into

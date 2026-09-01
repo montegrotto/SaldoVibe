@@ -92,6 +92,9 @@ SaldoVibe tillåter inte att en bokförd verifikation ändras i efterhand. Istä
 ### SIE-import (`Verifikationer → Importera SIE`)
 
 - Kräver att ett räkenskapsår redan finns; import sker mot det valda räkenskapsåret.
+- Anger filen sitt räkenskapsår (`#RAR 0`-raden) måste start- och slutdatum stämma med det valda
+  räkenskapsåret, annars avbryts importen med ett felmeddelande. Jämförelseår (`#RAR -1` osv.)
+  påverkar inte kontrollen – verifikationerna i en SIE-fil tillhör alltid år 0.
 - Finns tidigare SIE/SI-importerade verifikationer i räkenskapsåret ersätts de av filens innehåll
   – du måste först kryssa i en bekräftelseruta. Verifikationer som bokförts direkt i SaldoVibe
   (manuellt, via faktura, lön m.m.) och verifikationer i låsta perioder tas aldrig bort av en

@@ -30,6 +30,7 @@ from ..models import (
 from ..period_locking import is_date_locked, year_lock_status
 from ..reports import default_accounting_year
 from ..sie import (
+    parse_sie_accounting_year,
     parse_sie_accounts,
     parse_sie_balances,
     parse_sie_verifications_with_diagnostics,
@@ -203,6 +204,27 @@ def sie_import(request, company):
                     extra={"company_id": company.id, "user_id": request.user.id},
                 )
                 messages.error(request, "Kunde inte läsa SIE-filen. Kontrollera filkodning.")
+                return render(
+                    request,
+                    "bookkeeping/sie_import.html",
+                    {
+                        "form": form,
+                        "selected_year": selected_year,
+                        "existing_transaction_count": existing_transaction_count,
+                        "deletable_transaction_count": deletable_transaction_count,
+                        "kept_existing_count": kept_existing_count,
+                    },
+                )
+
+            file_year = parse_sie_accounting_year(text)
+            if file_year is not None and file_year != (accounting_year.start_date, accounting_year.end_date):
+                file_start, file_end = file_year
+                messages.error(
+                    request,
+                    f"Filens räkenskapsår ({file_start:%Y-%m-%d} – {file_end:%Y-%m-%d}) stämmer inte med valt "
+                    f"räkenskapsår ({accounting_year.start_date:%Y-%m-%d} – {accounting_year.end_date:%Y-%m-%d}). "
+                    "Välj rätt räkenskapsår eller kontrollera filen.",
+                )
                 return render(
                     request,
                     "bookkeeping/sie_import.html",
