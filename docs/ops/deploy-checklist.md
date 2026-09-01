@@ -70,8 +70,9 @@ check before cutting traffic over.
 
 ## After deploy
 
-- Confirm scheduled jobs (backup cron, `docs/compliance/` restore dry-run — see
-  `docs/compliance/restore-runbook.md`) still point at the right paths/credentials if anything in
-  `.env.prod` changed.
+- Confirm scheduled jobs still run: the ofelia backup jobs and the `docs/compliance/` restore
+  dry-run (`docker compose -f docker-compose.prod.yml logs scheduler`, see
+  [backup-restore.md](backup-restore.md) and `docs/compliance/restore-runbook.md`), plus the
+  host's off-host backup sync, especially if anything in `.env.prod` changed.
 - Update `docs/compliance/quarterly-review-checklist.md` tracking if this release touched
   anything on that checklist (period locking, exports, audit logging).

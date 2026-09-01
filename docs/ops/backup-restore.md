@@ -16,35 +16,41 @@ path and does not work against PostgreSQL at all.
 | Static assets | `static-assets` volume | Regeneratable via `collectstatic` — not critical to back up |
 | `.env.prod` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config |
 
-## Backing up PostgreSQL
+## Scheduled backups (built into the stack)
 
-Run a logical dump from the host, through the running `db` container, on a schedule (cron or
-similar):
+The `scheduler` (ofelia) service in `docker-compose.prod.yml` runs the backups automatically —
+no host cron needed for taking them:
+
+| Job | Where | Schedule | Retention |
+|---|---|---|---|
+| `nightly-pg-backup` | `db` labels | 02:30 every night | 14 days |
+| `weekly-media-backup` | `web` labels | Sunday 04:00 | 35 days |
+
+Both write to `./backups/` next to the compose file (bind-mounted as `/backups` in `db` and
+`web`): `db-<timestamp>.dump` (`pg_dump --format=custom`, works with `pg_restore` and supports
+selective/parallel restore) and `media-<timestamp>.tar.gz`. Credentials come from `.env.prod`
+(`POSTGRES_USER` / `POSTGRES_DB`, see [environment-variables.md](environment-variables.md)).
+
+Ofelia logs every run — check that the jobs actually fire after a deploy:
+
+```bash
+docker compose -f docker-compose.prod.yml logs scheduler
+```
+
+**Syncing off the host is still your job.** A backup that only lives on the same disk as the
+database is not a backup. One host cron line with e.g. `rclone` covers it:
+
+```cron
+0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups
+```
+
+For a manual on-demand dump (e.g. right before a risky migration):
 
 ```bash
 docker compose -f docker-compose.prod.yml exec -T db \
-  pg_dump -U saldovibe -d saldovibe --format=custom \
-  > backups/saldovibe-$(date +%Y%m%dT%H%M%S).dump
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
+  > backups/db-$(date +%Y%m%dT%H%M%S).dump
 ```
-
-- `--format=custom` produces a compressed dump that works with `pg_restore` and supports
-  selective/parallel restore.
-- Keep the credentials in sync with `.env.prod` (`DATABASE_USER` / `POSTGRES_USER` etc, see
-  [environment-variables.md](environment-variables.md)).
-- Store dumps off the host (object storage, another server) — a backup that only lives on the
-  same disk as the database is not a backup.
-
-## Backing up media
-
-```bash
-docker run --rm \
-  -v saldovibe_media-assets:/media:ro \
-  -v "$(pwd)/backups":/backup \
-  alpine tar czf /backup/saldovibe-media-$(date +%Y%m%dT%H%M%S).tar.gz -C /media .
-```
-
-Adjust the volume name if Compose has prefixed it differently (`docker volume ls` to confirm — the
-prefix is normally the Compose project/directory name).
 
 ## Restoring PostgreSQL
 
@@ -56,7 +62,7 @@ prefix is normally the Compose project/directory name).
    ```bash
    docker compose -f docker-compose.prod.yml exec -T db \
      pg_restore -U saldovibe -d saldovibe --clean --if-exists \
-     < backups/saldovibe-<timestamp>.dump
+     < backups/db-<timestamp>.dump
    ```
 3. Start `web` again — the entrypoint runs `migrate --noinput` automatically (see
    [upgrades-migrations.md](upgrades-migrations.md)), which is a no-op if the restored dump is
@@ -71,7 +77,7 @@ prefix is normally the Compose project/directory name).
 docker run --rm \
   -v saldovibe_media-assets:/media \
   -v "$(pwd)/backups":/backup \
-  alpine sh -c "rm -rf /media/* && tar xzf /backup/saldovibe-media-<timestamp>.tar.gz -C /media"
+  alpine sh -c "rm -rf /media/* && tar xzf /backup/media-<timestamp>.tar.gz -C /media"
 ```
 
 ## Verifying a restore actually worked
@@ -87,8 +93,8 @@ production):
 
 ## Recommended cadence
 
-- **Nightly**: PostgreSQL dump.
-- **Weekly**: media backup (changes less often, but grows and must not be forgotten).
+- **Nightly**: PostgreSQL dump (automated, see above).
+- **Weekly**: media backup (automated, see above).
 - **Quarterly**: full restore-to-staging test, not just "the backup file exists" — an untested
   backup is not a backup. Pair this with the existing
   `docs/compliance/quarterly-review-checklist.md`.
