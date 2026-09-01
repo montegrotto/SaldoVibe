@@ -1,0 +1,77 @@
+{% comment %}
+Payment card shared by customer invoices, supplier invoices and expense claims.
+Parameters: document, register_payment_form, register_payment_url,
+and optionally offset_url + offset_candidates (kvittning, invoice types only).
+{% endcomment %}
+{% if register_payment_form %}
+<details class="mb-2">
+  <summary class="text-success fw-semibold" style="cursor: pointer;">
+    <i class="bi bi-cash-coin me-1"></i>Registrera betalning
+  </summary>
+  <form method="post" action="{{ register_payment_url }}" class="border rounded p-2 mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="{{ register_payment_form.payment_date.id_for_label }}">{{ register_payment_form.payment_date.label }}</label>
+      {{ register_payment_form.payment_date }}
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="{{ register_payment_form.amount.id_for_label }}">{{ register_payment_form.amount.label }}</label>
+      {{ register_payment_form.amount }}
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="{{ register_payment_form.payment_account.id_for_label }}">{{ register_payment_form.payment_account.label }}</label>
+      {{ register_payment_form.payment_account }}
+    </div>
+    <hr class="my-2">
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="{{ register_payment_form.write_off_amount.id_for_label }}">{{ register_payment_form.write_off_amount.label }}</label>
+      {{ register_payment_form.write_off_amount }}
+      <div class="form-text">Belopp som inte betalas utan skrivs av, t.ex. öresavrundning, kundförlust eller rabatt.</div>
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="{{ register_payment_form.write_off_account.id_for_label }}">{{ register_payment_form.write_off_account.label }}</label>
+      {{ register_payment_form.write_off_account }}
+    </div>
+    {% if register_payment_form.adjust_vat %}
+    <div class="form-check mb-2">
+      {{ register_payment_form.adjust_vat }}
+      <label class="form-check-label small" for="{{ register_payment_form.adjust_vat.id_for_label }}">{{ register_payment_form.adjust_vat.label }}</label>
+      <div class="form-text">{{ register_payment_form.adjust_vat.help_text }}</div>
+    </div>
+    {% endif %}
+    <div class="form-text mb-2">Återstående belopp: {{ document.remaining_amount|floatformat:"2g" }} kr. Betalning och avskrivning bokförs som en verifikation. Betalningar som syns på banken bokförs normalt i Bank-vyn.</div>
+    <button type="submit" class="btn btn-success btn-sm w-100">
+      <i class="bi bi-journal-check me-1"></i>Bokför betalning
+    </button>
+  </form>
+</details>
+
+{% if offset_candidates %}
+<details class="mb-2">
+  <summary class="text-primary fw-semibold" style="cursor: pointer;">
+    <i class="bi bi-arrow-left-right me-1"></i>Kvitta mot faktura
+  </summary>
+  <form method="post" action="{{ offset_url }}" class="border rounded p-2 mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="offset-counterpart">Faktura att kvitta mot</label>
+      <select name="counterpart" id="offset-counterpart" class="form-select form-select-sm">
+        {% for candidate in offset_candidates %}
+        <option value="{{ candidate.pk }}">{{ candidate }} · återstår {{ candidate.remaining_amount|floatformat:"2g" }} kr</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0" for="offset-payment-date">Kvittningsdatum</label>
+      <input type="date" name="payment_date" id="offset-payment-date" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
+    </div>
+    <div class="form-text mb-2">Kvittar det minsta återstående beloppet mellan fakturorna och bokför en verifikation. Båda betalningsposterna kan ångras tillsammans.</div>
+    <button type="submit" class="btn btn-primary btn-sm w-100">
+      <i class="bi bi-arrow-left-right me-1"></i>Kvitta
+    </button>
+  </form>
+</details>
+{% endif %}
+{% endif %}

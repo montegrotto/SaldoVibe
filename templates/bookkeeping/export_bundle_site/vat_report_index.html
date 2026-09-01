@@ -1,0 +1,28 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Momsdeklarationer</h3>
+<p class="subinfo">
+    En PDF per momsperiod som stängts under den exporterade perioden – pågående, ej stängda
+    perioder ingår inte
+</p>
+<table>
+    <thead>
+        <tr>
+            <th>Period</th>
+            <th>Stängd</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.snapshot.period_start|date:"Y-m-d" }} – {{ row.snapshot.period_end|date:"Y-m-d" }}</td>
+            <td>{{ row.snapshot.closed_at|date:"Y-m-d H:i" }}</td>
+            <td><a href="{{ row.filename }}" class="button right">Öppna</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Ingen momsperiod stängd under den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

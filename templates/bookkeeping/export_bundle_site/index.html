@@ -1,0 +1,34 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Exportöversikt</h3>
+<p class="subinfo">
+    Period: {{ start_date|date:"Y-m-d" }} – {{ end_date|date:"Y-m-d" }}.
+    Genererad {{ generated_at|date:"Y-m-d H:i" }}.
+</p>
+<div class="box">
+    <table>
+        <tbody>
+            <tr>
+                <td><strong>Bilagor</strong></td>
+                <td><a href="bilagor/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>Bokföringsdata</strong></td>
+                <td><a href="bokforingsdata/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>Kontospecifikationer</strong></td>
+                <td><a href="kontospecifikationer/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>Banktransaktioner</strong></td>
+                <td><a href="banktransaktioner/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>Rapporter</strong></td>
+                <td><a href="rapporter/index.html" class="button right">Visa</a></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

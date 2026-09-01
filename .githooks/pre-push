@@ -1,0 +1,14 @@
+#!/bin/sh
+# Full test suite before pushing (about 2 minutes).
+# Enable with: git config core.hooksPath .githooks
+# Skip once with: git push --no-verify
+set -e
+
+if [ -x .venv/bin/python ]; then
+    PYTHON=.venv/bin/python
+else
+    PYTHON=python3
+fi
+
+echo "pre-push: running test suite"
+$PYTHON manage.py test

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}SRU-rapport – SaldoVibe{% endblock %}
+{% block page_title %}SRU-rapport (Skatteverket){% endblock %}
+{% block nav_sru %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+  <h5 class="mb-0">Standardiserat räkenskapsutdrag (SRU)</h5>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label for="year-select" class="form-label mb-0 small text-muted">Räkenskapsår</label>
+    <select id="year-select" name="year" class="form-select form-select-sm" style="min-width:0; max-width:200px;" onchange="this.form.submit()">
+      {% for year in years %}
+      <option value="{{ year.pk }}" {% if selected_year and selected_year.pk == year.pk %}selected{% endif %}>
+        {{ year.name }} ({{ year.start_date }} – {{ year.end_date }})
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% if selected_year %}
+  <div class="d-flex gap-2 ms-auto">
+    <a href="{% url 'bookkeeping:sru_preflight_report_download' %}?year={{ selected_year.pk }}&format=json" class="btn btn-outline-info btn-sm">
+      <i class="bi bi-filetype-json me-1"></i>Valideringsrapport JSON
+    </a>
+    <a href="{% url 'bookkeeping:sru_preflight_report_download' %}?year={{ selected_year.pk }}&format=csv" class="btn btn-outline-info btn-sm">
+      <i class="bi bi-filetype-csv me-1"></i>Valideringsrapport CSV
+    </a>
+  </div>
+  {% endif %}
+  {% if selected_year and sru_rows and not preflight.errors %}
+  <a href="{% url 'bookkeeping:sru_download' %}?year={{ selected_year.pk }}" class="btn btn-success btn-sm">
+    <i class="bi bi-download me-1"></i>Ladda ner SRU-filer (.zip)
+  </a>
+  {% endif %}
+</div>
+
+{% if selected_year and preflight.errors %}
+<div class="alert alert-danger">
+  <div class="fw-semibold mb-1">SRU-validering kräver åtgärd</div>
+  {% for error in preflight.errors %}
+    <div>{{ error }}</div>
+  {% endfor %}
+  {% if preflight.missing_code_accounts %}
+    <div class="small mt-2">
+      Saknar SRU-kod:
+      {% for account in preflight.missing_code_accounts %}
+        {{ account.number }}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if preflight.invalid_code_accounts %}
+    <div class="small mt-1">
+      Ogiltig SRU-kod:
+      {% for account in preflight.invalid_code_accounts %}
+        {{ account.number }} ({{ account.sru_code }}){% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not selected_year %}
+<div class="alert alert-warning">Inget räkenskapsår är skapat. <a href="{% url 'bookkeeping:accounting_year_create' %}">Skapa räkenskapsår</a>.</div>
+{% elif not sru_rows %}
+<div class="alert alert-info">
+  Inga konton har SRU-koder inlagda ännu.
+  Gå till <a href="{% url 'bookkeeping:account_list' %}">Kontoplan</a> och redigera konton för att lägga till SRU-koder.
+</div>
+{% else %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light sticky-top">
+        <tr>
+          <th style="width:100px;">SRU-kod</th>
+          <th>Konton</th>
+          <th class="text-end" style="width:140px;">Debet</th>
+          <th class="text-end" style="width:140px;">Kredit</th>
+          <th class="text-end" style="width:160px;">Netto (D–K)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sru_code, group in sru_rows %}
+        <tr class="table-light fw-semibold">
+          <td><span class="badge text-bg-primary fs-6">{{ sru_code }}</span></td>
+          <td colspan="3"></td>
+          <td class="text-end {% if group.net < 0 %}text-danger{% endif %}">
+            {{ group.net|floatformat:"2g" }}
+          </td>
+        </tr>
+        {% for row in group.accounts %}
+        <tr>
+          <td class="ps-4 text-muted small">{{ row.account.number }}</td>
+          <td class="small">{{ row.account.name }}</td>
+          <td class="text-end small">{{ row.debit|floatformat:"2g" }}</td>
+          <td class="text-end small">{{ row.credit|floatformat:"2g" }}</td>
+          <td class="text-end small {% if row.net < 0 %}text-danger{% endif %}">{{ row.net|floatformat:"2g" }}</td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">Förhandsvisning – blanketter.sru</h6>
+  </div>
+  <div class="card-body">
+    <pre class="mb-0 small text-muted" style="white-space:pre-wrap;">#BLANKETT INK2-{{ selected_year.end_date.year }}P4
+#IDENTITET {{ active_company.org_number|cut:"-" }} {{ selected_year.end_date|date:"Ymd" }}
+#NAMN {{ active_company.name }}
+{% for sru_code, group in sru_rows %}#UPPGIFT {{ sru_code }} {{ group.net|floatformat:"0g" }}
+{% endfor %}#BLANKETTSLUT
+#FIL_SLUT</pre>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

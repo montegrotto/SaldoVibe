@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title_text }} – SaldoVibe{% endblock %}
+{% block page_title %}Anläggningstillgångar{% endblock %}
+{% block nav_fixed_assets %}active{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+  .select2-container .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-sliders2 me-2"></i>{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="col-12">
+            <div class="alert alert-danger mb-0">
+              {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="col-md-8">
+            <label class="form-label">Namn</label>
+            {{ form.name }}
+            {% for error in form.name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Nyckel</label>
+            {{ form.key }}
+            <div class="form-text">Används internt, t.ex. equipment eller vehicle.</div>
+            {% for error in form.key.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Avskrivningskonto (debet)</label>
+            {{ form.depreciation_expense_account }}
+            {% for error in form.depreciation_expense_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Ack avskrivning (kredit)</label>
+            {{ form.accumulated_depreciation_account }}
+            {% for error in form.accumulated_depreciation_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Nedskrivningskostnad (debet)</label>
+            {{ form.impairment_expense_account }}
+            {% for error in form.impairment_expense_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Ack nedskrivning (kredit)</label>
+            {{ form.accumulated_impairment_account }}
+            {% for error in form.accumulated_impairment_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Tillgångskonto</label>
+            {{ form.asset_account }}
+            {% for error in form.asset_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Vinst vid avyttring (kredit)</label>
+            {{ form.disposal_gain_account }}
+            {% for error in form.disposal_gain_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Förlust vid avyttring (debet)</label>
+            {{ form.disposal_loss_account }}
+            {% for error in form.disposal_loss_account.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Sorteringsordning</label>
+            {{ form.sort_order }}
+            {% for error in form.sort_order.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-8 d-flex align-items-end">
+            <div class="form-check">
+              {{ form.is_active }}
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Tillgångstypen är aktiv</label>
+            </div>
+          </div>
+
+          <div class="col-12 d-flex gap-2 justify-content-end">
+            <a href="{% url 'fixed_assets:asset_type_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script>
+  (function () {
+    if (typeof window.$ === "undefined") {
+      return;
+    }
+    [
+      "{{ form.depreciation_expense_account.id_for_label }}",
+      "{{ form.accumulated_depreciation_account.id_for_label }}",
+      "{{ form.impairment_expense_account.id_for_label }}",
+      "{{ form.accumulated_impairment_account.id_for_label }}",
+      "{{ form.asset_account.id_for_label }}",
+      "{{ form.disposal_gain_account.id_for_label }}",
+      "{{ form.disposal_loss_account.id_for_label }}"
+    ].forEach(function (id) {
+      const $select = $("#" + id);
+      if ($select.length) {
+        window.SaldoVibe.select2Utils.initAccountSelect($select);
+      }
+    });
+  })();
+</script>
+{% endblock %}

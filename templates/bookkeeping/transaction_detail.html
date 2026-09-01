@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Verifikation – SaldoVibe{% endblock %}
+{% block page_title %}Verifikation{% endblock %}
+{% block nav_transactions %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0" style="max-width:900px;">
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white d-flex align-items-center py-3">
+    <div>
+      <h5 class="mb-0">{{ txn.description }}</h5>
+      <small class="text-muted">
+        {{ txn.date }} · {{ txn.accounting_year.ending_year }}
+        · Ver: {{ txn.voucher_series }}{{ txn.voucher_number }}
+        {% if txn.reference %}· Ref: {{ txn.reference }}{% endif %}
+      </small>
+    </div>
+    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm ms-auto">
+      <i class="bi bi-arrow-left me-1"></i>Tillbaka
+    </a>
+  </div>
+  {% if linked_sources %}
+  <div class="border-bottom bg-light px-3 py-2">
+    <small class="text-muted d-block mb-1">Länkat till:</small>
+    <div class="d-flex flex-wrap gap-2">
+      {% for src in linked_sources %}
+        <a href="{{ src.url }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi {{ src.icon }} me-1"></i>{{ src.label }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Konto</th>
+          <th>Beskrivning</th>
+          <th class="text-end">Debet</th>
+          <th class="text-end">Kredit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in txn.entries.all %}
+        <tr>
+          <td>{{ entry.account }}</td>
+          <td class="text-muted small">{{ entry.description }}</td>
+          <td class="text-end">{% if entry.debit %}{{ entry.debit|floatformat:"2g" }}{% endif %}</td>
+          <td class="text-end">{% if entry.credit %}{{ entry.credit|floatformat:"2g" }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="2" class="text-end">Summa</td>
+          <td class="text-end">{{ txn.total_debit|floatformat:"2g" }}</td>
+          <td class="text-end">{{ txn.total_credit|floatformat:"2g" }}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+  <div class="card-footer bg-white d-flex align-items-center">
+    {% if txn.is_balanced %}
+      <span class="badge bg-success me-2"><i class="bi bi-check-circle me-1"></i>Balanserad</span>
+    {% else %}
+      <span class="badge bg-danger me-2"><i class="bi bi-exclamation-triangle me-1"></i>Obalanserad</span>
+    {% endif %}
+    <small class="text-muted">Skapad av {{ txn.created_by }} · {{ txn.created_at|date:"Y-m-d H:i" }}</small>
+    {% if txn.correction_of %}
+      <a href="{% url 'bookkeeping:transaction_detail' txn.correction_of.pk %}" class="badge bg-warning text-dark text-decoration-none ms-auto">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Korrigering av {% if txn.correction_of.voucher_number %}{{ txn.correction_of.voucher_series }}{{ txn.correction_of.voucher_number }}{% else %}verifikation {{ txn.correction_of.pk }}{% endif %}
+      </a>
+    {% elif txn.corrections.exists %}
+      {% with correction=txn.corrections.first %}
+      <a href="{% url 'bookkeeping:transaction_detail' correction.pk %}" class="badge bg-warning text-dark text-decoration-none ms-auto">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Korrigerad av {% if correction.voucher_number %}{{ correction.voucher_series }}{{ correction.voucher_number }}{% else %}verifikation {{ correction.pk }}{% endif %}
+      </a>
+      {% endwith %}
+    {% elif is_payment_transaction %}
+      <a href="{% url 'banking:payment_undo_confirm' txn.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-warning btn-sm ms-auto">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra betalning
+      </a>
+    {% else %}
+      <form method="post" action="{% url 'bookkeeping:transaction_reverse' txn.pk %}" class="ms-auto">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Skapa korrigering
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% include "attachments/_attachment_manager.html" with attachments=txn.attachments.all attach_url=attach_url return_to=return_to period_locked=period_locked %}
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=txn.attachments.all %}
+</div>
+{% endblock %}

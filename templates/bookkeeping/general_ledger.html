@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Huvudbok – SaldoVibe{% endblock %}
+{% block page_title %}Huvudbok{% endblock %}
+{% block nav_general_ledger %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  {% if active_company and active_company.company_icon %}
+    <img src="{{ active_company.company_icon.url }}" alt="{{ active_company.name }}" style="width:30px; height:30px; object-fit:contain;" class="border rounded bg-white p-1 me-2">
+  {% endif %}
+  <h5 class="mb-0">Huvudbok</h5>
+  <a class="btn btn-outline-secondary btn-sm ms-3" href="{% url 'bookkeeping:general_ledger_pdf' %}{% if selected_year %}?year={{ selected_year.pk }}{% endif %}">
+    <i class="bi bi-filetype-pdf me-1"></i>Exportera PDF
+  </a>
+  <form method="get" class="ms-3">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for year in years %}
+        <option value="{{ year.pk }}" {% if selected_year and year.pk == selected_year.pk %}selected{% endif %}>
+          {{ year.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% if selected_year %}
+    <span class="ms-3 text-muted small">{{ selected_year.start_date }} - {{ selected_year.end_date }}</span>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm border-0 report-print" style="max-width:1100px;">
+  <div class="card-body p-0">
+    {% for item in ledger_accounts %}
+      <div class="px-4 {% if forloop.first %}pt-4{% else %}pt-3{% endif %} pb-2">
+        <h6 class="fw-bold mb-0">
+          <span class="text-muted me-2">{{ item.account.number }}</span>{{ item.account.name }}
+        </h6>
+      </div>
+      <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr class="text-muted small">
+            <th class="ps-4" style="width:110px;">Datum</th>
+            <th style="width:90px;">Ver</th>
+            <th>Beskrivning</th>
+            <th class="text-end" style="width:130px;">Debet</th>
+            <th class="text-end" style="width:130px;">Kredit</th>
+            <th class="text-end pe-4" style="width:140px;">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if item.opening_balance %}
+          <tr class="table-light">
+            <td class="ps-4 text-muted" colspan="3">Ingående saldo</td>
+            <td></td>
+            <td></td>
+            <td class="text-end pe-4 fw-semibold">{{ item.opening_balance|floatformat:"2g" }} kr</td>
+          </tr>
+          {% endif %}
+          {% for row in item.rows %}
+          <tr>
+            <td class="ps-4 text-nowrap">{{ row.date }}</td>
+            <td><a href="{% url 'bookkeeping:transaction_detail' row.transaction_id %}" class="text-decoration-none">{{ row.voucher }}</a></td>
+            <td>{{ row.description }}</td>
+            <td class="text-end">{% if row.debit %}{{ row.debit|floatformat:"2g" }}{% endif %}</td>
+            <td class="text-end">{% if row.credit %}{{ row.credit|floatformat:"2g" }}{% endif %}</td>
+            <td class="text-end pe-4">{{ row.balance|floatformat:"2g" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-bold">
+          <tr>
+            <td class="ps-4" colspan="3">Utgående saldo</td>
+            <td class="text-end">{{ item.total_debit|floatformat:"2g" }}</td>
+            <td class="text-end">{{ item.total_credit|floatformat:"2g" }}</td>
+            <td class="text-end pe-4">{{ item.closing_balance|floatformat:"2g" }} kr</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>
+    {% empty %}
+      <div class="text-center text-muted py-4">Inga konton med bokförda belopp för perioden.</div>
+    {% endfor %}
+
+    {% if ledger_accounts %}
+    <div class="px-4 py-4 summary">
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <span class="text-muted me-2">Summa debet:</span>
+          <strong>{{ total_debit|floatformat:"2g" }} kr</strong>
+        </div>
+        <div class="vr"></div>
+        <div>
+          <span class="text-muted me-2">Summa kredit:</span>
+          <strong>{{ total_credit|floatformat:"2g" }} kr</strong>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

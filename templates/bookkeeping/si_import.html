@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Importera SI – SaldoVibe{% endblock %}
+{% block page_title %}Importera SI{% endblock %}
+{% block nav_transactions %}active{% endblock %}
+
+{% block content %}
+<style>
+  .si-verification-group.is-omitted {
+    opacity: 0.55;
+  }
+
+  .si-verification-group.is-omitted .card-header,
+  .si-verification-group.is-omitted .card-body {
+    background-color: #f8f9fa;
+  }
+
+  .si-verification-group.is-omitted .strike-when-omitted {
+    text-decoration: line-through;
+  }
+
+  .si-verification-group .omitted-pill {
+    display: none;
+  }
+
+  .si-verification-group.is-omitted .omitted-pill {
+    display: inline-block;
+  }
+</style>
+
+<div class="card shadow-sm border-0" style="max-width:860px;">
+  <div class="card-body p-4">
+    <h5 class="mb-3">Importera verifikationer från SI</h5>
+    <p class="text-muted small mb-4">
+      Importen lägger till verifikationer i valt räkenskapsår och raderar inte befintliga verifikationer.
+      Kontrollera kontomappningen innan du bekräftar importen.
+    </p>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Räkenskapsår</label>
+        <input type="text" class="form-control" value="{{ selected_year.name }}" readonly>
+      </div>
+
+      {% if preview_data %}
+        <input type="hidden" name="action" value="confirm">
+        <div class="alert alert-info py-2 small">
+          <strong>Steg 2 av 2:</strong> Bekräfta eller ändra kontomappning innan import.
+          Antal verifikationer i filen: <strong>{{ verification_count }}</strong>.
+        </div>
+        {% if duplicate_warning_count %}
+          <div class="alert alert-warning py-2 small">
+            <strong>Dublettvarning:</strong>
+            {{ duplicate_warning_count }} verifikation{% if duplicate_warning_count != 1 %}er{% endif %}
+            liknar redan bokförda verifikationer i valt räkenskapsår.
+          </div>
+        {% endif %}
+
+        <div class="d-grid gap-3 mb-4">
+          {% for group in preview_data.groups %}
+            <div class="card border-0 shadow-sm si-verification-group" data-verification-group="{{ group.ver_idx }}">
+              <div class="card-header bg-light d-flex flex-wrap align-items-center gap-2">
+                <div>
+                  <div class="fw-semibold strike-when-omitted">Verifikation {{ group.reference }}</div>
+                  <div class="small text-muted strike-when-omitted">{{ group.date }} · {{ group.description|default:"-" }}</div>
+                </div>
+                <div class="ms-auto d-flex align-items-center gap-3">
+                  <span class="badge text-bg-secondary strike-when-omitted">Rader: {{ group.entry_count }}</span>
+                  <span class="small text-muted strike-when-omitted">Summa belopp: {{ group.total_amount|floatformat:"2g" }}</span>
+                  {% if group.likely_duplicate %}
+                    <span class="badge text-bg-warning">Möjlig dublett</span>
+                    <span class="small text-muted">
+                      Liknar: {{ group.duplicate_refs|join:", " }}
+                    </span>
+                  {% endif %}
+                  <span class="badge text-bg-danger omitted-pill">Kommer inte importeras</span>
+                  <div class="form-check m-0">
+                    <input type="hidden" name="include_ver_{{ group.ver_idx }}" value="0">
+                    <input class="form-check-input" type="checkbox" id="include_ver_{{ group.ver_idx }}" name="include_ver_{{ group.ver_idx }}" value="1" checked>
+                    <label class="form-check-label" for="include_ver_{{ group.ver_idx }}">Importera</label>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th class="ps-3">Belopp</th>
+                        <th>Importkonto</th>
+                        <th>Målkonto</th>
+                        <th class="pe-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in group.rows %}
+                        <tr>
+                          <td class="ps-3">
+                            {{ row.amount|floatformat:"2g" }}
+                            {% if row.is_debit %}
+                              <span class="text-muted">Debet</span>
+                            {% else %}
+                              <span class="text-muted">Kredit</span>
+                            {% endif %}
+                          </td>
+                          <td>
+                            <span class="fw-semibold">{{ row.source_number }}</span>
+                            {% if row.source_name %}
+                              <span class="text-muted">- {{ row.source_name }}</span>
+                            {% endif %}
+                          </td>
+                          <td style="min-width: 280px;">
+                            <input
+                              type="text"
+                              name="{{ row.field_name }}"
+                              value="{{ row.target_number }}"
+                              class="form-control form-control-sm"
+                              maxlength="10"
+                              list="existing-account-options"
+                              inputmode="numeric"
+                              pattern="[0-9]{1,10}"
+                              required
+                            >
+                          </td>
+                          <td class="pe-3">
+                            {% if row.target_exists %}
+                              <span class="badge text-bg-success">{{ row.target_number }} - {{ row.target_name }}</span>
+                            {% else %}
+                              <span class="badge text-bg-warning">Skapas vid import</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <datalist id="existing-account-options">
+          {% for account in preview_data.existing_accounts %}
+            <option value="{{ account.number }}">{{ account.number }} - {{ account.name }}</option>
+          {% endfor %}
+        </datalist>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2-circle me-1"></i>Bekräfta och importera
+          </button>
+          {% if diagnostics_available %}
+            <a href="{% url 'bookkeeping:si_import_diagnostics_download' %}?year={{ selected_year.pk }}" class="btn btn-outline-info">
+              <i class="bi bi-filetype-json me-1"></i>Ladda ner diagnostik
+            </a>
+          {% endif %}
+          <a href="{% url 'bookkeeping:transaction_list' %}?year={{ selected_year.pk }}" class="btn btn-outline-secondary">Avbryt</a>
+        </div>
+      {% else %}
+        <input type="hidden" name="action" value="upload">
+
+        {{ form.si_file }}
+        {% if form.si_file.errors %}<div class="text-danger small mb-3">{{ form.si_file.errors.0 }}</div>{% endif %}
+
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" onclick="this.form.elements.si_file.click()">
+            <i class="bi bi-upload me-1"></i>Välj SI-fil och fortsätt till kontogranskning
+          </button>
+          {% if diagnostics_available %}
+            <a href="{% url 'bookkeeping:si_import_diagnostics_download' %}?year={{ selected_year.pk }}" class="btn btn-outline-info">
+              <i class="bi bi-filetype-json me-1"></i>Ladda ner diagnostik
+            </a>
+          {% endif %}
+          <a href="{% url 'bookkeeping:transaction_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const groups = document.querySelectorAll("[data-verification-group]");
+
+    groups.forEach((group) => {
+      const groupId = group.getAttribute("data-verification-group");
+      const checkbox = document.getElementById(`include_ver_${groupId}`);
+      if (!checkbox) {
+        return;
+      }
+
+      const updateState = function () {
+        group.classList.toggle("is-omitted", !checkbox.checked);
+      };
+
+      checkbox.addEventListener("change", updateState);
+      updateState();
+    });
+  })();
+</script>
+{% endblock %}

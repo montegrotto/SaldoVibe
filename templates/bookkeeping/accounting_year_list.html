@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Räkenskapsår – SaldoVibe{% endblock %}
+{% block page_title %}Räkenskapsår{% endblock %}
+{% block nav_years %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'bookkeeping:accounting_year_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Nytt räkenskapsår
+  </a>
+</div>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Befintliga räkenskapsår</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if years %}
+          <div class="table-responsive">
+          <table class="table mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Namn</th>
+                <th>Start</th>
+                <th>Slut</th>
+                <th class="text-center">Verifikationer</th>
+                <th class="text-end pe-3">Åtgärd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for year in years %}
+                <tr>
+                  <td class="fw-semibold">{{ year.name }}</td>
+                  <td>{{ year.start_date }}</td>
+                  <td>{{ year.end_date }}</td>
+                  <td class="text-center">{{ year.verification_count }}</td>
+                  <td class="text-end pe-3">
+                    {% if year.lock_status == "locked" %}
+                      <a href="{% url 'bookkeeping:period_lock_list' %}?year={{ year.pk }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-lock-fill me-1"></i>Låst
+                      </a>
+                    {% elif year.lock_status == "partial" %}
+                      <a href="{% url 'bookkeeping:period_lock_list' %}?year={{ year.pk }}" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-unlock me-1"></i>Delvis öppet
+                      </a>
+                    {% else %}
+                      <a href="{% url 'bookkeeping:period_lock_list' %}?year={{ year.pk }}" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-unlock me-1"></i>Öppet
+                      </a>
+                    {% endif %}
+                    {% if year.lock_status == "locked" %}
+                      <a class="btn btn-outline-primary btn-sm disabled" aria-disabled="true" tabindex="-1" title="Räkenskapsåret är låst – SIE-import är inte möjlig.">
+                        <i class="bi bi-upload me-1"></i>Importera SIE
+                      </a>
+                    {% else %}
+                      <a href="{% url 'bookkeeping:sie_import' %}?year={{ year.pk }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-upload me-1"></i>Importera SIE
+                      </a>
+                    {% endif %}
+                    <a href="{% url 'bookkeeping:budget_edit' year.pk %}" class="btn btn-outline-secondary btn-sm">
+                      <i class="bi bi-graph-up me-1"></i>Budget
+                    </a>
+                    <a href="{% url 'bookkeeping:year_end_close' year.pk %}" class="btn btn-outline-primary btn-sm">
+                      <i class="bi bi-journal-check me-1"></i>Bokslut
+                    </a>
+                    <a href="{% url 'bookkeeping:accounting_year_delete' year.pk %}" class="btn btn-outline-danger btn-sm">
+                      <i class="bi bi-trash me-1"></i>Ta bort
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-4">Inga räkenskapsår skapade ännu.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

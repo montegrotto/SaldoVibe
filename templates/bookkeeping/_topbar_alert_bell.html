@@ -1,0 +1,86 @@
+{% comment %}
+Rendered both on a normal page load (included from base.html) and by
+bookkeeping:topbar_alert_status (polled in the background so the bell updates without a full
+page reload — see the JS at the bottom of base.html and the view's docstring). Keep both callers
+passing the same context (topbar_alert_* / *_count) so a poll can never render differently from
+what a real navigation would have shown.
+{% endcomment %}
+<button
+  class="btn btn-link text-decoration-none p-0 topbar-alert-bell {% if topbar_alert_has_alert %}text-danger{% endif %}"
+  type="button"
+  id="fixed-assets-alert-menu"
+  data-ack-url="{% url 'fixed_assets:acknowledge_alerts' %}"
+  data-has-alert="{% if topbar_alert_has_alert %}1{% else %}0{% endif %}"
+  data-bs-toggle="dropdown"
+  aria-expanded="false"
+  title="Påminnelser"
+>
+  <i class="bi {% if topbar_alert_has_alert %}bi-bell-fill{% else %}bi-bell{% endif %} fs-5"></i>
+  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill {% if topbar_alert_has_alert %}bg-danger{% else %}bg-secondary{% endif %}">{{ topbar_alert_count }}</span>
+</button>
+<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fixed-assets-alert-menu">
+  <li><h6 class="dropdown-header">Påminnelser att hantera</h6></li>
+  {% if fixed_assets_due_count %}
+  <li id="fixed-assets-alert-item">
+    <a class="dropdown-item" href="{% url 'fixed_assets:asset_list' %}">
+      Gå till anläggningstillgångar ({{ fixed_assets_due_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if supplier_invoices_due_soon_count %}
+  <li id="supplier-invoices-alert-item">
+    <a class="dropdown-item" href="{% url 'supplier_invoices:invoice_list' %}">
+      Leverantörsfakturor förfaller inom 3 dagar ({{ supplier_invoices_due_soon_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if recurring_invoices_due_count %}
+  <li id="recurring-invoices-alert-item">
+    <a class="dropdown-item" href="{% url 'invoicing:recurring_invoice_list' %}">
+      Återkommande fakturor redo att genereras ({{ recurring_invoices_due_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if payroll_runs_due_soon_count %}
+  <li id="payroll-runs-alert-item">
+    <a class="dropdown-item" href="{% url 'payroll:payroll_run_list' %}">
+      Löneutbetalningar inom 3 dagar ({{ payroll_runs_due_soon_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if export_jobs_ready_count %}
+  <li id="export-jobs-ready-alert-item">
+    <a class="dropdown-item" href="{% url 'bookkeeping:export_bundle' %}">
+      Exportpaket redo att laddas ner ({{ export_jobs_ready_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if overdue_customer_invoices_count %}
+  <li id="overdue-customer-invoices-alert-item">
+    <a class="dropdown-item" href="{% url 'invoicing:invoice_list' %}">
+      Förfallna kundfakturor ({{ overdue_customer_invoices_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if overdue_supplier_invoices_count %}
+  <li id="overdue-supplier-invoices-alert-item">
+    <a class="dropdown-item" href="{% url 'supplier_invoices:invoice_list' %}">
+      Förfallna leverantörsfakturor ({{ overdue_supplier_invoices_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if vat_deadlines_count %}
+  <li id="vat-deadlines-alert-item">
+    <a class="dropdown-item" href="{% url 'vat:report' %}">
+      Momsdeklaration att lämna ({{ vat_deadlines_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if failed_email_jobs_count and active_company %}
+  <li id="failed-email-jobs-alert-item">
+    <a class="dropdown-item" href="{% url 'bookkeeping:company_update' active_company.pk %}">
+      Misslyckade e-postjobb ({{ failed_email_jobs_count }})
+    </a>
+  </li>
+  {% endif %}
+</ul>

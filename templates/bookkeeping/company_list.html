@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Företag – SaldoVibe{% endblock %}
+{% block page_title %}Företag{% endblock %}
+{% block nav_companies %}active{% endblock %}
+
+{% block content %}
+{% if perms.bookkeeping.add_company %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'bookkeeping:company_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Lägg till företag
+  </a>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if companies %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Namn</th>
+              <th>Org.nr</th>
+              <th>Status</th>
+              <th class="text-end pe-3">Åtgärd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for company in companies %}
+            <tr>
+              <td class="ps-3 fw-semibold">
+                <div class="d-flex align-items-center gap-2">
+                  {% if company.company_icon %}
+                  <img src="{{ company.company_icon.url }}" alt="Ikon för {{ company.name }}" style="width:22px; height:22px; object-fit:contain;" class="border rounded bg-white p-1">
+                  {% endif %}
+                  <span>{{ company.name }}</span>
+                </div>
+              </td>
+              <td>{{ company.org_number|default:"-" }}</td>
+              <td>
+                {% if active_company and active_company.pk == company.pk %}
+                <span class="badge text-bg-primary">Aktivt</span>
+                {% elif company.is_active %}
+                <span class="badge text-bg-success">Aktivt</span>
+                {% else %}
+                <span class="badge text-bg-secondary">Inaktivt</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-3">
+                <a href="{% url 'bookkeeping:company_update' company.pk %}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-pencil-square me-1"></i>Redigera
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-3 text-muted">Inga företag tillgängliga ännu.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

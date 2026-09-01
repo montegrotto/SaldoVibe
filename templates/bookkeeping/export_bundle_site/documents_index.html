@@ -1,0 +1,44 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Bilagor</h3>
+<p class="subinfo">Alla bilagor som är relevanta för den exporterade perioden</p>
+<table>
+    <thead>
+        <tr>
+            <th>DokID</th>
+            <th>Status</th>
+            <th>Datum</th>
+            <th>Typ</th>
+            <th>Beskrivning</th>
+            <th>Bokföring</th>
+            <th class="amount">Belopp</th>
+            <th>Uppladdad</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td><a href="{{ row.bucket }}/{{ row.archive_name }}">D{{ row.sequence }}</a></td>
+            <td>
+                {% if row.booked %}
+                <span class="badge badge-success">Bokförd</span>
+                {% else %}
+                <span class="badge badge-danger">Ej bokförd</span>
+                {% endif %}
+            </td>
+            <td>{% if row.booked_date %}{{ row.booked_date|date:"Y-m-d" }}{% endif %}</td>
+            <td>
+                <span class="badge badge-primary">{{ row.type_label }}</span>
+                {% if row.status_label %}<span class="badge badge-primary">{{ row.status_label }}</span>{% endif %}
+            </td>
+            <td title="{{ row.description }}">{{ row.description }}</td>
+            <td>{% if row.reference %}<span class="badge badge-primary">{{ row.reference }}</span>{% endif %}</td>
+            <td class="amount">{% if row.amount is not None %}{{ row.amount|floatformat:"2g" }} kr{% endif %}</td>
+            <td>{{ row.uploaded_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">Inga bilagor för den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

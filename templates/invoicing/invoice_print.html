@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <style>
+    /*
+      Renderas med xhtml2pdf (bookkeeping/pdf.py) — inte i webbläsare. Bara
+      pisas CSS-delmängd fungerar: tabeller i stället för grid/flex, @frame i
+      stället för position:absolute, inga border-radius/skuggor.
+
+      Fönsterkuvert (svenskt C5/6, högerställt "H2"-fönster): mottagarens
+      adress måste ligga exakt vid 38 mm från papprets överkant och
+      108,5 mm från vänsterkanten, 86 mm bred. Måtten är hämtade direkt ur
+      en verklig Visma-faktura (referens från användaren) för att garantera
+      att den hamnar rätt i fönsterkuvertet. Frame-koordinaterna räknas från
+      papprets kant, inte från sidmarginalen.
+    */
+    /* Sidhuvud (logga + FAKTURA + fakturanummer) och sidfot ligger som
+       statiska frames på varje sida; topp-/bottenmarginalen reserverar
+       ytan så flödande innehåll inte krockar. */
+    @page {
+      size: A4 portrait;
+      margin: 38mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame recipient_window {
+        -pdf-frame-content: recipientWindow;
+        left: 108.5mm;
+        top: 38mm;
+        width: 86mm;
+        height: 28mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    /* Följdsidor utan adressfönster — väljs via pdf:nexttemplate i body. */
+    @page regular {
+      size: A4 portrait;
+      margin: 38mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      font-size: 12px;
+    }
+    /* pisa ger block-element egna standardmarginaler — nollställ och sätt
+       uttryckliga marginaler där de behövs. */
+    div, p, table { margin: 0; padding: 0; }
+    .recipient-window {
+      padding: 2.5mm 3mm;
+      font-size: 12.5px;
+      line-height: 1.45;
+      border: 0.75pt solid #111827;
+    }
+    /* Vänster kolumn 90.5mm + sidmarginal 18mm = högerkolumnen börjar vid
+       108,5 mm, i linje med adressfönstret. Radhöjden 39mm säkerställer att
+       inget flödande innehåll hamnar bakom fönstret (38 + 15 mm adresshöjd,
+       minus sidans 16 mm toppmarginal). */
+    /* pisa klarar bara enkla selektorer — kolumnbredder sätts inline på td,
+       och ram på en tabell ritas runt varje cell, så tabeller med flera
+       celler hålls ramfria. Ingen height på celler: pisa krymper då
+       innehållet tills det ryms i stället för att låta cellen växa. */
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .number-row { margin-top: 2mm; font-size: 11px; }
+    .number-row .label { font-weight: bold; color: #4b5563; }
+    .number-row .value { font-weight: bold; color: #111827; }
+    .company-name-fallback {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .facts-list { margin-bottom: 6mm; font-size: 11px; line-height: 1.2; }
+    .facts-list td { padding: 0.4mm 0; vertical-align: top; }
+    .facts-list .label { font-weight: bold; color: #111827; padding-right: 3mm; }
+    .facts-list .value { color: #1f2937; }
+    .message-banner {
+      margin-bottom: 6mm;
+      padding: 3mm 5mm;
+      border-left: 3px solid #1a2340;
+      background-color: #f3f4f6;
+      font-size: 11px;
+      color: #4b5563;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    .line-items th, .line-items td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    .line-items th {
+      text-align: left;
+      background-color: #eef2f7;
+      font-weight: bold;
+      color: #111827;
+      font-size: 11px;
+    }
+    .num { text-align: right; }
+    .line-description { font-weight: bold; }
+    .totals-row { margin-top: 7mm; }
+    .totals-row td { vertical-align: top; }
+    .totals-left { padding-right: 8mm; }
+    /* Panelen med ram byggs som entabellscell — pisa ritar en div-ram per
+       barnblock i stället för runt hela diven. */
+    .qr-panel {
+      border: 1px solid #9ca3af;
+      background-color: #f3f4f6;
+    }
+    .qr-panel-body { padding: 4mm; }
+    .qr-inner td { vertical-align: middle; }
+    .qr-image { width: 28mm; height: 28mm; }
+    .qr-caption { padding-left: 4mm; }
+    .qr-caption-rows { font-size: 10px; color: #374151; }
+    .qr-caption-rows td { padding: 0.5mm 0; vertical-align: top; }
+    .qr-caption-label { font-weight: bold; width: 20mm; padding-right: 2mm; }
+    .totals td {
+      padding: 2.5mm 4mm;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .totals .grand {
+      background-color: #1a2340;
+    }
+    .totals .grand td {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: bold;
+      border-bottom: none;
+    }
+    .invoice-footer {
+      border-top: 1px solid #e5e7eb;
+      font-size: 10px;
+      color: #6b7280;
+    }
+    .invoice-footer td { padding-top: 3mm; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <pdf:nexttemplate name="regular" />
+  <div id="recipientWindow">
+    <div class="recipient-window">
+      {% for line in customer_address_lines %}{{ line }}<br>{% endfor %}
+    </div>
+  </div>
+
+  <div id="headerLogo">
+    {% if logo_size %}
+    <img src="{{ invoice.company.company_icon.path }}" style="width: {{ logo_size.0 }}mm; height: {{ logo_size.1 }}mm;" alt="{{ invoice.company.name }} logga">
+    {% else %}
+    <div class="company-name-fallback">{{ invoice.company.name }}</div>
+    {% endif %}
+  </div>
+  <div id="headerTitle">
+    <div class="title">{% if invoice.is_credit_invoice %}KREDITFAKTURA{% else %}FAKTURA{% endif %}</div>
+    <div class="number-row"><span class="label">Fakturanummer</span> <span class="value">{{ invoice.invoice_number }}</span></div>
+  </div>
+
+  <table class="facts-list">
+          <tr><td class="label" style="width: 34mm;">Kundnr</td><td class="value" style="width: 56.5mm;">{{ invoice.customer.pk }}</td><td></td></tr>
+          <tr><td class="label">Fakturadatum</td><td class="value">{{ invoice.invoice_date }}</td></tr>
+          <tr><td class="label">Förfallodatum</td><td class="value">{{ invoice.due_date }}</td></tr>
+          {% if invoice.delivery_date %}
+          <tr><td class="label">Leveransdatum</td><td class="value">{{ invoice.delivery_date }}</td></tr>
+          {% endif %}
+          <tr><td class="label">Betalningsvillkor</td><td class="value">{{ invoice.payment_terms_days }} dagar</td></tr>
+          {% if invoice.reference %}
+          <tr><td class="label">Er referens</td><td class="value">{{ invoice.reference }}</td></tr>
+          {% endif %}
+          {% if invoice.customer.org_number %}
+          <tr><td class="label">Kundens org.nr</td><td class="value">{{ invoice.customer.org_number }}</td></tr>
+          {% endif %}
+          {% if invoice.customer.vat_number %}
+          <tr><td class="label">Kundens momsnr</td><td class="value">{{ invoice.customer.vat_number }}</td></tr>
+          {% endif %}
+          <tr><td class="label">Valuta</td><td class="value">{{ invoice.currency }}</td></tr>
+          <tr><td class="label">Dröjsmålsränta</td><td class="value">Vid betalning efter förfallodagen debiteras ränta enligt räntelagen.</td></tr>
+  </table>
+
+  {% if invoice.recurring_period_label %}
+  <div class="message-banner">Period: {{ invoice.recurring_period_label }}</div>
+  {% endif %}
+
+  {% if invoice.notes %}
+  <div class="message-banner">{{ invoice.notes|linebreaksbr }}</div>
+  {% endif %}
+
+  {% if invoice.reverse_charge %}
+  <div class="message-banner"><strong>Omvänd betalningsskyldighet / Reverse charge.</strong> Köparen är skyldig att redovisa mervärdesskatten.</div>
+  {% endif %}
+
+  <table class="line-items" repeat="1">
+    <thead>
+      <tr>
+        <th>BESKRIVNING</th>
+        <th class="num">ANTAL</th>
+        <th>ENHET</th>
+        <th class="num">À-PRIS</th>
+        <th class="num">MOMS</th>
+        <th class="num">SUMMA</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in invoice.lines.all %}
+      {% if line.line_type == "text" %}
+      <tr>
+        <td colspan="6"><span class="line-description">{{ line.description }}</span></td>
+      </tr>
+      {% else %}
+      <tr>
+        <td><span class="line-description">{{ line.description }}</span></td>
+        <td class="num">{{ line.quantity|floatformat:"2g" }}</td>
+        <td>{{ line.unit }}</td>
+        <td class="num">{{ line.unit_price|floatformat:"2g" }}</td>
+        <td class="num">{{ line.vat_rate|floatformat:"0g" }} %</td>
+        <td class="num">{{ line.line_total_ex_vat|floatformat:"2g" }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totals-row">
+    <tr>
+      <td class="totals-left">
+        <table class="qr-panel"><tr><td class="qr-panel-body">
+          <table class="qr-inner">
+            <tr>
+              <td style="width: 30mm;">{% if payment_qr_png %}<img class="qr-image" src="{{ payment_qr_png }}" alt="Betalnings-QR">{% endif %}</td>
+              <td class="qr-caption">
+                <table class="qr-caption-rows">
+                  <tr><td class="qr-caption-label">OCR</td><td>{{ invoice.ocr_code|default:invoice.invoice_number }}</td></tr>
+                  {% if invoice.company.bankgiro %}
+                  <tr><td class="qr-caption-label">Bankgiro</td><td>{{ invoice.company.bankgiro }}</td></tr>
+                  {% elif invoice.company.plusgiro %}
+                  <tr><td class="qr-caption-label">Plusgiro</td><td>{{ invoice.company.plusgiro }}</td></tr>
+                  {% endif %}
+                  <tr><td colspan="2" class="qr-caption-label">Anges vid betalning.</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td></tr></table>
+      </td>
+      <td style="width: 86mm;">
+        <table class="totals">
+          <tr><td style="width: 58mm;">Summa exkl. moms</td><td class="num">{{ invoice.subtotal_ex_vat|floatformat:"2g" }}</td></tr>
+          {% for vat in invoice.vat_summary %}
+          <tr><td>Moms {{ vat.rate|floatformat:"0g" }} % på {{ vat.base|floatformat:"2g" }}</td><td class="num">{{ vat.vat|floatformat:"2g" }}</td></tr>
+          {% endfor %}
+          <tr><td>Avrundning</td><td class="num">0,00</td></tr>
+          <tr class="grand"><td>{% if invoice.is_credit_invoice %}Att återbetala{% else %}Att betala{% endif %}</td><td class="num">{{ invoice.total_amount|floatformat:"2g" }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div id="pageFooter">
+    <table class="invoice-footer">
+      <tr>
+        <td>
+          <strong>{{ invoice.company.name }}</strong>{% if invoice.company.address %} · {{ invoice.company.address }}{% endif %}{% if invoice.company.postal_code or invoice.company.city %} · {{ invoice.company.postal_code }} {{ invoice.company.city }}{% endif %}{% if invoice.company.org_number %} · Org.nr {{ invoice.company.org_number }}{% endif %}{% if company_vat_number %} · Momsreg.nr {{ company_vat_number }}{% endif %}{% if invoice.company.email %} · {{ invoice.company.email }}{% endif %}{% if invoice.company.phone_number %} · {{ invoice.company.phone_number }}{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

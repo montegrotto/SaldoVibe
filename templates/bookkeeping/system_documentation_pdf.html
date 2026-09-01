@@ -1,0 +1,175 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block extra_css %}
+    .doc-section-title {
+      margin-top: 6mm;
+      margin-bottom: 2mm;
+      font-size: 13px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .doc-section p { margin-bottom: 2mm; font-size: 11px; }
+    .doc-section ul { margin: 0 0 2mm; padding-left: 5mm; font-size: 11px; }
+    .doc-section li { margin-bottom: 1mm; }
+{% endblock %}
+
+{% block title %}SYSTEMDOKUMENTATION{% endblock %}
+{% block subtitle %}<span class="label">Genererad</span> <span class="value">{{ generated_at|date:"Y-m-d H:i" }}</span>{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}{% if company.org_number %} · Org.nr {{ company.org_number }}{% endif %}</td></tr>
+  </table>
+
+  <div class="message-banner">
+    Systemdokumentation och behandlingshistorik, sammanställd enligt Bokföringsnämndens allmänna
+    råd BFNAR 2013:2, kapitel 9. Kontoplanen och verifikationsserierna är hämtade från
+    {{ company.name }}s aktuella data; övriga avsnitt beskriver SaldoVibe som bokföringssystem.
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">1. Kontoplan (punkt 9.2a, 9.3)</div>
+    <table class="report-table" repeat="1">
+      <thead>
+        <tr><th style="width: 18mm;">KONTO</th><th>NAMN</th><th style="width: 33mm;">KLASS</th><th style="width: 15mm;">SRU</th></tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td>{{ account.number }}</td>
+          <td>{{ account.name }}</td>
+          <td>{{ account.get_account_class_display }}</td>
+          <td>{{ account.sru_code|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="empty">Inga aktiva konton.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">2. Hur konton används och sammanställs (punkt 9.2b)</div>
+    <p>Kontoplanen bygger på BAS-kontoplanens kontoklasser. Vid årsbokslut/årsredovisning sammanställs kontona enligt kontoklass:</p>
+    <ul>
+      <li>Klass 1-2 (tillgångar, eget kapital och skulder) ingår i balansräkningen.</li>
+      <li>Klass 3-8 (rörelsens intäkter och kostnader, finansiella poster) ingår i resultaträkningen.</li>
+      <li>Klass 9-10 (årets resultat, bokslutsdispositioner och skatter) ingår i resultaträkningens nedre del och i inkomstdeklarationen (SRU-koder).</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">3. Samlingsplan (punkt 9.2c, 9.4)</div>
+    <p>SaldoVibe är uppbyggt av följande delsystem, som alla bokförs som verifikationer i den gemensamma huvudboken:</p>
+    <ul>
+      <li>Bokföring (huvudbok) - kontoplan, räkenskapsår, verifikationer och konteringsrader.</li>
+      <li>Fakturering - kundfakturor och artikelregister.</li>
+      <li>Leverantörsfakturor - registrering och betalning av leverantörsfakturor.</li>
+      <li>Lön - löneberäkning, lönekörningar och underlag för arbetsgivardeklaration.</li>
+      <li>Bank - bank- och skattekontotransaktioner.</li>
+      <li>Anläggningstillgångar - anläggningsregister och avskrivningar.</li>
+      <li>Moms - momsrapportering baserad på bokförda verifikationer.</li>
+      <li>Bilagor - underlag kopplade till transaktioner och leverantörsfakturor.</li>
+      <li>Händelselogg - behandlingshistorik för samtliga delsystem ovan.</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">4. Verifikationsserier (punkt 9.6)</div>
+    <p>Verifikationsserie tilldelas automatiskt utifrån vilket delsystem som skapade verifikationen. Ändringar av mappningen loggas i behandlingshistoriken.</p>
+    <table class="report-table" repeat="1">
+      <thead>
+        <tr><th>KÄLLA</th><th style="width: 15mm;">SERIE</th><th style="width: 28mm;">SENAST ÄNDRAD</th><th>AV</th></tr>
+      </thead>
+      <tbody>
+        {% for row in voucher_series_rows %}
+        <tr>
+          <td>{{ row.source_display }}</td>
+          <td>{{ row.series_code }}</td>
+          <td>{{ row.last_changed_at|date:"Y-m-d H:i"|default:"-" }}</td>
+          <td>{{ row.last_changed_by|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="empty">Inga verifikationsserier konfigurerade ännu.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">5. Verifieringskedjor (punkt 9.7-9.8)</div>
+    <p>
+      Varje verifikation identifieras genom serie, löpnummer och referens. Ursprungshandlingen
+      (kundfaktura, leverantörsfaktura, lönekörning, banktransaktion eller avskrivning) har en
+      direkt koppling till den verifikation den bokfördes som, vilket gör det möjligt att följa
+      en affärshändelse från underlaget via den löpande bokföringen till årsbokslut/
+      årsredovisning och omvänt. En rättelse hänvisar alltid till den ursprungliga
+      verifikationen och ärver dess verifikationsserie, i stället för att skriva över eller
+      radera den.
+    </p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">6. Behandlingsregler (punkt 9.9-9.10)</div>
+    <p>Instruktioner som automatiskt påverkar konto eller belopp i en bokföringspost, eller som skapar nya bokföringsposter:</p>
+    <ul>
+      <li>Automatisk beräkning av preliminärskatt via Skatteverkets skattetabells-API vid lönekörning.</li>
+      <li>Automatisk beräkning av arbetsgivaravgift utifrån skattepliktig lön och avgiftssats.</li>
+      <li>Automatisk tilldelning av SRU-kod på nya konton, utifrån BAS-kontoplanens standardmappning.</li>
+      <li>Automatisk tilldelning av verifikationsserie och löpnummer per källa (se avsnitt 4).</li>
+      <li>Automatisk generering av fakturanummer och OCR-kontrollsiffra för kundfakturor.</li>
+      <li>Automatisk kontering av utgående och ingående moms per momssats vid fakturering.</li>
+      <li>Periodlåsning som blockerar bokföring och import i låsta perioder.</li>
+      <li>Korrigeringsverifikationer länkas automatiskt till ursprungsverifikationen och ärver dess verifikationsserie.</li>
+      <li>Vid SIE-import namnges nya konton automatiskt utifrån importfilens kontouppgifter, och importerat utgående saldo stäms av mot det bokförda saldot.</li>
+      <li>Bilagor kopplade till en leverantörsfaktura låses automatiskt mot borttagning när fakturan bokförs.</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">7. Informationsflöden (punkt 9.11)</div>
+    <p>
+      Bokföringssystemet består av flera datorbaserade delar (se avsnitt 3). Affärshändelser
+      uppstår i fakturerings-, leverantörsfaktura-, lön-, bank- eller anläggningsdelsystemen och
+      mynnar alltid ut som verifikationer med konteringsrader i det gemensamma
+      huvudboks-delsystemet. Ursprungsposten behåller en referens till den verifikation den
+      bokfördes som, vilket gör flödet spårbart i båda riktningarna.
+    </p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">8. Behandlingshistorik (punkt 9.15-9.16)</div>
+    <p>
+      Samtliga bokföringsposter samt ändringar av bokföringssystemets behandlingsregler
+      registreras löpande i händelseloggen med registreringsdatum, vem som utförde ändringen och
+      vad som ändrades. Händelseloggen är hash-kedjad så att en manipulation av en äldre post kan
+      upptäckas, och kedjans slutpunkt förankras regelbundet hos en extern, oberoende
+      tidsstämpelmyndighet (RFC 3161) för att göra manipulation upptäckbar även vid
+      serveråtkomst.
+    </p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">9. Omvandling till läsbar form (punkt 9.12)</div>
+    <p>
+      Räkenskapsinformation kan omvandlas till läsbar form genom: utskrift av verifikationer,
+      balans- och resultaträkning som PDF; SIE4-export av räkenskapsåret; SRU-export för
+      inkomstdeklaration; e-faktura (Peppol) och arbetsgivardeklaration (AGI) som XML-filer; samt
+      lönespecifikationer som PDF.
+    </p>
+  </div>
+
+  <div class="doc-section">
+    <div class="doc-section-title">10. Arkivplan (punkt 8.3, 9.2d)</div>
+    <ul>
+      {% for year in accounting_years %}
+      <li>Räkenskapsår {{ year.name }} ({{ year.start_date }} - {{ year.end_date }}): lagras i produktionsdatabasen, omfattas av månatlig säkerhetskopiering.</li>
+      {% empty %}
+      <li>Inga räkenskapsår upplagda ännu.</li>
+      {% endfor %}
+      <li>Databasen säkerhetskopieras och återställningstestas automatiskt varje månad.</li>
+      <li>Underlag kopplade till en bokförd leverantörsfaktura låses mot borttagning fram till dess arkiveringstiden löpt ut.</li>
+      <li>Räkenskapsinformation ska bevaras i minst sju år, i enlighet med bokföringslagen 7 kap.</li>
+    </ul>
+  </div>
+{% endblock %}

@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% block title %}Resultaträkning – SaldoVibe{% endblock %}
+{% block page_title %}Resultaträkning{% endblock %}
+{% block nav_income %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  {% if active_company and active_company.company_icon %}
+    <img src="{{ active_company.company_icon.url }}" alt="{{ active_company.name }}" style="width:30px; height:30px; object-fit:contain;" class="border rounded bg-white p-1 me-2">
+  {% endif %}
+  <h5 class="mb-0">Resultaträkning</h5>
+  <a class="btn btn-outline-secondary btn-sm ms-3" href="{% url 'bookkeeping:income_statement_pdf' %}{% if selected_year %}?year={{ selected_year.pk }}{% endif %}">
+    <i class="bi bi-filetype-pdf me-1"></i>Exportera PDF
+  </a>
+  {% if selected_year %}
+  <a href="{% url 'bookkeeping:budget_edit' selected_year.pk %}" class="btn btn-outline-secondary btn-sm ms-2">
+    <i class="bi bi-graph-up me-1"></i>Redigera budget
+  </a>
+  {% endif %}
+  <form method="get" class="ms-3">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for year in years %}
+        <option value="{{ year.pk }}" {% if selected_year and year.pk == selected_year.pk %}selected{% endif %}>
+          {{ year.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% if selected_year %}
+    <span class="ms-3 text-muted small">{{ selected_year.start_date }} - {{ selected_year.end_date }}</span>
+  {% endif %}
+</div>
+{% if has_budget_data %}
+<p class="text-muted small">Kolumnerna Budget och Diff visar budgeterat belopp per konto och avvikelsen (Belopp − Budget).</p>
+{% endif %}
+
+<div class="card shadow-sm border-0 report-print" style="max-width:860px;">
+  <div class="card-body p-0">
+
+    <div class="section">
+    <!-- Operating income -->
+    <div class="px-4 pt-4 pb-2">
+      <h6 class="text-success fw-bold"><i class="bi bi-arrow-up-circle me-2"></i>Rörelsens intäkter</h6>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        {% for row in operating_income_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4 fw-semibold text-success">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="text-center text-muted py-3 ps-4">Inga rörelseintäkter bokförda.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-success fw-bold">
+        <tr>
+          <td colspan="2" class="ps-4">Summa rörelsens intäkter</td>
+          <td class="text-end pe-4">{{ total_operating_income|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ total_operating_income_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if total_operating_income_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ total_operating_income_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    </div>
+
+    <hr class="my-0">
+
+    <div class="section">
+    <!-- Operating costs -->
+    <div class="px-4 pt-3 pb-2">
+      <h6 class="text-danger fw-bold"><i class="bi bi-arrow-down-circle me-2"></i>Rörelsens kostnader</h6>
+    </div>
+
+    {% if raw_material_rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        <tr class="table-light">
+          <td colspan="2" class="ps-4 fw-semibold">Råvaror och förnödenheter</td>
+          <td class="text-end pe-4 fw-semibold text-danger">{{ total_raw_material|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ total_raw_material_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if total_raw_material_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ total_raw_material_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        {% for row in raw_material_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+
+    {% if external_cost_rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        <tr class="table-light">
+          <td colspan="2" class="ps-4 fw-semibold">Övriga externa kostnader</td>
+          <td class="text-end pe-4 fw-semibold text-danger">{{ total_external_costs|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ total_external_costs_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if total_external_costs_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ total_external_costs_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        {% for row in external_cost_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+
+    {% if personnel_rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        <tr class="table-light">
+          <td colspan="2" class="ps-4 fw-semibold">Personalkostnader</td>
+          <td class="text-end pe-4 fw-semibold text-danger">{{ total_personnel_costs|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ total_personnel_costs_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if total_personnel_costs_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ total_personnel_costs_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        {% for row in personnel_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="text-center text-muted py-3 ps-4">Inga personalkostnader bokförda.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-danger fw-bold">
+        <tr>
+          <td colspan="2" class="ps-4">Rörelseresultat</td>
+          <td class="text-end pe-4 {% if operating_result >= 0 %}text-success{% else %}text-danger{% endif %}">{{ operating_result|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ operating_result_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if operating_result_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ operating_result_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    {% endif %}
+    </div>
+
+    <hr class="my-0">
+
+    <!-- Financial items -->
+    {% if financial_rows %}
+    <div class="section">
+    <div class="px-4 pt-3 pb-2">
+      <h6 class="text-primary fw-bold"><i class="bi bi-bank me-2"></i>Finansiella poster</h6>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        {% for row in financial_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="text-center text-muted py-3 ps-4">Inga finansiella poster bokförda.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="2" class="ps-4">Resultat efter finansiella poster</td>
+          <td class="text-end pe-4 {% if result_after_financial >= 0 %}text-success{% else %}text-danger{% endif %}">{{ result_after_financial|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ result_after_financial_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if result_after_financial_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ result_after_financial_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    </div>
+    {% endif %}
+
+    <hr class="my-0">
+
+    <div class="section">
+    <!-- Result and taxes -->
+    <div class="px-4 pt-3 pb-2">
+      <h6 class="text-secondary fw-bold"><i class="bi bi-journal-text me-2"></i>Resultat och skatt</h6>
+    </div>
+
+    {% if year_end_rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        {% for row in year_end_rows %}
+        <tr>
+          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+          <td class="ps-2">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+              data-bs-toggle="collapse"
+              data-bs-target="#report-drilldown-{{ row.account.pk }}"
+              aria-expanded="false"
+              aria-controls="report-drilldown-{{ row.account.pk }}"
+            >
+              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+            </button>
+          </td>
+          <td class="text-end pe-4">{{ row.amount|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+        <tr>
+          <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="2" class="ps-4">Resultat efter skatt</td>
+          <td class="text-end pe-4 {% if result_after_taxes >= 0 %}text-success{% else %}text-danger{% endif %}">{{ result_after_taxes|floatformat:"2g" }} kr</td>
+          {% if has_budget_data %}
+          <td class="text-end pe-4">{{ result_after_taxes_budget|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4 {% if result_after_taxes_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ result_after_taxes_diff|floatformat:"2g" }} kr</td>
+          {% endif %}
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <tbody>
+        {% if results_and_tax_rows %}
+          {% for row in results_and_tax_rows %}
+          <tr>
+            <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
+            <td class="ps-2">
+              <button
+                type="button"
+                class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
+                data-bs-toggle="collapse"
+                data-bs-target="#report-drilldown-{{ row.account.pk }}"
+                aria-expanded="false"
+                aria-controls="report-drilldown-{{ row.account.pk }}"
+              >
+                <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+              </button>
+            </td>
+            <td class="text-end pe-4 {% if row.amount >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.amount|floatformat:"2g" }} kr</td>
+            {% if has_budget_data %}
+            <td class="text-end pe-4 text-muted small">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+            <td class="text-end pe-4 small {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+            {% endif %}
+          </tr>
+          <tr>
+            <td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="p-0 border-0">
+              {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="text-center text-muted py-3 ps-4">Inga resultat-/skatteposter bokförda.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+    </div>
+    <hr class="my-0">
+
+    {% if year_is_closed %}
+    <div class="alert alert-info mx-4 mt-3 mb-0 py-2 small">
+      <i class="bi bi-info-circle me-1"></i>Året är avslutat – årets resultat är överfört till eget kapital
+      via bokslutsverifikationen, därför visar resultaträkningen 0.
+    </div>
+    {% endif %}
+
+    <!-- Annual result -->
+    <div class="px-4 py-4 summary">
+      <div class="d-flex align-items-center">
+        <h5 class="mb-0 fw-bold">Årets resultat</h5>
+        <div class="ms-auto text-end">
+          <span class="fs-3 fw-bold {% if annual_result >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ annual_result|floatformat:"2g" }} kr
+          </span>
+          {% if annual_result >= 0 %}
+            <span class="badge bg-success ms-2">Vinst</span>
+          {% else %}
+            <span class="badge bg-danger ms-2">Förlust</span>
+          {% endif %}
+          {% if has_budget_data %}
+          <div class="text-muted small mt-1">
+            Budget {{ annual_result_budget|floatformat:"2g" }} kr ·
+            Diff <span class="{% if annual_result_diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ annual_result_diff|floatformat:"2g" }} kr</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

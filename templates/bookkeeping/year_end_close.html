@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Bokslut {{ year.name }} – SaldoVibe{% endblock %}
+{% block page_title %}Bokslut {{ year.name }}{% endblock %}
+{% block nav_years %}active{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-xl-9">
+
+    {# Steg 1: Förkontroller #}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">1. Förkontroller</h6>
+      </div>
+      <div class="card-body">
+        {% if s1 %}
+          <p class="text-success mb-0"><i class="bi bi-check-circle me-1"></i>Året är avslutat – förkontrollerna är redan gjorda.</p>
+        {% elif precheck_errors %}
+          <ul class="mb-0">
+            {% for error in precheck_errors %}
+              <li class="text-danger">{{ error }}</li>
+            {% endfor %}
+          </ul>
+          {% if not active_company.legal_form %}
+            <a href="{% url 'bookkeeping:company_update' active_company.pk %}" class="btn btn-outline-primary btn-sm mt-3">
+              <i class="bi bi-gear me-1"></i>Öppna företagsinställningarna
+            </a>
+          {% endif %}
+        {% else %}
+          <p class="text-success mb-1"><i class="bi bi-check-circle me-1"></i>Alla förkontroller är godkända.</p>
+          <p class="text-muted small mb-0">
+            Balansräkningens differens {{ balance_difference|floatformat:"2g" }} kr =
+            årets resultat {{ annual_result|floatformat:"2g" }} kr.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Steg 2: Nästa räkenskapsår #}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">2. Nästa räkenskapsår</h6>
+      </div>
+      <div class="card-body">
+        {% if next_year %}
+          <p class="text-success mb-0">
+            <i class="bi bi-check-circle me-1"></i>{{ next_year.name }} ({{ next_year.start_date }} – {{ next_year.end_date }}) finns.
+          </p>
+        {% else %}
+          <p class="mb-2">Omföringen (S2) bokförs på nästa räkenskapsårs första dag – året måste därför finnas.</p>
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_next_year">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-circle me-1"></i>Skapa räkenskapsår {{ suggested_next_start }} – {{ suggested_next_end }}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Steg 3: Bokslutsverifikationerna #}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">3. Bokslutsverifikationer</h6>
+      </div>
+      <div class="card-body">
+        {% if s1 %}
+          <p class="text-success mb-2">
+            <i class="bi bi-check-circle me-1"></i>Bokförda:
+            <a href="{% url 'bookkeeping:transaction_detail' s1.pk %}">{{ s1.reference }} ({{ year.name }})</a> (resultatöverföring)
+            {% if s2 %}
+              och <a href="{% url 'bookkeeping:transaction_detail' s2.pk %}">{{ s2.reference }} ({{ next_year.name }})</a> (omföring)
+            {% endif %}
+          </p>
+          <p class="text-muted small mb-0">
+            Behöver bokslutet göras om? Lås upp perioden och skapa en korrigering av verifikationerna,
+            så kan flödet köras igen.
+          </p>
+        {% elif not has_transactions %}
+          <p class="text-muted mb-0">Året saknar verifikationer – ingen bokslutsverifikation behövs. Gå vidare till helårslåsningen.</p>
+        {% else %}
+          <p class="mb-1">Två verifikationer bokförs i serie S:</p>
+          <ul class="mb-3">
+            <li>
+              <strong>S1</strong> ({{ year.end_date }}): årets resultat
+              <strong>{{ annual_result|floatformat:"2g" }} kr</strong> förs från 8999 till {{ result_account_number }}.
+            </li>
+            <li>
+              <strong>S2</strong> ({% if next_year %}{{ next_year.start_date }}{% else %}nästa års första dag{% endif %}):
+              {% if is_ab %}
+                beloppet förs om från 2099 till 2091 (balanseras i ny räkning).
+              {% else %}
+                2011–2019-serien (konton med saldo) nollställs mot 2010.
+              {% endif %}
+            </li>
+          </ul>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_vouchers">
+            <button type="submit" class="btn btn-primary" {% if precheck_errors or not next_year %}disabled{% endif %}>
+              <i class="bi bi-journal-check me-1"></i>Bokför bokslutsverifikationerna
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Steg 4: IB-bekräftelse #}
+    {% if s1 and next_year %}
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3">
+          <h6 class="mb-0 fw-semibold">4. Ingående balans {{ next_year.name }}</h6>
+        </div>
+        <div class="card-body p-0">
+          <p class="text-muted small px-3 pt-3">
+            Beräknad ingående balans per {{ next_year.start_date }} (alla poster t.o.m. {{ year.end_date }}).
+            Årets resultat står kvar på {{ result_account_number }} i ingående balans – omföringen (S2) är
+            daterad {{ next_year.start_date }} och syns i nästa års saldon.
+          </p>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr><th class="ps-3">Konto</th><th>Namn</th><th class="text-end pe-3">Saldo</th></tr>
+              </thead>
+              <tbody>
+                {% for row in opening_balances %}
+                  <tr>
+                    <td class="ps-3">{{ row.account.number }}</td>
+                    <td>{{ row.account.name }}</td>
+                    <td class="text-end pe-3">{{ row.balance|floatformat:"2g" }} kr</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="3" class="text-center text-muted py-3">Inga saldon.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {# Steg 5: Helårslåsning #}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">5. Helårslåsning</h6>
+      </div>
+      <div class="card-body">
+        {% if year_locked %}
+          <p class="text-success mb-0"><i class="bi bi-lock-fill me-1"></i>Hela räkenskapsåret är låst. Bokslutet är klart.</p>
+        {% elif s1 or not has_transactions %}
+          <p class="mb-2">Sista steget: lås hela året så att inga poster kan ändras.</p>
+          <form method="post" action="{% url 'bookkeeping:period_lock_lock_year' year.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+              <i class="bi bi-lock me-1"></i>Lås hela räkenskapsåret
+            </button>
+          </form>
+        {% else %}
+          <p class="text-muted mb-0">Låses efter att bokslutsverifikationerna är bokförda.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

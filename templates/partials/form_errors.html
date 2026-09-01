@@ -1,0 +1,28 @@
+{% comment %}
+Renderar ALLA valideringsfel för ett formulär (och ev. formset) som en samlad
+alert — fältfel inkluderade, så att ett misslyckat spar aldrig är tyst.
+Användning: {% include "partials/form_errors.html" %} (form i kontexten),
+eller med formset: {% include "partials/form_errors.html" with formset=line_formset %}
+{% endcomment %}
+{% if form.errors or formset.total_error_count %}
+<div class="alert alert-danger" role="alert">
+  <ul class="mb-0 ps-3">
+    {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+    {% for field in form.visible_fields %}
+      {% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}
+    {% endfor %}
+    {% for field in form.hidden_fields %}
+      {% for error in field.errors %}<li>{{ field.label|default:field.name }}: {{ error }}</li>{% endfor %}
+    {% endfor %}
+    {% if formset %}
+      {% for error in formset.non_form_errors %}<li>{{ error }}</li>{% endfor %}
+      {% for row in formset.forms %}
+        {% for error in row.non_field_errors %}<li>Rad {{ forloop.parentloop.counter }}: {{ error }}</li>{% endfor %}
+        {% for field in row.visible_fields %}
+          {% for error in field.errors %}<li>Rad {{ forloop.parentloop.parentloop.counter }} – {{ field.label }}: {{ error }}</li>{% endfor %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+  </ul>
+</div>
+{% endif %}

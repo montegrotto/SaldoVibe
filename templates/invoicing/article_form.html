@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title_text }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_articles %}active{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+  .select2-container .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-box-seam me-2"></i>{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <div class="col-6"><label class="form-label">Art.nr</label>{{ form.article_number }}</div>
+          <div class="col-6"><label class="form-label">Enhet</label>{{ form.unit }}</div>
+          <div class="col-12"><label class="form-label">Namn</label>{{ form.name }}</div>
+          <div class="col-12"><label class="form-label">Beskrivning</label>{{ form.description }}</div>
+          <div class="col-6"><label class="form-label">A-pris</label>{{ form.unit_price }}</div>
+          <div class="col-6"><label class="form-label">Moms %</label>{{ form.vat_rate }}</div>
+          <div class="col-12"><label class="form-label">Intäktskonto</label>{{ form.income_account }}</div>
+          <div class="col-12 d-flex align-items-center gap-2">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">Aktiv</label></div>
+          <div class="col-12">{% include "partials/form_errors.html" %}</div>
+          <div class="col-12 d-flex justify-content-between mt-2">
+            <a href="{% url 'invoicing:article_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ submit_label }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script>
+  (function () {
+    if (typeof window.$ === "undefined") {
+      return;
+    }
+    const accountSelect = $("#{{ form.income_account.id_for_label }}");
+    if (accountSelect.length) {
+      window.SaldoVibe.select2Utils.initAccountSelect(accountSelect);
+    }
+  })();
+</script>
+{% endblock %}

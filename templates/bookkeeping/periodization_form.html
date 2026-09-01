@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Periodisering – SaldoVibe{% endblock %}
+{% block page_title %}Periodisering{% endblock %}
+{% block nav_periodization %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Periodisering</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">
+          Boka en kostnad eller intäkt över flera månader i ett svep – t.ex. en
+          försäkringspremie eller hyra som ska fördelas jämnt. Skapar en verifikation per
+          månad direkt; ingen automatisk upplösning sker senare.
+        </p>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.amount.label }}</label>
+            {{ form.amount }}
+            {% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.account.label }}</label>
+            {{ form.account }}
+            {% if form.account.errors %}<div class="text-danger small">{{ form.account.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.counter_account.label }}</label>
+            {{ form.counter_account }}
+            {% if form.counter_account.errors %}<div class="text-danger small">{{ form.counter_account.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.months.label }}</label>
+            {{ form.months }}
+            {% if form.months.errors %}<div class="text-danger small">{{ form.months.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.start_date.label }}</label>
+            {{ form.start_date }}
+            <div class="form-text">{{ form.start_date.help_text }}</div>
+            {% if form.start_date.errors %}<div class="text-danger small">{{ form.start_date.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'bookkeeping:transaction_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Skapa verifikationer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Kunder - SaldoVibe{% endblock %}
+{% block page_title %}Kunder{% endblock %}
+{% block nav_customers %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'invoicing:customer_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-person-plus me-1"></i>Ny kund
+  </a>
+</div>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3"><h6 class="mb-0 fw-semibold"><i class="bi bi-people me-2"></i>Kundregister</h6></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light"><tr><th class="ps-3">Kund</th><th>Kontakt</th><th>Adress</th><th class="text-end pe-3">Åtgärd</th></tr></thead>
+          <tbody>
+          {% for customer in customers %}
+            <tr>
+              <td class="ps-3"><div class="fw-semibold">{{ customer.name }}</div><small class="text-muted">{{ customer.org_number|default:"" }}</small></td>
+              <td>{{ customer.email|default:"-" }}<br><small class="text-muted">{{ customer.phone|default:"" }}</small></td>
+              <td>{{ customer.address|default:"-" }}<br><small class="text-muted">{{ customer.postal_code }} {{ customer.city }}</small></td>
+              <td class="text-end pe-3">
+                <a href="{% url 'invoicing:invoice_create' %}?customer={{ customer.pk }}" class="btn btn-outline-primary btn-sm me-1">
+                  <i class="bi bi-receipt me-1"></i>Ny faktura
+                </a>
+                <a href="{% url 'invoicing:customer_update' customer.pk %}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-pencil-square me-1"></i>Redigera
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted ps-3 py-3">Inga kunder registrerade.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

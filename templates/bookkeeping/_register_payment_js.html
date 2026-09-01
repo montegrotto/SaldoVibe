@@ -1,0 +1,18 @@
+{% comment %}
+Select2 wiring for the account selects in _register_payment.html. Include inside
+{% block extra_js %} on every page that renders that form — jQuery comes from base.html.
+{% endcomment %}
+{% load static %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script>
+  (function () {
+    'use strict';
+    window.jQuery('.js-account-select').each(function () {
+      const $select = window.jQuery(this);
+      window.SaldoVibe.select2Utils.initAccountSelect($select);
+      window.SaldoVibe.select2Utils.bindReopenOnFocus($select);
+    });
+  })();
+</script>

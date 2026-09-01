@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Verifikationer – SaldoVibe{% endblock %}
+{% block page_title %}Verifikationer{% endblock %}
+{% block nav_transactions %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <h5 class="mb-0">Alla verifikationer</h5>
+  <form method="get">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Räkenskapsår">
+      {% for year in years %}
+        <option value="{{ year.pk }}" {% if selected_year and year.pk == selected_year.pk %}selected{% endif %}>
+          {{ year.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  <a href="{% url 'bookkeeping:transaction_add' %}" class="btn btn-primary btn-sm ms-auto">
+    <i class="bi bi-plus-lg me-1"></i>Ny verifikation
+  </a>
+  <div class="dropdown d-md-none">
+    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Fler åtgärder">
+      <i class="bi bi-three-dots"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="{% url 'bookkeeping:verification_template_list' %}"><i class="bi bi-layout-text-window-reverse me-2"></i>Mallar</a></li>
+      <li><a class="dropdown-item" href="{% url 'bookkeeping:periodization_create' %}"><i class="bi bi-calendar3-range me-2"></i>Periodisering</a></li>
+      {% if selected_year %}
+        <li><a class="dropdown-item" href="{% url 'bookkeeping:si_import' %}?year={{ selected_year.pk }}"><i class="bi bi-upload me-2"></i>Importera SI</a></li>
+        <li><a class="dropdown-item" href="{% url 'bookkeeping:sie_export' %}?year={{ selected_year.pk }}"><i class="bi bi-download me-2"></i>Exportera SIE4</a></li>
+      {% endif %}
+    </ul>
+  </div>
+  <a href="{% url 'bookkeeping:verification_template_list' %}" class="btn btn-outline-secondary btn-sm d-none d-md-inline-block">
+    <i class="bi bi-layout-text-window-reverse me-1"></i>Mallar
+  </a>
+  <a href="{% url 'bookkeeping:periodization_create' %}" class="btn btn-outline-secondary btn-sm d-none d-md-inline-block">
+    <i class="bi bi-calendar3-range me-1"></i>Periodisering
+  </a>
+  {% if selected_year %}
+    <a href="{% url 'bookkeeping:si_import' %}?year={{ selected_year.pk }}" class="btn btn-outline-primary btn-sm d-none d-md-inline-block">
+      <i class="bi bi-upload me-1"></i>Importera SI
+    </a>
+    <a href="{% url 'bookkeeping:sie_export' %}?year={{ selected_year.pk }}" class="btn btn-outline-success btn-sm d-none d-md-inline-block">
+      <i class="bi bi-download me-1"></i>Exportera SIE4
+    </a>
+  {% endif %}
+</div>
+
+{% if selected_account %}
+<div class="alert alert-light border d-flex align-items-center justify-content-between py-2">
+  <div>
+    <strong>Visar konto:</strong>
+    {{ selected_account.number }} {{ selected_account.name }}
+  </div>
+  <a href="{{ transaction_list_year_url }}" class="btn btn-outline-secondary btn-sm">Rensa konto-filter</a>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if transactions %}
+    <div class="list-group list-group-flush d-md-none">
+      {% for txn in transactions %}
+      <a href="{% url 'bookkeeping:transaction_detail' txn.pk %}?return_to={{ current_full_path|urlencode }}" class="list-group-item list-group-item-action py-3">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div class="overflow-hidden">
+            <div class="fw-semibold text-truncate">{{ txn.description }}</div>
+            <small class="text-muted">{{ txn.date }}{% if txn.voucher_number %} · {{ txn.voucher_series }}{{ txn.voucher_number }}{% endif %}</small>
+          </div>
+          <div class="text-end flex-shrink-0">
+            <div class="fw-semibold text-nowrap">{{ txn.total_debit|floatformat:"2g" }} kr</div>
+            {% if not txn.is_balanced %}<span class="badge bg-danger">OBS</span>{% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    <div class="table-responsive d-none d-md-block">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:120px;">Datum</th>
+          <th>Beskrivning</th>
+          <th style="width:100px;">Verifikat</th>
+          <th>Referens</th>
+          <th>Räkenskapsår</th>
+          <th class="text-end">Debet</th>
+          <th class="text-end">Kredit</th>
+          <th class="text-center" style="width:80px;">Balans</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for txn in transactions %}
+        <tr>
+          <td>{{ txn.date }}</td>
+          <td>{{ txn.description }}</td>
+          <td class="text-muted small">{% if txn.voucher_number %}{{ txn.voucher_series }}{{ txn.voucher_number }}{% endif %}</td>
+          <td class="text-muted small">{{ txn.reference }}</td>
+          <td class="text-muted small">{{ txn.accounting_year.ending_year }}</td>
+          <td class="text-end">{{ txn.total_debit|floatformat:"2g" }}</td>
+          <td class="text-end">{{ txn.total_credit|floatformat:"2g" }}</td>
+          <td class="text-center">
+            {% if txn.is_balanced %}
+              <span class="badge bg-success">OK</span>
+            {% else %}
+              <span class="badge bg-danger">OBS</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'bookkeeping:transaction_detail' txn.pk %}?return_to={{ current_full_path|urlencode }}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+      <span class="text-muted small">Sida {{ page_obj.number }} av {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} verifikationer)</span>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_year %}&year={{ selected_year.pk }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">Föregående</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Föregående</span></li>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_year %}&year={{ selected_year.pk }}{% endif %}{% if selected_account %}&account={{ selected_account.pk }}{% endif %}">Nästa</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Nästa</span></li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+      Inga verifikationer ännu.
+      <div class="mt-2">
+        <a href="{% url 'bookkeeping:transaction_add' %}" class="btn btn-primary btn-sm">Skapa verifikation</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

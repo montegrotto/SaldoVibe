@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Tillgångstyper – SaldoVibe{% endblock %}
+{% block page_title %}Anläggningstillgångar{% endblock %}
+{% block nav_fixed_assets %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h5 class="mb-0">Tillgångstyper</h5>
+  <div class="d-flex gap-2">
+    <a href="{% url 'fixed_assets:asset_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Till tillgångar
+    </a>
+    <a href="{% url 'fixed_assets:asset_type_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Ny tillgångstyp
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if asset_types %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Namn</th>
+            <th>Nyckel</th>
+            <th>Avskrivningskonto (debet)</th>
+            <th>Ack avskrivning (kredit)</th>
+            <th class="text-center">Status</th>
+            <th class="text-end pe-3">Åtgärder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in asset_types %}
+          <tr>
+            <td class="ps-3 fw-semibold">{{ t.name }}</td>
+            <td><code>{{ t.key }}</code></td>
+            <td>
+              {% if t.depreciation_expense_account %}
+                {{ t.depreciation_expense_account.number }} {{ t.depreciation_expense_account.name }}
+              {% else %}
+                <span class="text-danger">Saknas</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if t.accumulated_depreciation_account %}
+                {{ t.accumulated_depreciation_account.number }} {{ t.accumulated_depreciation_account.name }}
+              {% else %}
+                <span class="text-danger">Saknas</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if t.is_active %}
+                <span class="badge bg-success">Aktiv</span>
+              {% else %}
+                <span class="badge bg-secondary">Inaktiv</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <a href="{% url 'fixed_assets:asset_type_update' t.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil-square me-1"></i>Redigera
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-3 text-muted">Inga tillgångstyper finns ännu.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

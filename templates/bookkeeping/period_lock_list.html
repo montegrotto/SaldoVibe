@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Periodlåsning – SaldoVibe{% endblock %}
+{% block page_title %}Periodlåsning{% endblock %}
+{% block nav_period_locks %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <p class="text-muted mb-0">
+    Enligt Bokföringsnämndens krav (BFNAR 2013:2) ska bokförda verifikationer skyddas mot ändring
+    efter periodavslut. Här låser du hela räkenskapsår eller enskilda kalendermånader –
+    ingen verifikation kan sedan bokföras, importeras eller rättas med ett datum inom en låst period.
+  </p>
+</div>
+
+{% if years|length > 1 %}
+<form method="get" class="row g-2 align-items-center mb-3">
+  <div class="col-auto">
+    <label class="col-form-label">Räkenskapsår</label>
+  </div>
+  <div class="col-auto">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for year in years %}
+        <option value="{{ year.pk }}" {% if year.pk == selected_year.pk %}selected{% endif %}>{{ year.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">Hela räkenskapsåret</h6>
+        {% if year_is_fully_locked %}
+          <span class="badge text-bg-success"><i class="bi bi-lock-fill me-1"></i>Låst</span>
+        {% else %}
+          <span class="badge text-bg-secondary">Ej låst</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          {{ selected_year.start_date }} – {{ selected_year.end_date }}
+        </p>
+        {% if not year_is_fully_locked %}
+          <form method="post" action="{% url 'bookkeeping:period_lock_lock_year' selected_year.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+              <i class="bi bi-lock me-1"></i>Lås hela räkenskapsåret
+            </button>
+          </form>
+        {% else %}
+          <p class="text-muted small mb-0">Räkenskapsåret är låst i sin helhet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if monthly_suggestions %}
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Föreslagna månader att låsa</h6>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <tbody>
+            {% for period in monthly_suggestions %}
+              <tr>
+                <td>{{ period.start_date|date:"F Y" }}</td>
+                <td class="text-end">
+                  {% if period.is_locked %}
+                    <span class="badge text-bg-success"><i class="bi bi-lock-fill me-1"></i>Låst</span>
+                  {% else %}
+                    <form method="post" action="{% url 'bookkeeping:period_lock_create' %}?year={{ selected_year.pk }}">
+                      {% csrf_token %}
+                      <input type="hidden" name="accounting_year" value="{{ selected_year.pk }}">
+                      <input type="hidden" name="period_start" value="{{ period.start_date|date:'Y-m-d' }}">
+                      <input type="hidden" name="period_end" value="{{ period.end_date|date:'Y-m-d' }}">
+                      <input type="hidden" name="reason" value="Månadsavstämning {{ period.start_date|date:'F Y' }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Lås</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Registrerade periodlåsningar</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if locks %}
+          <div class="table-responsive">
+          <table class="table mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Orsak</th>
+                <th>Åtgärd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lock in locks %}
+                <tr>
+                  <td>{{ lock.period_start }} – {{ lock.period_end }}</td>
+                  <td>
+                    {% if lock.is_locked %}
+                      <span class="badge text-bg-success"><i class="bi bi-lock-fill me-1"></i>Låst</span>
+                    {% else %}
+                      <span class="badge text-bg-warning"><i class="bi bi-unlock-fill me-1"></i>Upplåst</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">
+                    {% if lock.is_locked %}
+                      {{ lock.reason }}
+                      {% if lock.locked_by %}<br><span class="text-muted">Låst av {{ lock.locked_by.get_full_name|default:lock.locked_by.email }}</span>{% endif %}
+                    {% else %}
+                      <span class="text-muted">Ursprunglig orsak: {{ lock.reason }}</span><br>
+                      {{ lock.reopened_reason }}
+                      {% if lock.reopened_by %}<br><span class="text-muted">Upplåst av {{ lock.reopened_by.get_full_name|default:lock.reopened_by.email }}</span>{% endif %}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if lock.is_locked %}
+                      <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reopen-modal-{{ lock.pk }}">
+                        <i class="bi bi-unlock me-1"></i>Lås upp
+                      </button>
+                      <div class="modal fade" id="reopen-modal-{{ lock.pk }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <form method="post" action="{% url 'bookkeeping:period_lock_reopen' lock.pk %}">
+                              {% csrf_token %}
+                              <div class="modal-header">
+                                <h6 class="modal-title">Lås upp period {{ lock.period_start }} – {{ lock.period_end }}</h6>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Stäng"></button>
+                              </div>
+                              <div class="modal-body">
+                                <label class="form-label small">Orsak till upplåsning</label>
+                                {{ reopen_form.reopened_reason }}
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Avbryt</button>
+                                <button type="submit" class="btn btn-warning btn-sm">Lås upp</button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    {% else %}
+                      <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#relock-modal-{{ lock.pk }}">
+                        <i class="bi bi-lock me-1"></i>Lås igen
+                      </button>
+                      <div class="modal fade" id="relock-modal-{{ lock.pk }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <form method="post" action="{% url 'bookkeeping:period_lock_relock' lock.pk %}">
+                              {% csrf_token %}
+                              <div class="modal-header">
+                                <h6 class="modal-title">Lås period {{ lock.period_start }} – {{ lock.period_end }} igen</h6>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Stäng"></button>
+                              </div>
+                              <div class="modal-body">
+                                <label class="form-label small">Orsak till förnyad låsning</label>
+                                {{ relock_form.reason }}
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Avbryt</button>
+                                <button type="submit" class="btn btn-danger btn-sm">Lås</button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-4">Inga periodlåsningar registrerade ännu.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

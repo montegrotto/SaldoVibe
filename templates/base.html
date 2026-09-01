@@ -1,0 +1,601 @@
+{% load static %}
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}SaldoVibe – Bokföring{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'brand/icons/saldovibe-icon.svg' %}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'brand/icons/saldovibe-icon-32.png' %}" />
+  <link rel="icon" type="image/x-icon" href="{% static 'brand/icons/saldovibe-icon.ico' %}" />
+  <link rel="apple-touch-icon" href="{% static 'brand/icons/saldovibe-icon-256.png' %}" />
+  <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" />
+  <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet" />
+  <style>
+    body { background-color: #f8f9fa; }
+    .sidebar {
+      --sidebar-bg: #161e36;
+      --sidebar-bg-accent: #1a2340;
+      --sidebar-hover-bg: #222d4f;
+      --sidebar-active-bg: #24335c;
+      background: var(--sidebar-bg);
+    }
+    body.dev-env .sidebar {
+      --sidebar-bg: #14532d;
+      --sidebar-bg-accent: #166534;
+      --sidebar-hover-bg: #1e6b3d;
+      --sidebar-active-bg: #15803d;
+    }
+    @media (min-width: 992px) {
+      .sidebar {
+        height: 100vh; position: sticky; top: 0;
+        /* Bootstrap's .offcanvas-lg resets background-color to transparent !important
+           at this breakpoint (it assumes the offcanvas merges into a navbar row); this
+           reasserts the dark sidebar background for our permanent-sidebar layout. */
+        background-color: var(--sidebar-bg) !important;
+      }
+    }
+    /* Larger tap targets when the sidebar is a touch-driven offcanvas. */
+    @media (max-width: 991.98px) {
+      .sidebar .nav-link { padding-top: .65rem; padding-bottom: .65rem; font-size: .95rem; }
+      .sidebar .nav-sect { padding-top: .6rem; padding-bottom: .5rem; }
+    }
+    .topbar-toggler {
+      background: none; border: 0; color: #495057; padding: .25rem .5rem;
+      font-size: 1.25rem; line-height: 1; margin-right: .5rem;
+    }
+    .sidebar .side-top { padding: .9rem .9rem .8rem; background: var(--sidebar-bg-accent); border-bottom: 1px solid rgba(255,255,255,.08); }
+    .sidebar .brand { color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: .6rem; text-decoration: none; margin-bottom: .85rem; }
+    .sidebar .dev-badge {
+      font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+      background: #4ade80; color: #052e16;
+      border-radius: 99px; padding: .1rem .45rem; line-height: 1.4;
+    }
+    .sidebar .brand-logo { width: 28px; height: 28px; border-radius: 8px; display: block; }
+    .sidebar .side-cta {
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      width: 100%; background: #3d6fe0; color: #fff; border: 0;
+      border-radius: 8px; padding: .55rem; font-size: .9rem; font-weight: 600;
+      text-decoration: none;
+    }
+    .sidebar .side-cta:hover { background: #4f7fe8; color: #fff; }
+    .sidebar .side-cta:focus-visible, .sidebar a:focus-visible, .sidebar button:focus-visible { outline: 2px solid #6ea8ff; outline-offset: 2px; }
+    .sidebar .side-scroll { flex: 1; overflow-y: auto; padding: .5rem 0 .75rem; min-height: 0; scrollbar-width: thin; scrollbar-color: #34406b transparent; }
+    .sidebar .nav-link {
+      display: flex; align-items: center; gap: .65rem;
+      color: #c7d1e6; font-size: .89rem;
+      padding: .44rem .8rem .44rem calc(.8rem - 3px);
+      margin: 1px .55rem; border-radius: 7px;
+      border-left: 3px solid transparent;
+    }
+    .sidebar .nav-link .bi { color: #7e8cab; font-size: 1rem; flex-shrink: 0; width: 1.15em; text-align: center; }
+    .sidebar .nav-link:hover { background: var(--sidebar-hover-bg); color: #fff; }
+    .sidebar .nav-link:hover .bi { color: #c7d1e6; }
+    .sidebar .nav-link.active { background: var(--sidebar-active-bg); color: #fff; border-left-color: #6ea8ff; font-weight: 600; }
+    .sidebar .nav-link.active .bi { color: #6ea8ff; }
+    .sidebar .count {
+      margin-left: auto; font-size: .7rem; font-variant-numeric: tabular-nums;
+      background: rgba(255,255,255,.12); color: #c7d1e6;
+      border-radius: 99px; padding: .05rem .45rem;
+    }
+    /* Section-header badge: only relevant while the group hides its links. */
+    .sidebar .nav-sect .count { display: none; letter-spacing: normal; }
+    .sidebar .nav-group.collapsed .nav-sect .count { display: inline-block; }
+    .sidebar .nav-sect {
+      display: flex; align-items: center; gap: .4rem; width: calc(100% - 1.1rem);
+      background: none; border: 0; cursor: pointer;
+      color: #7e8cab; font-size: .69rem; font-weight: 650;
+      letter-spacing: .09em; text-transform: uppercase;
+      padding: .4rem .55rem .3rem; margin: .55rem .55rem 0; border-radius: 6px;
+    }
+    .sidebar .nav-sect:hover { color: #c7d1e6; }
+    .sidebar .nav-sect .bi-chevron-down { margin-left: auto; transition: transform .15s; }
+    @media (prefers-reduced-motion: reduce) { .sidebar .nav-sect .bi-chevron-down { transition: none; } }
+    .sidebar .nav-group.collapsed .nav-sect .bi-chevron-down { transform: rotate(-90deg); }
+    .sidebar .nav-group.collapsed .nav-group-items { display: none; }
+    .sidebar .side-foot {
+      border-top: 1px solid rgba(255,255,255,.08); padding: .7rem .9rem;
+      display: flex; align-items: center; gap: .6rem; background: var(--sidebar-bg-accent);
+    }
+    .sidebar .side-foot .avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: #34406b; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 650;
+    }
+    .sidebar .side-foot .who { min-width: 0; flex: 1; }
+    .sidebar .side-foot .who .name { color: #fff; font-size: .82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar .side-foot .who .comp { color: #7e8cab; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .side-company {
+      margin: .6rem .9rem 0; padding: .5rem .6rem;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px; display: flex; align-items: center; gap: .5rem;
+    }
+    .side-company form { display: contents; }
+    .side-company i { color: #7e8cab; font-size: .9rem; flex-shrink: 0; }
+    .side-company-select {
+      flex: 1; min-width: 0; background: transparent; border: none;
+      color: #fff; font-size: .82rem; font-weight: 600; padding: 0; cursor: pointer;
+    }
+    .side-company-select:focus { outline: none; }
+    .side-company-select option { color: #212529; }
+    .side-company-static span {
+      flex: 1; min-width: 0; color: #fff; font-size: .82rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar .side-foot .logout {
+      color: #7e8cab; padding: .4rem; border-radius: 7px; display: flex; text-decoration: none;
+    }
+    .sidebar .side-foot .logout:hover { background: #222d4f; color: #fff; }
+    /* min-width: 0 lets the flex column shrink below its content's natural width;
+       without it any nowrap text or wide table widens the whole page on mobile
+       instead of truncating/scrolling inside its own container. */
+    .main-content { min-height: 100vh; min-width: 0; }
+    .stat-card { border: none; border-radius: 12px; transition: transform .15s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .topbar { background: #fff; border-bottom: 1px solid #e8ecf0; }
+    .topbar-alert-bell { position: relative; color: #495057; }
+    .topbar-alert-bell .badge { font-size: .65rem; }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      body {
+        background: #fff !important;
+        font-size: 11pt;
+        line-height: 1.25;
+      }
+
+      .sidebar,
+      .topbar,
+      .alert,
+      .btn,
+      form {
+        display: none !important;
+      }
+
+      .main-content,
+      .main-content-body,
+      .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+      }
+
+      .card {
+        border: 0 !important;
+        box-shadow: none !important;
+      }
+
+      .report-print {
+        max-width: 100% !important;
+      }
+
+      .report-print h5,
+      .report-print h6 {
+        color: #000 !important;
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+
+      .report-print p,
+      .report-print li {
+        orphans: 3;
+        widows: 3;
+      }
+
+      .report-print .text-muted,
+      .report-print .text-success,
+      .report-print .text-danger,
+      .report-print .text-primary,
+      .report-print .text-secondary {
+        color: #000 !important;
+      }
+
+      .report-print .badge,
+      .report-print .vr {
+        display: none !important;
+      }
+
+      .report-print hr {
+        border-color: #000 !important;
+        opacity: 0.25;
+      }
+
+      .report-print table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        table-layout: fixed;
+      }
+
+      .report-print table td,
+      .report-print table th {
+        border: 1px solid #d0d0d0 !important;
+        padding: 4px 6px !important;
+        vertical-align: top;
+        word-wrap: break-word;
+      }
+
+      .report-print table tfoot td,
+      .report-print table tfoot th {
+        font-weight: 700;
+        border-top: 1.5px solid #000 !important;
+      }
+
+      .report-print table tr,
+      .report-print table tfoot,
+      .report-print .section,
+      .report-print .keep-together,
+      .report-print .summary,
+      .report-print .px-4,
+      .report-print .py-4,
+      .report-print .pt-3,
+      .report-print .pt-4,
+      .report-print .pb-2 {
+        break-inside: avoid-page;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body{% if is_dev_environment %} class="dev-env"{% endif %}>
+{% if user.is_authenticated %}
+<div class="d-flex">
+  <!-- Sidebar -->
+  <nav class="sidebar offcanvas-start offcanvas-lg d-flex flex-column" style="width:256px; flex-shrink:0;" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+    <div class="side-top">
+      <div class="d-flex align-items-start justify-content-between">
+        <a class="brand" href="{% url 'bookkeeping:dashboard' %}">
+          <img class="brand-logo" src="{% static 'brand/saldovibe-mark.svg' %}" alt="SaldoVibe" />
+          <span id="sidebarOffcanvasLabel">SaldoVibe</span>
+          {% if is_dev_environment %}<span class="dev-badge">DEV</span>{% endif %}
+        </a>
+        <button type="button" class="btn-close btn-close-white d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebarOffcanvas" aria-label="Stäng meny"></button>
+      </div>
+      {% if available_companies %}
+      <div class="side-company">
+        <i class="bi bi-buildings" aria-hidden="true"></i>
+        <form method="post" action="{% url 'bookkeeping:switch_company' %}">
+          {% csrf_token %}
+          <select name="company_id" class="side-company-select" onchange="this.form.submit()" aria-label="Byt företag" title="Byt företag">
+            {% for company in available_companies %}
+            <option value="{{ company.pk }}" {% if active_company and active_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+      {% elif active_company %}
+      <div class="side-company side-company-static">
+        <i class="bi bi-buildings" aria-hidden="true"></i>
+        <span>{{ active_company.name }}</span>
+      </div>
+      {% endif %}
+      <a class="side-cta" href="{% url 'bookkeeping:transaction_add' %}">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>Ny verifikation
+      </a>
+    </div>
+
+    <div class="side-scroll">
+      <a class="nav-link mt-2 {% block nav_dashboard %}{% endblock %}" href="{% url 'bookkeeping:dashboard' %}">
+        <i class="bi bi-speedometer2" aria-hidden="true"></i>Översikt
+      </a>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Bokföring{% if fixed_assets_due_count %}<span class="count">{{ fixed_assets_due_count }}</span>{% endif %}<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_transactions %}{% endblock %}" href="{% url 'bookkeeping:transaction_list' %}">
+            <i class="bi bi-journal-text" aria-hidden="true"></i>Verifikationer
+          </a>
+          <a class="nav-link {% block nav_verification_templates %}{% endblock %}" href="{% url 'bookkeeping:verification_template_list' %}">
+            <i class="bi bi-copy" aria-hidden="true"></i>Verifikationsmallar
+          </a>
+          <a class="nav-link {% block nav_periodization %}{% endblock %}" href="{% url 'bookkeeping:periodization_create' %}">
+            <i class="bi bi-calendar3-range" aria-hidden="true"></i>Periodisering
+          </a>
+          <a class="nav-link {% block nav_attachments %}{% endblock %}" href="{% url 'attachments:attachment_list' %}">
+            <i class="bi bi-paperclip" aria-hidden="true"></i>Bilagor
+          </a>
+          <a class="nav-link {% block nav_banking_transactions %}{% endblock %}" href="{% url 'banking:transaction_list' %}">
+            <i class="bi bi-bank" aria-hidden="true"></i>Bank &amp; skattekonto
+          </a>
+          {% if active_company and active_company.vat_reporting_period != 'none' %}
+          <a class="nav-link {% block nav_vat_report %}{% endblock %}" href="{% url 'vat:report' %}">
+            <i class="bi bi-percent" aria-hidden="true"></i>Momsrapport
+          </a>
+          {% endif %}
+          <a class="nav-link {% block nav_fixed_assets %}{% endblock %}" href="{% url 'fixed_assets:asset_list' %}">
+            <i class="bi bi-pc-display" aria-hidden="true"></i>Anläggningstillgångar
+            {% if fixed_assets_due_count %}<span class="count">{{ fixed_assets_due_count }}</span>{% endif %}
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Försäljning{% if recurring_invoices_due_count %}<span class="count">{{ recurring_invoices_due_count }}</span>{% endif %}<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_outgoing_invoices %}{% endblock %}" href="{% url 'invoicing:invoice_list' %}">
+            <i class="bi bi-receipt" aria-hidden="true"></i>Kundfakturor
+          </a>
+          <a class="nav-link {% block nav_recurring_invoices %}{% endblock %}" href="{% url 'invoicing:recurring_invoice_list' %}">
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Återkommande fakturor
+            {% if recurring_invoices_due_count %}<span class="count">{{ recurring_invoices_due_count }}</span>{% endif %}
+          </a>
+          <a class="nav-link {% block nav_customers %}{% endblock %}" href="{% url 'invoicing:customer_list' %}">
+            <i class="bi bi-people" aria-hidden="true"></i>Kunder
+          </a>
+          <a class="nav-link {% block nav_articles %}{% endblock %}" href="{% url 'invoicing:article_list' %}">
+            <i class="bi bi-box-seam" aria-hidden="true"></i>Artiklar
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Inköp{% if supplier_invoices_due_soon_count %}<span class="count">{{ supplier_invoices_due_soon_count }}</span>{% endif %}<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_supplier_invoices %}{% endblock %}" href="{% url 'supplier_invoices:invoice_list' %}">
+            <i class="bi bi-inbox" aria-hidden="true"></i>Leverantörsfakturor
+            {% if supplier_invoices_due_soon_count %}<span class="count">{{ supplier_invoices_due_soon_count }}</span>{% endif %}
+          </a>
+          <a class="nav-link {% block nav_suppliers %}{% endblock %}" href="{% url 'supplier_invoices:supplier_list' %}">
+            <i class="bi bi-truck" aria-hidden="true"></i>Leverantörer
+          </a>
+          <a class="nav-link {% block nav_expenses %}{% endblock %}" href="{% url 'expenses:expense_list' %}">
+            <i class="bi bi-wallet2" aria-hidden="true"></i>Utlägg
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Personal<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_payroll %}{% endblock %}" href="{% url 'payroll:payroll_run_list' %}">
+            <i class="bi bi-cash-stack" aria-hidden="true"></i>Löner
+          </a>
+          <a class="nav-link {% block nav_employees %}{% endblock %}" href="{% url 'payroll:employee_list' %}">
+            <i class="bi bi-person-badge" aria-hidden="true"></i>Anställda
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Rapporter<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_balance %}{% endblock %}" href="{% url 'bookkeeping:balance_sheet' %}">
+            <i class="bi bi-clipboard-data" aria-hidden="true"></i>Balansräkning
+          </a>
+          <a class="nav-link {% block nav_income %}{% endblock %}" href="{% url 'bookkeeping:income_statement' %}">
+            <i class="bi bi-graph-up" aria-hidden="true"></i>Resultaträkning
+          </a>
+          <a class="nav-link {% block nav_general_ledger %}{% endblock %}" href="{% url 'bookkeeping:general_ledger' %}">
+            <i class="bi bi-journal-text" aria-hidden="true"></i>Huvudbok
+          </a>
+          <a class="nav-link {% block nav_reskontra %}{% endblock %}" href="{% url 'bookkeeping:reskontra' %}">
+            <i class="bi bi-people" aria-hidden="true"></i>Reskontra
+          </a>
+          <a class="nav-link {% block nav_sru %}{% endblock %}" href="{% url 'bookkeeping:sru_report' %}">
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>SRU-rapport
+          </a>
+          <a class="nav-link {% block nav_auditlog %}{% endblock %}" href="{% url 'auditlog:report' %}">
+            <i class="bi bi-clock-history" aria-hidden="true"></i>Händelselogg
+          </a>
+          <a class="nav-link {% block nav_compliance %}{% endblock %}" href="{% url 'bookkeeping:compliance_dashboard' %}">
+            <i class="bi bi-shield-check" aria-hidden="true"></i>Compliance-översikt
+          </a>
+          <a class="nav-link {% block nav_system_documentation %}{% endblock %}" href="{% url 'bookkeeping:system_documentation' %}">
+            <i class="bi bi-journal-code" aria-hidden="true"></i>Systemdokumentation
+          </a>
+          <a class="nav-link {% block nav_export_bundle %}{% endblock %}" href="{% url 'bookkeeping:export_bundle' %}">
+            <i class="bi bi-download" aria-hidden="true"></i>Exportera bokföring
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-sect" type="button" aria-expanded="true">Inställningar<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+        <div class="nav-group-items">
+          <a class="nav-link {% block nav_companies %}{% endblock %}" href="{% url 'bookkeeping:company_list' %}">
+            <i class="bi bi-buildings" aria-hidden="true"></i>Företag
+          </a>
+          <a class="nav-link {% block nav_banking_accounts %}{% endblock %}" href="{% url 'banking:account_list' %}">
+            <i class="bi bi-bank2" aria-hidden="true"></i>Bank- &amp; skattekällor
+          </a>
+          <a class="nav-link {% block nav_accounts %}{% endblock %}" href="{% url 'bookkeeping:account_list' %}">
+            <i class="bi bi-list-columns-reverse" aria-hidden="true"></i>Kontoplan
+          </a>
+          <a class="nav-link {% block nav_years %}{% endblock %}" href="{% url 'bookkeeping:accounting_year_list' %}">
+            <i class="bi bi-calendar3" aria-hidden="true"></i>Räkenskapsår
+          </a>
+          <a class="nav-link {% block nav_period_locks %}{% endblock %}" href="{% url 'bookkeeping:period_lock_list' %}">
+            <i class="bi bi-lock" aria-hidden="true"></i>Periodlåsning
+          </a>
+          <a class="nav-link {% block nav_voucher_series %}{% endblock %}" href="{% url 'bookkeeping:voucher_series_settings' %}">
+            <i class="bi bi-list-ol" aria-hidden="true"></i>Verifikationsserier
+          </a>
+        </div>
+      </div>
+
+      <a class="nav-link mt-2 {% block nav_help %}{% endblock %}" href="{% url 'bookkeeping:help_index' %}">
+        <i class="bi bi-question-circle" aria-hidden="true"></i>Hjälp
+      </a>
+    </div>
+
+    <div class="side-foot">
+      <span class="avatar" aria-hidden="true">{% if user.first_name or user.last_name %}{{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}{% else %}{{ user.email|slice:":1"|upper }}{% endif %}</span>
+      <span class="who">
+        <span class="name d-block">{{ user.get_full_name|default:user.email }}</span>
+        {% if active_company %}<span class="comp d-block">{{ active_company.name }}</span>{% endif %}
+      </span>
+      <a href="{% url 'accounts:logout' %}" class="logout" title="Logga ut" aria-label="Logga ut">
+        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+      </a>
+    </div>
+  </nav>
+  <!-- Main -->
+  <div class="flex-grow-1 main-content">
+    <div class="topbar px-3 px-md-4 py-2 d-flex flex-wrap align-items-center gap-2">
+      <button
+        type="button"
+        class="topbar-toggler d-lg-none"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#sidebarOffcanvas"
+        aria-controls="sidebarOffcanvas"
+        aria-label="Öppna meny"
+      >
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
+      <h6 class="mb-0 text-muted text-truncate">{% block page_title %}{% endblock %}</h6>
+      {% if request.user.is_authenticated %}
+      <div
+        id="topbar-alert-container"
+        class="dropdown ms-auto me-3{% if not topbar_alert_has_any %} d-none{% endif %}"
+        data-poll-url="{% url 'bookkeeping:topbar_alert_status' %}"
+        data-token="{{ topbar_alert_count }}:{{ topbar_alert_has_alert }}"
+      >
+        {% if topbar_alert_has_any %}{% include "bookkeeping/_topbar_alert_bell.html" %}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="main-content-body px-3 py-3 px-md-4 py-md-4">
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show" role="alert"{% if msg.tags == 'success' %} data-auto-dismiss="10000"{% endif %}>
+            {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="container-fluid">{% block content_unauth %}{% endblock %}</div>
+{% endif %}
+<script src="{% static 'vendor/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<script>
+  (function () {
+    // Accordion: exactly one group open - the one holding the current page, else the first.
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".sidebar .nav-group"));
+    var open = groups.find(function (g) { return g.querySelector(".nav-link.active"); }) || groups[0];
+
+    function setOpen(target) {
+      groups.forEach(function (group) {
+        var collapsed = group !== target;
+        group.classList.toggle("collapsed", collapsed);
+        group.querySelector(".nav-sect").setAttribute("aria-expanded", collapsed ? "false" : "true");
+      });
+    }
+
+    setOpen(open);
+    groups.forEach(function (group) {
+      group.querySelector(".nav-sect").addEventListener("click", function () {
+        setOpen(group.classList.contains("collapsed") ? group : null);
+      });
+    });
+  })();
+
+  (function () {
+    document.querySelectorAll(".alert[data-auto-dismiss]").forEach(function (alertElement) {
+      const delay = Number.parseInt(alertElement.dataset.autoDismiss, 10);
+      if (!Number.isFinite(delay) || delay <= 0) {
+        return;
+      }
+
+      window.setTimeout(function () {
+        const alertInstance = bootstrap.Alert.getOrCreateInstance(alertElement);
+        alertInstance.close();
+      }, delay);
+    });
+  })();
+
+  (function () {
+    // The bell/dropdown is re-rendered wholesale on every poll (see below), so listeners are
+    // delegated on the never-replaced #topbar-alert-container rather than bound to the button
+    // itself - a direct listener would be lost the moment innerHTML is replaced.
+    const container = document.getElementById("topbar-alert-container");
+    if (!container) {
+      return;
+    }
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) {
+        return parts.pop().split(';').shift();
+      }
+      return "";
+    }
+
+    let acknowledged = false;
+
+    container.addEventListener("click", function (event) {
+      const bell = event.target.closest("#fixed-assets-alert-menu");
+      const ackUrl = bell && bell.dataset.ackUrl;
+      if (!bell || bell.dataset.hasAlert !== "1" || acknowledged || !ackUrl) {
+        return;
+      }
+
+      acknowledged = true;
+      fetch(ackUrl, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      }).then(function () {
+        bell.classList.remove("text-danger");
+        const icon = bell.querySelector("i");
+        const badge = bell.querySelector(".badge");
+        if (icon) {
+          icon.classList.remove("bi-bell-fill");
+          icon.classList.add("bi-bell");
+        }
+        if (badge) {
+          badge.classList.remove("bg-danger");
+          badge.classList.add("bg-secondary");
+        }
+      }).catch(function () {
+        /* Ignore acknowledgement failures in UI. */
+      });
+    });
+
+    // Live-updates the bell (e.g. a background export finishing, see
+    // bookkeeping:topbar_alert_status) without requiring a page reload - a user sitting on one
+    // page would otherwise never see a notification that only a fresh render would compute.
+    const pollUrl = container.dataset.pollUrl;
+    if (!pollUrl) {
+      return;
+    }
+
+    window.setInterval(function () {
+      // Don't yank the dropdown out from under someone who currently has it open.
+      if (container.querySelector(".dropdown-menu.show")) {
+        return;
+      }
+      fetch(pollUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+        .then(function (response) {
+          return response.ok ? response.json() : null;
+        })
+        .then(function (data) {
+          if (!data || data.token === container.dataset.token) {
+            return;
+          }
+          container.dataset.token = data.token;
+          container.innerHTML = data.html;
+          container.classList.toggle("d-none", !data.has_any);
+          acknowledged = false;
+        })
+        .catch(function () {
+          /* Ignore poll failures - the next interval tries again. */
+        });
+    }, 45000);
+  })();
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

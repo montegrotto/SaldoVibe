@@ -1,0 +1,25 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Bokföringsdata</h3>
+<p class="subinfo">Kompletta SIE4-filer för räkenskapsår som överlappar den exporterade perioden</p>
+<table>
+    <thead>
+        <tr>
+            <th>Startdatum</th>
+            <th>Slutdatum</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.year.start_date|date:"Y-m-d" }}</td>
+            <td>{{ row.year.end_date|date:"Y-m-d" }}</td>
+            <td><a href="{{ row.filename }}" class="button right">Öppna</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Inget räkenskapsår överlappar den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

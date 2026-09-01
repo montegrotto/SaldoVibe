@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Ångra betalning – SaldoVibe{% endblock %}
+{% block page_title %}Ångra betalning{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Tillbaka
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-counterclockwise me-2"></i>Ångra betalning</h6>
+      </div>
+      <div class="card-body">
+        <p>
+          En korrigeringsverifikation kommer att skapas som vänder verifikation
+          <strong>{{ payment_transaction.voucher_series }}{{ payment_transaction.voucher_number }}</strong>
+          ({{ payment_transaction.date }}, {{ payment_transaction.description }}).
+          Originalverifikationen ändras eller tas inte bort.
+        </p>
+
+        {% for bank_transaction in bank_transactions %}
+          <div class="alert alert-warning" role="alert">
+            {% if bank_transactions|length > 1 %}
+            Verifikationen bokför en intern överföring och är kopplad till flera banktransaktioner.
+            {% endif %}
+            Betalningen kommer från en banktransaktion ({{ bank_transaction.date }}, {{ bank_transaction.description }},
+            {{ bank_transaction.amount|floatformat:"2g" }} kr). Att ångra släpper banktransaktionen fri för ny
+            bokföring.
+          </div>
+        {% endfor %}
+
+        {% if affected|length > 1 %}
+          <div class="alert alert-danger" role="alert">
+            Denna verifikation reglerar {{ affected|length }} poster. Att ångra betalningen påverkar alla dem
+            samtidigt.
+          </div>
+        {% endif %}
+
+        <h6 class="fw-semibold small text-muted mb-2">Poster som påverkas</h6>
+        <ul class="list-group list-group-flush mb-3">
+          {% for item in affected %}
+          <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+            <span>
+              <span class="badge bg-secondary me-1">{{ item.label }}</span>
+              {% if item.detail_url %}<a href="{{ item.detail_url }}">{{ item.object }}</a>{% else %}{{ item.object }}{% endif %}
+            </span>
+          </li>
+          {% empty %}
+          <li class="list-group-item px-0 text-muted">Inga poster hittades för denna verifikation.</li>
+          {% endfor %}
+        </ul>
+
+        <form method="post" action="{% url 'banking:payment_undo' payment_transaction.pk %}">
+          {% csrf_token %}
+          {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra betalning
+          </button>
+          <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Avbryt</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

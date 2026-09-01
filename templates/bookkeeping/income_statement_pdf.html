@@ -1,0 +1,90 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block title %}RESULTATRÄKNING{% endblock %}
+{% block subtitle %}{% if selected_year %}<span class="label">Räkenskapsår</span> <span class="value">{{ selected_year.name }}</span>{% endif %}{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    {% if selected_year %}
+    <tr><td class="label">Period</td><td class="value">{{ selected_year.start_date }} – {{ selected_year.end_date }}</td></tr>
+    {% endif %}
+  </table>
+
+  <div class="section-title">RÖRELSENS INTÄKTER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: {% if has_budget_data %}28mm{% else %}40mm{% endif %};">BELOPP</th>{% if has_budget_data %}<th class="num" style="width: 28mm;">BUDGET</th><th class="num" style="width: 28mm;">DIFF</th>{% endif %}</tr>
+    </thead>
+    <tbody>
+      {% for row in operating_income_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% empty %}
+      <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="empty">Inga rörelseintäkter bokförda.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa rörelsens intäkter</td><td class="num">{{ total_operating_income|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ total_operating_income_budget|floatformat:"2g" }} kr</td><td class="num">{{ total_operating_income_diff|floatformat:"2g" }} kr</td>{% endif %}</tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">RÖRELSENS KOSTNADER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: {% if has_budget_data %}28mm{% else %}40mm{% endif %};">BELOPP</th>{% if has_budget_data %}<th class="num" style="width: 28mm;">BUDGET</th><th class="num" style="width: 28mm;">DIFF</th>{% endif %}</tr>
+    </thead>
+    <tbody>
+      {% for row in raw_material_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% endfor %}
+      {% for row in external_cost_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% endfor %}
+      {% for row in personnel_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% endfor %}
+      {% if not raw_material_rows and not external_cost_rows and not personnel_rows %}
+      <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="empty">Inga rörelsekostnader bokförda.</td></tr>
+      {% endif %}
+      <tr class="subtotal-row"><td colspan="2">Rörelseresultat</td><td class="num">{{ operating_result|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ operating_result_budget|floatformat:"2g" }} kr</td><td class="num">{{ operating_result_diff|floatformat:"2g" }} kr</td>{% endif %}</tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">FINANSIELLA POSTER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: {% if has_budget_data %}28mm{% else %}40mm{% endif %};">BELOPP</th>{% if has_budget_data %}<th class="num" style="width: 28mm;">BUDGET</th><th class="num" style="width: 28mm;">DIFF</th>{% endif %}</tr>
+    </thead>
+    <tbody>
+      {% for row in financial_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% empty %}
+      <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="empty">Inga finansiella poster bokförda.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Resultat efter finansiella poster</td><td class="num">{{ result_after_financial|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ result_after_financial_budget|floatformat:"2g" }} kr</td><td class="num">{{ result_after_financial_diff|floatformat:"2g" }} kr</td>{% endif %}</tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">RESULTAT OCH SKATT</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: {% if has_budget_data %}28mm{% else %}40mm{% endif %};">BELOPP</th>{% if has_budget_data %}<th class="num" style="width: 28mm;">BUDGET</th><th class="num" style="width: 28mm;">DIFF</th>{% endif %}</tr>
+    </thead>
+    <tbody>
+      {% for row in year_end_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% endfor %}
+      {% for row in results_and_tax_rows %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.amount|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ row.budget_amount|floatformat:"2g" }} kr</td><td class="num">{{ row.budget_difference|floatformat:"2g" }} kr</td>{% endif %}</tr>
+      {% endfor %}
+      {% if not results_and_tax_rows and not year_end_rows %}
+      <tr><td colspan="{% if has_budget_data %}5{% else %}3{% endif %}" class="empty">Inga resultat-/skatteposter bokförda.</td></tr>
+      {% endif %}
+      <tr class="subtotal-row"><td colspan="2">Resultat efter skatt</td><td class="num">{{ result_after_taxes|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num">{{ result_after_taxes_budget|floatformat:"2g" }} kr</td><td class="num">{{ result_after_taxes_diff|floatformat:"2g" }} kr</td>{% endif %}</tr>
+    </tbody>
+  </table>
+
+  <table class="report-table">
+    <tbody>
+      <tr class="grand"><td>Årets resultat ({% if annual_result >= 0 %}Vinst{% else %}Förlust{% endif %})</td><td class="num" style="width: {% if has_budget_data %}28mm{% else %}40mm{% endif %};">{{ annual_result|floatformat:"2g" }} kr</td>{% if has_budget_data %}<td class="num" style="width: 28mm;">Budget {{ annual_result_budget|floatformat:"2g" }} kr</td><td class="num" style="width: 28mm;">Diff {{ annual_result_diff|floatformat:"2g" }} kr</td>{% endif %}</tr>
+    </tbody>
+  </table>
+{% endblock %}

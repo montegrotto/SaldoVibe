@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Bank- och skattekontotransaktioner – SaldoVibe{% endblock %}
+{% block page_title %}Bank- och skattekontotransaktioner{% endblock %}
+{% block nav_banking_transactions %}active{% endblock %}
+
+{% block content %}
+<style>
+  .quick-book-btn {
+    min-width: 112px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    text-align: left;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
+
+  .btn-quick-positive {
+    color: #fff;
+    background-color: #d97706;
+    border-color: #d97706;
+  }
+
+  .btn-quick-positive:hover,
+  .btn-quick-positive:focus,
+  .btn-quick-positive:active,
+  .btn-quick-positive.show {
+    color: #fff;
+    background-color: #b45309;
+    border-color: #b45309;
+  }
+
+  /* Full booking-button row only from md up; on mobile the table scrolls
+     and the column shrinks to its content instead. */
+  @media (min-width: 768px) {
+    .booking-col {
+      min-width: 360px;
+    }
+  }
+</style>
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <h6 class="mb-0">Bank- och skattekontotransaktioner</h6>
+  <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#bankManualModal">
+    <i class="bi bi-plus-circle me-1"></i>Lägg till manuellt
+  </a>
+  <a href="#" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bankImportModal">
+    <i class="bi bi-upload me-1"></i>Importera transaktioner
+  </a>
+  <a href="{% url 'banking:account_list' %}{% if selected_bank_account_id %}?return_to={{ selected_bank_account_id }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-bank me-1"></i>Hantera bankkällor
+  </a>
+</div>
+
+{% if bank_accounts %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-center">
+      <div class="col-lg-4">
+        <div class="small text-muted">Aktuell källa</div>
+        {% if selected_bank_account %}
+        <div class="fw-semibold">{{ selected_bank_account.name }}</div>
+        <div class="small text-muted">
+          {{ selected_bank_account.get_account_type_display }}
+          {% if selected_bank_account.account_number %}
+          · {{ selected_bank_account.account_number }}
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted">Ingen aktiv källa vald.</div>
+        {% endif %}
+      </div>
+      {% if selected_bank_account %}
+      <div class="col-lg-3">
+        <div class="small text-muted">Bokfört saldo</div>
+        <div class="fw-semibold">
+          {% if selected_bank_account_balance is not None %}
+          {{ selected_bank_account_balance|floatformat:'2g' }} kr
+          {% else %}
+          &mdash;
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="col-lg-5">
+        <form method="get" class="d-flex gap-2 align-items-center justify-content-lg-end">
+          <label class="small text-muted mb-0" for="bank-account-selector">Byt källa</label>
+          <select id="bank-account-selector" name="bank_account" class="form-select form-select-sm" style="max-width: 340px" onchange="this.form.submit()">
+            {% for bank_account in bank_accounts %}
+            <option value="{{ bank_account.pk }}" {% if selected_bank_account_id == bank_account.pk|stringformat:'s' %}selected{% endif %}>{{ bank_account.name }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if selected_bank_account %}
+<div class="small text-muted mb-3">
+  Visar transaktioner för: <strong>{{ selected_bank_account.name }}</strong>
+</div>
+{% endif %}
+
+<div class="modal fade" id="bankManualModal" tabindex="-1" aria-labelledby="bankManualModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form method="post" action="{% url 'banking:create_manual_transaction' %}" class="row g-0">
+        {% csrf_token %}
+        <input type="hidden" name="bank_account" value="{{ selected_bank_account_id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bankManualModalLabel"><i class="bi bi-plus-circle me-2"></i>Ny manuell konto-transaktion</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Stäng"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Datum</label>
+              {{ manual_form.date }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Belopp</label>
+              {{ manual_form.amount }}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Text</label>
+              {{ manual_form.description }}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Avbryt</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-save me-1"></i>Spara transaktion
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if transaction_rows %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Datum</th>
+            <th class="d-none d-md-table-cell">Källa</th>
+            <th>Text</th>
+            <th class="text-end">Belopp</th>
+            <th class="booking-col">Bokföring</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in transaction_rows %}
+          {% with tx=row.tx book_form=row.book_form %}
+          <tr>
+            <td class="ps-3">{{ tx.date }}</td>
+            <td class="d-none d-md-table-cell">{{ tx.bank_account.name }}</td>
+            <td>{{ tx.description }}</td>
+            <td class="text-end {% if tx.amount < 0 %}text-danger{% else %}text-success{% endif %}">{{ tx.amount|floatformat:"2g" }}</td>
+            <td>
+              {% if tx.is_booked %}
+                <span class="badge bg-success">Bokförd</span>
+                {% if tx.booked_transaction %}
+                <a href="{% url 'bookkeeping:transaction_detail' tx.booked_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary btn-sm ms-2">
+                  <i class="bi bi-eye me-1"></i>Visa verifikation
+                </a>
+                {% endif %}
+              {% else %}
+                <div class="d-flex gap-2 align-items-start">
+                  {% if row.quick_suggestion %}
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Snabbbokföring">
+                    <form method="post" action="{% url 'banking:quick_book_transaction' tx.pk %}" class="d-inline">
+                      {% csrf_token %}
+                      <button
+                        type="submit"
+                        class="btn btn-quick-positive btn-sm quick-book-btn"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="Förslag: {{ row.quick_suggestion.rule_label }} → {{ row.quick_suggestion.label }}"
+                      >
+                        <i class="bi bi-lightning-charge-fill me-1"></i>Bokför
+                      </button>
+                    </form>
+                    <button type="button" class="btn btn-quick-positive btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                      <span class="visually-hidden">Välj bokföringsmetod</span>
+                    </button>
+                    <ul class="dropdown-menu">
+                      <li class="px-2 py-2">
+                        <a class="btn btn-primary btn-sm quick-book-btn manual-book-action" href="{% url 'banking:book_transaction' tx.pk %}">
+                          <i class="bi bi-journal-check me-1"></i>Bokför
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                  {% else %}
+                  <a href="{% url 'banking:book_transaction' tx.pk %}" class="btn btn-primary btn-sm quick-book-btn manual-book-action">
+                    <i class="bi bi-journal-check me-1"></i>Bokför
+                  </a>
+                  {% endif %}
+                  <form method="post" action="{% url 'banking:delete_transaction' tx.pk %}" onsubmit="return confirm('Ta bort denna obokförda transaktion?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link text-danger p-0 px-1" title="Ta bort transaktion" aria-label="Ta bort transaktion">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-3 text-muted">Inga importerade konto-transaktioner ännu.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal fade" id="bankImportModal" tabindex="-1" aria-labelledby="bankImportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form id="bank-import-form" method="post" enctype="multipart/form-data" action="{% url 'banking:import_transactions' %}" class="row g-0">
+        {% csrf_token %}
+        <input type="hidden" name="bank_account" value="{{ selected_bank_account_id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bankImportModalLabel"><i class="bi bi-download me-2"></i>Importera konto-transaktioner</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Stäng"></button>
+        </div>
+        <div class="modal-body">
+          {{ import_form.csv_file }}
+          <span class="text-muted small">Stöd: Skatteverket (skattekonto), Swedbank, Nordea, SEB, Handelsbanken, Danske Bank, Länsförsäkringar, Skandia, ICA Banken, Avanza, Nordnet, Svea, Resurs, Marginalen, Collector samt generisk CSV.</span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Avbryt</button>
+          <button id="bank-import-submit" type="button" class="btn btn-primary" onclick="this.form.elements.csv_file.click()">
+            <span class="import-submit-default"><i class="bi bi-upload me-1"></i>Välj CSV-fil och importera</span>
+            <span class="import-submit-loading d-none"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Inläsning pågår...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+  (function () {
+    const importForm = document.getElementById("bank-import-form");
+    const importSubmit = document.getElementById("bank-import-submit");
+
+    const tooltipTriggers = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggers.forEach((el) => new bootstrap.Tooltip(el));
+
+    const splitQuickBookControl = document.querySelector('[aria-label="Snabbbokföring"]');
+    const manualButtons = document.querySelectorAll('.manual-book-action');
+    if (splitQuickBookControl && manualButtons.length) {
+      const targetWidth = Math.ceil(splitQuickBookControl.getBoundingClientRect().width);
+      manualButtons.forEach((button) => {
+        button.style.width = `${targetWidth}px`;
+      });
+    }
+
+    if (!importForm || !importSubmit) {
+      return;
+    }
+
+    importForm.addEventListener("submit", function () {
+      const defaultLabel = importSubmit.querySelector(".import-submit-default");
+      const loadingLabel = importSubmit.querySelector(".import-submit-loading");
+      importSubmit.disabled = true;
+      if (defaultLabel) {
+        defaultLabel.classList.add("d-none");
+      }
+      if (loadingLabel) {
+        loadingLabel.classList.remove("d-none");
+      }
+    });
+  })();
+</script>
+{% endblock %}

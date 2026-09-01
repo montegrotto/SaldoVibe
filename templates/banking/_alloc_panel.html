@@ -1,0 +1,98 @@
+{# Allocation panel for booking a bank transaction against invoices/expenses/payroll runs (mixable). #}
+{# Expects: panel_mode, panel_prefix, panel_label, panel_option_groups, panel_has_options, #}
+{#          panel_allocation_rows, panel_extra_rows, panel_placeholder, panel_empty_text, #}
+{#          booking_mode, counter_account_choices #}
+<div class="booking-mode-panel mb-4 alloc-panel" data-booking-mode-panel="{{ panel_mode }}" {% if booking_mode != panel_mode %}hidden{% endif %}>
+  <div class="border rounded p-3 bg-light">
+    <label class="form-label fw-semibold">{{ panel_label }}</label>
+    {% if panel_has_options %}
+    <table class="table table-sm align-middle mb-2">
+      <thead>
+        <tr>
+          <th>Post</th>
+          <th class="text-end" style="width:22%">Belopp (kr)</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody class="alloc-body">
+        {% for row in panel_allocation_rows %}
+        <tr class="alloc-row">
+          <td>
+            <select name="{{ panel_prefix }}_alloc_invoice[]" class="form-select alloc-invoice-select">
+              <option value="">{{ panel_placeholder }}</option>
+              {% for group in panel_option_groups %}
+              <optgroup label="{{ group.label }}">
+                {% for option in group.options %}
+                <option value="{{ option.key }}" data-remaining="{{ option.remaining }}" data-direction="{{ option.direction }}" {% if option.key == row.invoice_id %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input type="text" name="{{ panel_prefix }}_alloc_amount[]" class="form-control text-end alloc-amount-input" value="{{ row.amount }}"></td>
+          <td class="text-center"><button type="button" class="btn btn-link text-danger p-0 alloc-remove-btn"><i class="bi bi-trash"></i></button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <template class="alloc-row-template">
+      <tr class="alloc-row">
+        <td>
+          <select name="{{ panel_prefix }}_alloc_invoice[]" class="form-select alloc-invoice-select">
+            <option value="">{{ panel_placeholder }}</option>
+            {% for group in panel_option_groups %}
+            <optgroup label="{{ group.label }}">
+              {% for option in group.options %}
+              <option value="{{ option.key }}" data-remaining="{{ option.remaining }}" data-direction="{{ option.direction }}">{{ option.label }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </td>
+        <td><input type="text" name="{{ panel_prefix }}_alloc_amount[]" class="form-control text-end alloc-amount-input" value=""></td>
+        <td class="text-center"><button type="button" class="btn btn-link text-danger p-0 alloc-remove-btn"><i class="bi bi-trash"></i></button></td>
+      </tr>
+    </template>
+    <table class="table table-sm align-middle mb-2">
+      <tbody class="extra-body">
+        {% for row in panel_extra_rows %}
+        <tr class="extra-row">
+          <td>
+            <select name="{{ panel_prefix }}_extra_account[]" class="form-select extra-account-select">
+              <option value="">Välj konto</option>
+              {% for account in counter_account_choices %}
+              <option value="{{ account.pk|stringformat:'d' }}" {% if row.account_id == account.pk|stringformat:'s' %}selected{% endif %}>{{ account.number }} {{ account.name }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td style="width:22%"><input type="text" name="{{ panel_prefix }}_extra_amount[]" class="form-control text-end extra-amount-input" value="{{ row.amount }}"></td>
+          <td class="text-center" style="width:40px"><button type="button" class="btn btn-link text-danger p-0 extra-remove-btn"><i class="bi bi-trash"></i></button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <template class="extra-row-template">
+      <tr class="extra-row">
+        <td>
+          <select name="{{ panel_prefix }}_extra_account[]" class="form-select extra-account-select">
+            <option value="">Välj konto</option>
+            {% for account in counter_account_choices %}
+            <option value="{{ account.pk|stringformat:'d' }}">{{ account.number }} {{ account.name }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td style="width:22%"><input type="text" name="{{ panel_prefix }}_extra_amount[]" class="form-control text-end extra-amount-input" value=""></td>
+        <td class="text-center" style="width:40px"><button type="button" class="btn btn-link text-danger p-0 extra-remove-btn"><i class="bi bi-trash"></i></button></td>
+      </tr>
+    </template>
+    <div class="d-flex gap-2 align-items-center">
+      <button type="button" class="btn btn-outline-secondary btn-sm alloc-add-btn"><i class="bi bi-plus-lg me-1"></i>Lägg till rad</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm extra-add-btn"><i class="bi bi-plus-lg me-1"></i>Lägg till övrig rad</button>
+      <span class="ms-auto small text-muted">Kvar att fördela: <span class="alloc-unallocated">0,00</span> kr</span>
+    </div>
+    <div class="form-text">Rader kan blanda kundfakturor, leverantörsfakturor, utlägg och löner — även för nettning (t.ex. leverantörsfaktura minus kundfaktura). Ange lägre belopp än återstående för delbetalning. Överskjutande belopp bokas på övriga rader; negativt belopp på en övrig rad bokar motsatt sida (t.ex. avdragen avgift). Summan måste bli hela transaktionsbeloppet.</div>
+    {% else %}
+    <div class="form-text text-muted">{{ panel_empty_text }}</div>
+    {% endif %}
+  </div>
+</div>

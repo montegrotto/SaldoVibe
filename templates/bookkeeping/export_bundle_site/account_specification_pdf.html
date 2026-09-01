@@ -1,0 +1,47 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block title %}KONTOSPECIFIKATION{% endblock %}
+{% block subtitle %}<span class="label">Konto</span> <span class="value">{{ account.number }} {{ account.name }}</span>{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    <tr><td class="label">Konto</td><td class="value">{{ account.number }} {{ account.name }}</td></tr>
+    <tr><td class="label">Period</td><td class="value">{{ start_date|date:"Y-m-d" }} – {{ end_date|date:"Y-m-d" }}</td></tr>
+  </table>
+
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th style="width: 22mm;">DATUM</th>
+        <th style="width: 20mm;">VERIFIKAT</th>
+        <th>BESKRIVNING</th>
+        <th class="num" style="width: 24mm;">DEBET</th>
+        <th class="num" style="width: 24mm;">KREDIT</th>
+        <th class="num" style="width: 26mm;">SALDO</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="subtotal-row">
+        <td colspan="5">Ingående saldo</td>
+        <td class="num">{{ opening_balance|floatformat:"2g" }} kr</td>
+      </tr>
+      {% for posting in postings %}
+      <tr>
+        <td>{{ posting.date|date:"Y-m-d" }}</td>
+        <td>{{ posting.reference }}</td>
+        <td>{{ posting.description }}</td>
+        <td class="num">{% if posting.debit %}{{ posting.debit|floatformat:"2g" }} kr{% endif %}</td>
+        <td class="num">{% if posting.credit %}{{ posting.credit|floatformat:"2g" }} kr{% endif %}</td>
+        <td class="num">{{ posting.balance|floatformat:"2g" }} kr</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">Inga transaktioner under perioden.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row">
+        <td colspan="5">Utgående saldo</td>
+        <td class="num">{{ closing_balance|floatformat:"2g" }} kr</td>
+      </tr>
+    </tbody>
+  </table>
+{% endblock %}

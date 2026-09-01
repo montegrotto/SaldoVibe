@@ -1,0 +1,26 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Rapporter</h3>
+<p class="subinfo">
+    Regenererade PDF:er för moms, AGI och lönebesked – bara för perioder som redan stängts eller
+    rapporterats inom den exporterade perioden
+</p>
+<div class="box">
+    <table>
+        <tbody>
+            <tr>
+                <td><strong>Momsdeklarationer</strong></td>
+                <td><a href="moms/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>AGI-underlag</strong></td>
+                <td><a href="agi/index.html" class="button right">Visa</a></td>
+            </tr>
+            <tr>
+                <td><strong>Lönebesked</strong></td>
+                <td><a href="lonebesked/index.html" class="button right">Visa</a></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

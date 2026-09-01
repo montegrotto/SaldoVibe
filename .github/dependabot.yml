@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-deps:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Deliberately on Django 5.2 LTS (EOL April 2028)
+      - dependency-name: "django"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      frontend-deps:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Select2 4.1 does not support jQuery 4
+      - dependency-name: "jquery"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pinned to Python 3.13: rfc3161ng and xhtml2pdf don't support 3.14
+      - dependency-name: "python"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        update-types: ["major", "minor", "patch"]

@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title_text }} – SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_verification_templates %}active{% endblock %}
+{% load static %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .entry-row td { vertical-align: middle; }
+  .delete-row-btn { cursor: pointer; }
+  .select2-container--default .select2-selection--single { border: 1px solid #ced4da; height: calc(1.5em + 0.75rem + 2px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0" style="max-width:1100px;">
+  <div class="card-body p-4">
+    <h5 class="mb-4">{{ page_title_text }}</h5>
+
+    <form method="post" id="template-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      {% if formset.non_form_errors %}
+        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+      {% endif %}
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.name.label }}</label>
+          {{ form.name }}
+          {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.description.label }}</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.base_amount_label.label }}</label>
+          {{ form.base_amount_label }}
+          <div class="form-text">{{ form.base_amount_label.help_text }}</div>
+          {% if form.base_amount_label.errors %}<div class="text-danger small">{{ form.base_amount_label.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <div class="form-check">
+            {{ form.is_active }}
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+          </div>
+          {% if form.is_active.errors %}<div class="text-danger small">{{ form.is_active.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      {{ formset.management_form }}
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="entries-table">
+          <thead class="table-light">
+            <tr>
+              <th style="width:32%">Konto</th>
+              <th style="width:10%" class="text-center">Debet</th>
+              <th style="width:10%" class="text-center">Kredit</th>
+              <th style="width:24%">Beloppsregel</th>
+              <th style="width:14%" class="text-center">Procent</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody id="entries-body">
+            {% for entry_form in formset %}
+            <tr class="entry-row">
+              <td>
+                {{ entry_form.id }}
+                {{ entry_form.account }}
+                {% if entry_form.account.errors %}<div class="text-danger small">{{ entry_form.account.errors.0 }}</div>{% endif %}
+              </td>
+              <td class="text-center">
+                <div class="form-check d-inline-flex justify-content-center">
+                  {{ entry_form.is_debit }}
+                </div>
+                {% if entry_form.is_debit.errors %}<div class="text-danger small">{{ entry_form.is_debit.errors.0 }}</div>{% endif %}
+              </td>
+              <td class="text-center">
+                <div class="form-check d-inline-flex justify-content-center">
+                  {{ entry_form.is_credit }}
+                </div>
+                {% if entry_form.is_credit.errors %}<div class="text-danger small">{{ entry_form.is_credit.errors.0 }}</div>{% endif %}
+              </td>
+              <td>
+                {{ entry_form.amount_rule }}
+                {% if entry_form.amount_rule.errors %}<div class="text-danger small">{{ entry_form.amount_rule.errors.0 }}</div>{% endif %}
+              </td>
+              <td>
+                <div class="input-group input-group-sm">
+                  {{ entry_form.amount_percent }}
+                  <span class="input-group-text">%</span>
+                </div>
+                {% if entry_form.amount_percent.errors %}<div class="text-danger small">{{ entry_form.amount_percent.errors.0 }}</div>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if entry_form.DELETE %}
+                  <span class="delete-row-btn text-danger" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </span>
+                  <div style="display:none">{{ entry_form.DELETE }}</div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <template id="entry-row-template">
+        <tr class="entry-row">
+          <td>
+            {{ formset.empty_form.id }}
+            {{ formset.empty_form.account }}
+          </td>
+          <td class="text-center">{{ formset.empty_form.is_debit }}</td>
+          <td class="text-center">{{ formset.empty_form.is_credit }}</td>
+          <td>{{ formset.empty_form.amount_rule }}</td>
+          <td>
+            <div class="input-group input-group-sm">
+              {{ formset.empty_form.amount_percent }}
+              <span class="input-group-text">%</span>
+            </div>
+          </td>
+          <td class="text-center">
+            {% if formset.empty_form.DELETE %}
+              <span class="delete-row-btn text-danger" title="Ta bort rad">
+                <i class="bi bi-trash"></i>
+              </span>
+              <div style="display:none">{{ formset.empty_form.DELETE }}</div>
+            {% endif %}
+          </td>
+        </tr>
+      </template>
+
+      <div class="d-flex gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="add-row-btn">
+          <i class="bi bi-plus-lg me-1"></i>Lägg till rad
+        </button>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-save me-2"></i>{{ submit_label }}
+        </button>
+        <a href="{% url 'bookkeeping:verification_template_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script>
+(function () {
+  const MIN_ROWS = 2;
+  const totalForms = document.getElementById('id_entries-TOTAL_FORMS');
+  const body = document.getElementById('entries-body');
+  const rowTemplate = document.getElementById('entry-row-template');
+
+  function initSelect2(scope = document) {
+    $(scope).find('select[id$="-account"]').each(function () {
+      const $select = $(this);
+      if ($select.hasClass('select2-hidden-accessible')) {
+        return;
+      }
+      window.SaldoVibe.select2Utils.initAccountSelect($select);
+      window.SaldoVibe.select2Utils.bindReopenOnFocus($select);
+    });
+  }
+
+  function syncSideChoice(row, changed) {
+    const debitCheckbox = row.querySelector('input[id$="-is_debit"]');
+    const creditCheckbox = row.querySelector('input[id$="-is_credit"]');
+    if (!debitCheckbox || !creditCheckbox) {
+      return;
+    }
+
+    if (changed === 'debit' && debitCheckbox.checked) {
+      creditCheckbox.checked = false;
+    }
+    if (changed === 'credit' && creditCheckbox.checked) {
+      debitCheckbox.checked = false;
+    }
+  }
+
+  function syncAmountRule(row) {
+    const rule = row.querySelector('select[id$="-amount_rule"]');
+    const percent = row.querySelector('input[id$="-amount_percent"]');
+    if (!rule || !percent) {
+      return;
+    }
+
+    const usesPercent = rule.value === 'percent';
+    percent.disabled = !usesPercent;
+    if (!usesPercent) {
+      percent.value = '';
+    }
+  }
+
+  function activeRowCount() {
+    let count = 0;
+    body.querySelectorAll('.entry-row').forEach(row => {
+      const del = row.querySelector('input[id$="-DELETE"]');
+      if (!(del && del.checked)) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function syncDeleteButtons() {
+    const canDelete = activeRowCount() > MIN_ROWS;
+    body.querySelectorAll('.entry-row .delete-row-btn').forEach(btn => {
+      btn.style.pointerEvents = canDelete ? '' : 'none';
+      btn.style.opacity = canDelete ? '' : '0.35';
+      btn.title = canDelete ? 'Ta bort rad' : 'Minst två rader krävs';
+    });
+  }
+
+  document.getElementById('add-row-btn').addEventListener('click', function () {
+    const idx = parseInt(totalForms.value, 10);
+    if (!rowTemplate || !rowTemplate.content.firstElementChild) {
+      return;
+    }
+
+    const newRow = rowTemplate.content.firstElementChild.cloneNode(true);
+    newRow.querySelectorAll('input, select').forEach(el => {
+      el.name = el.name.replace('__prefix__', String(idx));
+      el.id = el.id.replace('__prefix__', String(idx));
+      if (el.type !== 'hidden') {
+        el.value = '';
+      }
+      if (el.type === 'checkbox') {
+        el.checked = false;
+      }
+    });
+
+    body.appendChild(newRow);
+    totalForms.value = idx + 1;
+    initSelect2(newRow);
+    syncAmountRule(newRow);
+    syncDeleteButtons();
+  });
+
+  body.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-row-btn');
+    if (!btn) {
+      return;
+    }
+    if (activeRowCount() <= MIN_ROWS) {
+      return;
+    }
+
+    const row = btn.closest('.entry-row');
+    const checkbox = row.querySelector('input[id$="-DELETE"]');
+    if (checkbox) {
+      checkbox.checked = true;
+      row.style.display = 'none';
+    } else {
+      row.remove();
+      totalForms.value = Math.max(parseInt(totalForms.value, 10) - 1, 0);
+    }
+    syncDeleteButtons();
+  });
+
+  body.addEventListener('change', function (event) {
+    const row = event.target.closest('.entry-row');
+    if (!row) {
+      return;
+    }
+    if (event.target.matches('input[id$="-is_debit"]')) {
+      syncSideChoice(row, 'debit');
+    }
+    if (event.target.matches('input[id$="-is_credit"]')) {
+      syncSideChoice(row, 'credit');
+    }
+    if (event.target.matches('select[id$="-amount_rule"]')) {
+      syncAmountRule(row);
+    }
+  });
+
+  body.querySelectorAll('.entry-row').forEach(row => {
+    syncSideChoice(row);
+    syncAmountRule(row);
+  });
+  initSelect2(document);
+  syncDeleteButtons();
+})();
+</script>
+{% endblock %}

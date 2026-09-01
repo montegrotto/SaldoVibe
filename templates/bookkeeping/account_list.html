@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Kontoplan – SaldoVibe{% endblock %}
+{% block page_title %}Kontoplan{% endblock %}
+{% block nav_accounts %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <h5 class="mb-0">Kontoplan</h5>
+  <span class="ms-3 badge bg-secondary">{{ accounts|length }} konton</span>
+  <a href="{% url 'bookkeeping:account_create' %}" class="btn btn-primary btn-sm ms-auto">Nytt konto</a>
+</div>
+
+<div class="row mb-3">
+  <div class="col-12 col-md-6 col-lg-4">
+    <label for="account-quick-filter" class="form-label mb-1">Snabbfilter</label>
+    <input
+      type="text"
+      id="account-quick-filter"
+      class="form-control"
+      placeholder="Filtrera på kontonummer eller namn..."
+      autocomplete="off"
+    >
+    <small id="account-filter-result" class="text-muted"></small>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light sticky-top">
+        <tr>
+          <th style="width:100px;">Nummer</th>
+          <th>Kontonamn</th>
+          <th style="width:300px;">Kontoklass</th>
+          <th style="width:100px;">Momsfält</th>
+          <th style="width:100px;">SRU-kod</th>
+          <th class="text-center" style="width:80px;">Aktiv</th>
+          <th class="text-end" style="width:120px;">Åtgärd</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr data-account-number="{{ account.number|lower }}" data-account-name="{{ account.name|lower }}">
+          <td class="fw-semibold">{{ account.number }}</td>
+          <td>{{ account.name }}</td>
+          <td>
+            <span class="badge
+              {% if account.account_class == '1' %}bg-primary
+              {% elif account.account_class == '2' %}bg-secondary
+              {% elif account.account_class == '3' %}bg-success
+              {% elif account.account_class in '4567' %}bg-danger
+              {% else %}bg-dark{% endif %}
+              bg-opacity-75 text-white">
+              {{ account.get_account_class_display }}
+            </span>
+          </td>
+          <td>
+            {% if account.vat_field_code %}
+            <span class="badge text-bg-info">{{ account.vat_field_code }}</span>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if account.sru_code %}
+            <span class="badge text-bg-secondary">{{ account.sru_code }}</span>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if account.is_active %}
+              <i class="bi bi-check-circle text-success"></i>
+            {% else %}
+              <i class="bi bi-x-circle text-muted"></i>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'bookkeeping:account_update' account.pk %}">Redigera</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const input = document.getElementById("account-quick-filter");
+    const rows = Array.from(document.querySelectorAll("tbody tr[data-account-number]"));
+    const result = document.getElementById("account-filter-result");
+
+    if (!input || rows.length === 0) {
+      return;
+    }
+
+    const total = rows.length;
+
+    function updateResult(visibleCount, query) {
+      if (!result) {
+        return;
+      }
+
+      if (!query) {
+        result.textContent = "";
+        return;
+      }
+
+      result.textContent = visibleCount + " av " + total + " konton visas";
+    }
+
+    function applyFilter() {
+      const query = input.value.trim().toLowerCase();
+      let visibleCount = 0;
+
+      rows.forEach(function (row) {
+        const number = row.dataset.accountNumber || "";
+        const name = row.dataset.accountName || "";
+        const matches = !query || number.includes(query) || name.includes(query);
+        row.style.display = matches ? "" : "none";
+
+        if (matches) {
+          visibleCount += 1;
+        }
+      });
+
+      updateResult(visibleCount, query);
+    }
+
+    input.addEventListener("input", applyFilter);
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>SaldoVibe-export: {{ company.name }}</title>
+    <link href="{{ css_path }}" rel="stylesheet" type="text/css">
+</head>
+<body>
+    <nav class="top">
+        <div>
+            <h1>SaldoVibe-export</h1>
+            <h2>{{ company.name }}</h2>
+        </div>
+    </nav>
+    <main>
+        {% if back_href %}<a href="{{ back_href }}" class="button right">Tillbaka</a>{% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

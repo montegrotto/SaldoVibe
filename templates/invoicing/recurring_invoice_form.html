@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title_text }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_recurring_invoices %}active{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+
+  .invoice-line-row .delete-row-btn {
+    cursor: pointer;
+  }
+
+  .invoice-line-row .form-select,
+  .invoice-line-row .form-control {
+    min-width: 0;
+  }
+
+  .invoice-text-row {
+    background-color: var(--bs-secondary-bg, #f8f9fa);
+  }
+
+  .invoice-text-row .form-control {
+    font-style: italic;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'invoicing:recurring_invoice_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-list-ul me-1"></i>Till listan
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-12 col-xl-9">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-repeat me-2"></i>{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form id="recurring-invoice-form" method="post" class="row g-2">
+          {% csrf_token %}
+          {{ line_formset.management_form }}
+          <div class="col-12 col-md-6">
+            <label class="form-label">Mallnamn</label>
+            {{ form.name }}
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+              <label class="form-label mb-0">Kund</label>
+              <a href="{% url 'invoicing:customer_create' %}" class="btn btn-link btn-sm p-0 text-decoration-none">
+                <i class="bi bi-plus-circle me-1"></i>Ny kund
+              </a>
+            </div>
+            {{ form.customer }}
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Intervall</label>
+            {{ form.interval }}
+          </div>
+          <div class="col-12 col-md-2" id="custom-interval-months-field">
+            <label class="form-label">Eget antal månader</label>
+            {{ form.custom_interval_months }}
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">Startdatum</label>
+            {{ form.start_date }}
+          </div>
+          <div class="col-12 col-md-3 d-flex align-items-end">
+            <div class="form-check">
+              {{ form.anchor_to_month_end }}
+              <label class="form-check-label" for="{{ form.anchor_to_month_end.id_for_label }}">Alltid sista dagen i månaden</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">Slutdatum <span class="text-muted small">(valfritt)</span></label>
+            {{ form.end_date }}
+          </div>
+          <div class="col-12 col-md-3 d-flex align-items-end">
+            <div class="form-check">
+              {{ form.is_active }}
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Aktiv</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Förfallodatum</label>
+            {{ form.due_date_mode }}
+          </div>
+          <div class="col-12 col-md-4" id="due-date-days-field">
+            <label class="form-label">Betalningsvillkor (dagar)</label>
+            {{ form.payment_terms_days }}
+          </div>
+          <div class="col-12 col-md-4" id="due-date-day-of-month-field">
+            <label class="form-label">Förfaller dag i månaden</label>
+            {{ form.due_date_day_choice }}
+            {% if form.due_date_day_choice.errors %}
+            <div class="text-danger small">{{ form.due_date_day_choice.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Er referens <span class="text-muted small">(valfritt)</span></label>
+            {{ form.reference }}
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Period som avses</label>
+            {{ form.period_reference }}
+            <div class="form-text">
+              Styr vilken period som visas i fakturan, t.ex. "Kommande period" för hyra som faktureras i förskott, eller "Föregående period" för arbete som faktureras i efterskott.
+            </div>
+          </div>
+
+          <div class="col-12 mt-2">
+            <label class="form-label">Fakturarader</label>
+            <div class="form-text mb-2">
+              Använd platshållaren <code>{period}</code> i en textrad för att automatiskt visa vilken period fakturan avser, t.ex. "Period: {period}".
+            </div>
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:20%">Artikel</th>
+                    <th>Beskrivning</th>
+                    <th style="width:8%" class="text-end">Antal</th>
+                    <th style="width:8%">Enhet</th>
+                    <th style="width:11%" class="text-end">Á-pris</th>
+                    <th style="width:10%" class="text-end">Moms</th>
+                    <th style="width:11%" class="text-end">Summa</th>
+                    <th style="width:95px"></th>
+                  </tr>
+                </thead>
+                <tbody id="invoice-lines-wrapper">
+                  {% for row in line_formset %}
+                    {% if row.instance.line_type == 'text' %}
+                    <tr class="invoice-line-row invoice-text-row">
+                      <td class="d-none">
+                        {% for hidden in row.hidden_fields %}{{ hidden }}{% endfor %}
+                      </td>
+                      <td colspan="6">{{ row.description }}</td>
+                      <td class="text-center text-nowrap">
+                        <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="d-none">{{ row.sort_order }} {{ row.DELETE }}</div>
+                      </td>
+                    </tr>
+                    {% else %}
+                    <tr class="invoice-line-row">
+                      <td>
+                        {% for hidden in row.hidden_fields %}{{ hidden }}{% endfor %}
+                        {{ row.article }}
+                      </td>
+                      <td>{{ row.description }}</td>
+                      <td>{{ row.quantity }}</td>
+                      <td>{{ row.unit }}</td>
+                      <td>{{ row.unit_price }}</td>
+                      <td class="d-none">{{ row.vat_rate }}</td>
+                      <td class="text-end"><span class="row-vat-amount">0,00</span></td>
+                      <td class="text-end"><span class="row-total-amount">0,00</span></td>
+                      <td class="text-center text-nowrap">
+                        <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="d-none">{{ row.sort_order }} {{ row.DELETE }}</div>
+                      </td>
+                    </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <template id="invoice-line-row-template">
+              <tr class="invoice-line-row">
+                <td>
+                  {% for hidden in line_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                  {{ line_formset.empty_form.article }}
+                </td>
+                <td>{{ line_formset.empty_form.description }}</td>
+                <td>{{ line_formset.empty_form.quantity }}</td>
+                <td>{{ line_formset.empty_form.unit }}</td>
+                <td>{{ line_formset.empty_form.unit_price }}</td>
+                <td class="d-none">{{ line_formset.empty_form.vat_rate }}</td>
+                <td class="text-end"><span class="row-vat-amount">0,00</span></td>
+                <td class="text-end"><span class="row-total-amount">0,00</span></td>
+                <td class="text-center text-nowrap">
+                  <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                  <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                  <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                  <div class="d-none">{{ line_formset.empty_form.sort_order }} {{ line_formset.empty_form.DELETE }}</div>
+                </td>
+              </tr>
+            </template>
+            <template id="invoice-text-row-template">
+              <tr class="invoice-line-row invoice-text-row">
+                <td class="d-none">
+                  {{ line_formset.empty_form.id }}
+                  <input type="hidden" name="lines-__prefix__-line_type" id="id_lines-__prefix__-line_type" value="text">
+                </td>
+                <td colspan="6">
+                  {{ line_formset.empty_form.description }}
+                </td>
+                <td class="text-center text-nowrap">
+                  <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                  <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                  <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                  <div class="d-none">{{ line_formset.empty_form.sort_order }} {{ line_formset.empty_form.DELETE }}</div>
+                </td>
+              </tr>
+            </template>
+            <button type="button" id="add-invoice-line" class="btn btn-outline-secondary btn-sm mt-2">
+              <i class="bi bi-plus-circle me-1"></i>Lägg till rad
+            </button>
+            <button type="button" id="add-invoice-text-line" class="btn btn-outline-secondary btn-sm mt-2">
+              <i class="bi bi-text-left me-1"></i>Lägg till textrad
+            </button>
+          </div>
+
+          <div class="col-12">{% include "partials/form_errors.html" with formset=line_formset %}</div>
+
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-save me-1"></i>{{ submit_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ article_unit_price_map|json_script:"article-unit-price-map" }}
+{{ article_vat_rate_map|json_script:"article-vat-rate-map" }}
+{{ article_meta_map|json_script:"article-meta-map" }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script src="{% static 'js/invoice-lines.js' %}"></script>
+<script>
+  (function () {
+    const wrapper = document.getElementById('invoice-lines-wrapper');
+    const addBtn = document.getElementById('add-invoice-line');
+    const addTextBtn = document.getElementById('add-invoice-text-line');
+    const rowTemplate = document.getElementById('invoice-line-row-template');
+    const textRowTemplate = document.getElementById('invoice-text-row-template');
+    const totalForms = document.getElementById('id_lines-TOTAL_FORMS');
+    const articleUnitPriceMap = JSON.parse(document.getElementById('article-unit-price-map')?.textContent || '{}');
+    const articleVatRateMap = JSON.parse(document.getElementById('article-vat-rate-map')?.textContent || '{}');
+    const articleMetaMap = JSON.parse(document.getElementById('article-meta-map')?.textContent || '{}');
+
+    const startDateInput = document.getElementById('id_start_date');
+    const anchorToMonthEndInput = document.getElementById('id_anchor_to_month_end');
+    const dueDateModeSelect = document.getElementById('id_due_date_mode');
+    const dueDateDaysField = document.getElementById('due-date-days-field');
+    const dueDateDayOfMonthField = document.getElementById('due-date-day-of-month-field');
+    const intervalSelect = document.getElementById('id_interval');
+    const customIntervalMonthsField = document.getElementById('custom-interval-months-field');
+    let lastPromptedStartDate = null;
+
+    function syncIntervalFields() {
+      if (!intervalSelect || !customIntervalMonthsField) {
+        return;
+      }
+      customIntervalMonthsField.classList.toggle('d-none', intervalSelect.value !== 'custom_months');
+    }
+
+    if (intervalSelect) {
+      syncIntervalFields();
+      intervalSelect.addEventListener('change', syncIntervalFields);
+    }
+
+    function syncDueDateModeFields() {
+      if (!dueDateModeSelect) {
+        return;
+      }
+      const isDayOfMonth = dueDateModeSelect.value === 'day_of_month';
+      if (dueDateDaysField) {
+        dueDateDaysField.classList.toggle('d-none', isDayOfMonth);
+      }
+      if (dueDateDayOfMonthField) {
+        dueDateDayOfMonthField.classList.toggle('d-none', !isDayOfMonth);
+      }
+    }
+
+    if (dueDateModeSelect) {
+      syncDueDateModeFields();
+      dueDateModeSelect.addEventListener('change', syncDueDateModeFields);
+    }
+
+    if (startDateInput && anchorToMonthEndInput) {
+      startDateInput.addEventListener('change', function () {
+        const value = startDateInput.value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return;
+        }
+        const day = Number(value.slice(8, 10));
+        if (day < 29) {
+          return;
+        }
+        if (lastPromptedStartDate === value) {
+          return;
+        }
+        lastPromptedStartDate = value;
+        const wantsMonthEnd = window.confirm(
+          'Du har valt dag ' + day + ' i månaden. Alla månader har inte så många dagar.\n\n' +
+          'Ska fakturan alltid genereras på sista dagen i månaden (t.ex. 28/29 februari), ' +
+          'även när månaden har färre dagar än ' + day + '?'
+        );
+        anchorToMonthEndInput.checked = wantsMonthEnd;
+      });
+    }
+
+    if (!wrapper || !addBtn || !rowTemplate || !totalForms) {
+      return;
+    }
+
+    // No summary footer on this form, so no onTotalsChanged callback — that is the
+    // only thing that differed from the one-off invoice form.
+    const {
+      activeRows,
+      appendClonedRow,
+      applyDefaultUnitPriceForRow,
+      initSelect2,
+      moveRow,
+      recalcAllRows,
+      recalcRowTotals,
+      renumberRows,
+      syncDeleteButtons,
+    } = window.SaldoVibe.invoiceLines.create({
+      wrapper: wrapper,
+      totalForms: totalForms,
+      articleUnitPriceMap: articleUnitPriceMap,
+      articleVatRateMap: articleVatRateMap,
+      articleMetaMap: articleMetaMap,
+    });
+
+    initSelect2(document.getElementById('recurring-invoice-form'));
+    renumberRows();
+    syncDeleteButtons();
+    recalcAllRows();
+    addBtn.addEventListener('click', function () {
+      const newRow = appendClonedRow(rowTemplate);
+      newRow.querySelectorAll('input, select, textarea').forEach(function (field) {
+        const fieldName = field.name || '';
+        if (field.tagName === 'SELECT') {
+          field.value = '';
+        } else if (field.type === 'checkbox') {
+          field.checked = false;
+        } else if (field.type !== 'hidden' && /-description$|-unit_price$/.test(fieldName)) {
+          field.value = '';
+        }
+      });
+      recalcRowTotals(newRow);
+    });
+
+    if (addTextBtn && textRowTemplate) {
+      addTextBtn.addEventListener('click', function () {
+        const newRow = appendClonedRow(textRowTemplate);
+        const descriptionInput = newRow.querySelector('input[name$="-description"]');
+        if (descriptionInput) {
+          descriptionInput.placeholder = 'Textrad, t.ex. "Period: {period}"';
+          descriptionInput.focus();
+        }
+      });
+    }
+    wrapper.addEventListener('click', function (event) {
+      const moveUpBtn = event.target.closest('.move-row-up-btn');
+      if (moveUpBtn) {
+        moveRow(moveUpBtn.closest('.invoice-line-row'), 'up');
+        return;
+      }
+      const moveDownBtn = event.target.closest('.move-row-down-btn');
+      if (moveDownBtn) {
+        moveRow(moveDownBtn.closest('.invoice-line-row'), 'down');
+        return;
+      }
+      const deleteBtn = event.target.closest('.delete-row-btn');
+      if (!deleteBtn) {
+        return;
+      }
+      if (activeRows().length <= 1) {
+        return;
+      }
+      const row = deleteBtn.closest('.invoice-line-row');
+      if (!row) {
+        return;
+      }
+      const rowSelects = row.querySelectorAll('select');
+      rowSelects.forEach(function (select) {
+        const $select = window.jQuery ? jQuery(select) : null;
+        if ($select && $select.hasClass('select2-hidden-accessible')) {
+          $select.select2('destroy');
+        }
+      });
+      row.remove();
+      renumberRows();
+      initSelect2(wrapper);
+      syncDeleteButtons();
+      recalcAllRows();
+    });
+
+    wrapper.addEventListener('change', function (event) {
+      if (!event.target.matches('select.invoice-article-select')) {
+        return;
+      }
+      applyDefaultUnitPriceForRow(event.target.closest('.invoice-line-row'));
+    });
+
+    wrapper.addEventListener('input', function (event) {
+      if (!event.target.matches('input[name$="-quantity"], input[name$="-unit_price"]')) {
+        return;
+      }
+      recalcRowTotals(event.target.closest('.invoice-line-row'));
+    });
+
+    if (window.jQuery) {
+      jQuery(wrapper).on('select2:select', 'select.invoice-article-select', function () {
+        applyDefaultUnitPriceForRow(this.closest('.invoice-line-row'));
+      });
+    }
+  })();
+</script>
+{% endblock %}

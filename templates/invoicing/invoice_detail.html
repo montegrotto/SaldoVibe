@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Faktura {{ invoice.invoice_number }} - SaldoVibe{% endblock %}
+{% block page_title %}Faktura {{ invoice.invoice_number }}{% endblock %}
+{% block nav_outgoing_invoices %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Till fakturalista
+  </a>
+</div>
+
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0">
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-file-earmark-text me-2"></i>Fakturadetaljer</h6>
+        {% if invoice.is_credit_invoice %}
+          <span class="badge bg-warning-subtle text-warning-emphasis">Kreditfaktura</span>
+        {% else %}
+          <span class="badge {{ invoice.payment_status_badge.css_class }}">{{ invoice.payment_status_badge.label }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Fakturanummer</div>
+            <div class="fw-semibold">{{ invoice.invoice_number }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">OCR</div>
+            <div>{{ invoice.ocr_code|default:"-" }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Fakturadatum</div>
+            <div>{{ invoice.invoice_date }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Förfallodatum</div>
+            <div>{{ invoice.due_date }}</div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Kund</div>
+            <div class="fw-semibold">{{ invoice.customer.name }}</div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Referens</div>
+            <div>{{ invoice.reference|default:"-" }}</div>
+          </div>
+          <div class="col-12">
+            <div class="small text-muted">Notering</div>
+            <div>{{ invoice.notes|default:"-" }}</div>
+          </div>
+          {% if invoice.recurring_invoice_id %}
+          <div class="col-12">
+            <div class="small text-muted">Återkommande faktura</div>
+            <div>
+              <a href="{% url 'invoicing:recurring_invoice_detail' invoice.recurring_invoice_id %}">{{ invoice.recurring_invoice.name }}</a>
+              {% if invoice.recurring_period_label %} &ndash; period {{ invoice.recurring_period_label }}{% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Beskrivning</th>
+                <th class="text-end">Antal</th>
+                <th class="text-end">A-pris</th>
+                <th class="text-end">Moms %</th>
+                <th class="text-end">Summa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in invoice.lines.all %}
+                {% if line.line_type == "text" %}
+                <tr>
+                  <td colspan="5" class="fst-italic text-muted">{{ line.description }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td>{{ line.description }}</td>
+                  <td class="text-end">{{ line.quantity }}</td>
+                  <td class="text-end">{{ line.unit_price|floatformat:"2g" }} kr</td>
+                  <td class="text-end">{{ line.vat_rate|floatformat:"2g" }}</td>
+                  <td class="text-end">{{ line.line_total_ex_vat|floatformat:"2g" }} kr</td>
+                </tr>
+                {% endif %}
+              {% empty %}
+                <tr><td colspan="5" class="text-muted">Inga fakturarader.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="4" class="text-end">Summa exkl. moms</th>
+                <th class="text-end">{{ invoice.subtotal_ex_vat|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th colspan="4" class="text-end">Moms</th>
+                <th class="text-end">{{ invoice.vat_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th colspan="4" class="text-end">Att betala</th>
+                <th class="text-end">{{ invoice.total_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              {% if invoice.paid_amount > 0 %}
+              <tr>
+                <th colspan="4" class="text-end">Betalt</th>
+                <th class="text-end">{{ invoice.paid_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th colspan="4" class="text-end">Återstår</th>
+                <th class="text-end">{{ invoice.remaining_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              {% endif %}
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-gear me-2"></i>Åtgärder</h6>
+      </div>
+      <div class="card-body">
+        <a href="{% url 'invoicing:invoice_print' invoice.pk %}" class="btn btn-outline-secondary w-100 mb-2" target="_blank" rel="noopener">
+          <i class="bi bi-printer me-1"></i>Skriv ut faktura
+        </a>
+        <a href="{% url 'invoicing:invoice_peppol_xml_download' invoice.pk %}" class="btn btn-outline-secondary w-100 mb-2">
+          <i class="bi bi-filetype-xml me-1"></i>Ladda ner e-faktura (Peppol XML)
+        </a>
+
+        {% if invoice.is_booked and not invoice.is_credit_invoice %}
+          {% if email_configured and customer_has_email %}
+            <form method="post" action="{% url 'invoicing:invoice_email' invoice.pk %}" class="mb-2">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary w-100" onclick="return confirm('Skicka faktura {{ invoice.invoice_number }} till {{ invoice.customer.email }}?');">
+                <i class="bi bi-envelope me-1"></i>Skicka faktura via e-post
+              </button>
+            </form>
+          {% else %}
+            <button type="button" class="btn btn-outline-secondary w-100 mb-2" disabled
+                    title="{% if not customer_has_email %}Kunden saknar e-postadress.{% else %}Utgående e-post är inte konfigurerad för företaget.{% endif %}">
+              <i class="bi bi-envelope me-1"></i>Skicka faktura via e-post
+            </button>
+          {% endif %}
+        {% endif %}
+
+        {% if invoice_overdue %}
+          <form method="post" action="{% url 'invoicing:invoice_reminder_print' invoice.pk %}" target="_blank" class="border rounded p-3 mb-2">
+            {% csrf_token %}
+            <div class="small fw-semibold mb-2"><i class="bi bi-bell me-1"></i>Fakturan förföll {{ invoice.due_date }}</div>
+            {% if invoice.reminders.all|length >= 2 %}
+              <div class="alert alert-warning small py-2 mb-2">
+                <i class="bi bi-exclamation-triangle me-1"></i>Fakturan har redan {{ invoice.reminders.all|length }} påminnelser.
+                Nästa steg är normalt ett inkassovarsel eller inkassokrav snarare än fler påminnelser.
+              </div>
+            {% endif %}
+            <div class="mb-2">
+              <label for="reminder-fee" class="form-label small mb-1">Påminnelseavgift (kr)</label>
+              <input type="number" id="reminder-fee" name="avgift" value="{{ reminder_fee_default|stringformat:".2f" }}" min="0" step="0.01" class="form-control form-control-sm">
+            </div>
+            <div class="mb-2">
+              <label for="reminder-pay-by" class="form-label small mb-1">Betala senast</label>
+              <input type="date" id="reminder-pay-by" name="betala_senast" value="{{ reminder_pay_by_default|date:'Y-m-d' }}" class="form-control form-control-sm">
+            </div>
+            <button type="submit" class="btn btn-outline-secondary w-100" onclick="return confirm('Registrera och skriv ut påminnelse {{ invoice.reminders.all|length|add:1 }} för faktura {{ invoice.invoice_number }}?');">
+              <i class="bi bi-printer me-1"></i>Skriv ut påminnelse {{ invoice.reminders.all|length|add:1 }}
+            </button>
+            {% if email_configured and customer_has_email %}
+            <button type="submit" formaction="{% url 'invoicing:invoice_reminder_email' invoice.pk %}" formtarget="_self" class="btn btn-outline-secondary w-100 mt-2" onclick="return confirm('Registrera påminnelse {{ invoice.reminders.all|length|add:1 }} och skicka den till {{ invoice.customer.email }}?');">
+              <i class="bi bi-envelope me-1"></i>Registrera och skicka via e-post
+            </button>
+            {% endif %}
+          </form>
+        {% endif %}
+
+        {% if invoice.reminders.all %}
+          <div class="border rounded p-3 mb-2">
+            <div class="small fw-semibold mb-2"><i class="bi bi-bell me-1"></i>Skickade påminnelser</div>
+            <table class="table table-sm small mb-0">
+              <thead>
+                <tr class="text-muted"><th>Nr</th><th>Datum</th><th class="text-end">Avgift</th><th>Betala senast</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for reminder in invoice.reminders.all %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ reminder.created_at|date:"Y-m-d" }}</td>
+                  <td class="text-end">{{ reminder.fee|floatformat:"2g" }} kr</td>
+                  <td>{{ reminder.pay_by_date }}</td>
+                  <td class="text-end">
+                    <a href="{% url 'invoicing:invoice_reminder_reprint' invoice.pk reminder.pk %}" target="_blank" rel="noopener" title="Skriv ut igen">
+                      <i class="bi bi-printer"></i>
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+
+        {% if invoice.sent_emails.all %}
+          <div class="border rounded p-3 mb-2">
+            <div class="small fw-semibold mb-2"><i class="bi bi-envelope me-1"></i>Skickade e-postmeddelanden</div>
+            <div class="table-responsive">
+            <table class="table table-sm small mb-0">
+              <thead>
+                <tr class="text-muted"><th>Datum</th><th>Typ</th><th>Mottagare</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {% for sent in invoice.sent_emails.all %}
+                <tr>
+                  <td class="text-nowrap">{{ sent.created_at|date:"Y-m-d" }}</td>
+                  <td>{{ sent.get_purpose_display }}</td>
+                  <td>{{ sent.recipient }}</td>
+                  <td>
+                    {% if sent.status == "sent" %}
+                      <span class="badge bg-success-subtle text-success">Skickad</span>
+                    {% else %}
+                      <span class="badge bg-danger-subtle text-danger" title="{{ sent.error }}">Misslyckad</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if not invoice.is_booked %}
+          <form method="post" action="{% url 'invoicing:invoice_book' invoice.pk %}" class="mb-2">
+            {% csrf_token %}
+            {% if invoice_date_is_today %}
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-journal-check me-1"></i>Bokför faktura
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-primary w-100" onclick="return confirm('Fakturadatumet ({{ invoice.invoice_date }}) är inte dagens datum. Är du säker på att du vill bokföra fakturan med detta datum?');">
+              <i class="bi bi-journal-check me-1"></i>Bokför faktura
+            </button>
+            {% endif %}
+          </form>
+
+          <form method="post" action="{% url 'invoicing:invoice_delete' invoice.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Är du säker på att du vill ta bort fakturan?');">
+              <i class="bi bi-trash me-1"></i>Ta bort faktura
+            </button>
+          </form>
+        {% else %}
+          {% if not invoice.is_credit_invoice %}
+            <form method="post" action="{% url 'invoicing:invoice_credit' invoice.pk %}" class="mb-2">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-warning w-100" onclick="return confirm('Skapa en kreditfaktura som vander denna faktura?');">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Skapa kreditfaktura
+              </button>
+            </form>
+          {% endif %}
+
+          {% url 'invoicing:invoice_register_payment' invoice.pk as register_payment_url %}
+          {% url 'invoicing:invoice_offset' invoice.pk as offset_url %}
+          {% include "bookkeeping/_register_payment.html" with document=invoice %}
+
+          <div class="alert alert-success mb-0" role="alert">
+            Fakturan är bokförd och kan inte tas bort.
+          </div>
+          {% if invoice.booked_transaction %}
+            <a href="{% url 'bookkeeping:transaction_detail' invoice.booked_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary w-100 mt-2">
+              <i class="bi bi-journal-text me-1"></i>Öppna verifikation
+            </a>
+          {% endif %}
+          {% if invoice.is_paid %}
+            <div class="alert alert-primary mt-2 mb-0" role="alert">
+              Fakturan är markerad som betald {% if invoice.payment_date %}{{ invoice.payment_date }}{% endif %}.
+            </div>
+          {% elif invoice.is_partially_paid %}
+            <div class="alert alert-info mt-2 mb-0" role="alert">
+              Fakturan är delbetald. Återstående belopp: {{ invoice.remaining_amount|floatformat:"2g" }} kr.
+            </div>
+          {% endif %}
+          {% if invoice.payment_transaction %}
+            <a href="{% url 'bookkeeping:transaction_detail' invoice.payment_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary w-100 mt-2">
+              <i class="bi bi-cash-coin me-1"></i>Öppna senaste betalningsverifikation
+            </a>
+            <a href="{% url 'banking:payment_undo_confirm' invoice.payment_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger w-100 mt-2">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra betalning
+            </a>
+          {% elif invoice.is_paid %}
+            <form method="post" action="{% url 'invoicing:invoice_unmark_manually_paid' invoice.pk %}" class="mt-2">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger w-100">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra manuell betalning
+              </button>
+            </form>
+          {% endif %}
+          {% include "bookkeeping/_payment_history.html" with payments=invoice.payments.all %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% include "attachments/_attachment_manager.html" with attachments=invoice.attachments.all attach_url=attach_url return_to=return_to period_locked=period_locked %}
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=invoice.attachments.all %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% include "bookkeeping/_register_payment_js.html" %}
+{% endblock %}

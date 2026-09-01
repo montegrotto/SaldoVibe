@@ -1,0 +1,15 @@
+{
+  "name": "saldovibe",
+  "private": true,
+  "version": "1.0.0",
+  "author": "SaldoVibe",
+  "description": "SaldoVibe frontend asset dependencies",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "bootstrap-icons": "1.13.1",
+    "chart.js": "4.5.1",
+    "jquery": "3.7.1",
+    "select2": "4.1.0"
+  }
+}

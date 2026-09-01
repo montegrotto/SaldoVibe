@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title_text }} – SaldoVibe{% endblock %}
+{% block page_title %}Anläggningstillgångar{% endblock %}
+{% block nav_fixed_assets %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-building-add me-2"></i>{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="col-12">
+            <div class="alert alert-danger mb-0">
+              {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          <div class="col-md-8">
+            <label class="form-label">Namn</label>
+            {{ form.name }}
+            {% for error in form.name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Typ</label>
+            {{ form.asset_type }}
+            <div class="form-text"><a href="{% url 'fixed_assets:asset_type_list' %}">Hantera tillgångstyper</a></div>
+            {% for error in form.asset_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Inköpsdatum</label>
+            {{ form.acquisition_date }}
+            {% for error in form.acquisition_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div id="depreciation-start-wrapper" class="col-md-6{% if asset and asset.asset_type in form.non_depreciable_keys %} d-none{% endif %}">
+            <label class="form-label">Start avskrivning</label>
+            {{ form.depreciation_start_date }}
+            <div class="form-text">Avskrivning beräknas månadsvis. Dagen ignoreras och perioden startar från månadens första dag.</div>
+            {% for error in form.depreciation_start_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Anskaffningsvärde</label>
+            {{ form.acquisition_value }}
+            {% for error in form.acquisition_value.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div id="salvage-wrapper" class="col-md-4{% if asset and asset.asset_type in form.non_depreciable_keys %} d-none{% endif %}">
+            <label class="form-label">Restvärde</label>
+            {{ form.salvage_value }}
+            {% for error in form.salvage_value.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div id="useful-life-wrapper" class="col-md-4{% if asset and asset.asset_type in form.non_depreciable_keys %} d-none{% endif %}">
+            <label class="form-label">Nyttjandeperiod</label>
+            <div class="row g-2">
+              <div class="col-6">
+                {{ form.useful_life_years }}
+              </div>
+              <div class="col-6">
+                {{ form.useful_life_extra_months }}
+              </div>
+            </div>
+            {{ form.useful_life_months }}
+            {% for error in form.useful_life_years.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            {% for error in form.useful_life_extra_months.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            {% for error in form.useful_life_months.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div id="non-depreciable-info" class="col-12{% if not asset or asset.asset_type not in form.non_depreciable_keys %} d-none{% endif %}">
+            <div class="alert alert-info mb-0">
+              Denna tillgångstyp är inte avskrivningsbar. Restvärde sätts automatiskt till anskaffningsvärde.
+            </div>
+          </div>
+          <div id="depreciation-preview-wrapper" class="col-12{% if asset and asset.asset_type in form.non_depreciable_keys %} d-none{% endif %}">
+            <div class="alert alert-light border mb-0">
+              <div class="d-flex flex-wrap gap-4">
+                <div>
+                  <div class="small text-muted">Avskrivningsbart belopp</div>
+                  <div class="fw-semibold" id="depreciable-amount-preview">-</div>
+                </div>
+                <div>
+                  <div class="small text-muted">Beräknat månadsbelopp</div>
+                  <div class="fw-semibold" id="monthly-amount-preview">-</div>
+                </div>
+                <div>
+                  <div class="small text-muted">Första avskrivningsperiod</div>
+                  <div class="fw-semibold" id="first-period-preview">-</div>
+                </div>
+              </div>
+              <div class="text-danger small mt-2 d-none" id="no-depreciation-warning">
+                Inget belopp finns att skriva av med aktuella värden.
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Anteckningar</label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              {{ form.is_active }}
+              <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Tillgången är aktiv</label>
+            </div>
+          </div>
+          {% if asset %}
+          <div class="col-12">
+            <label class="form-label">{{ form.reclassification_reason.label }}</label>
+            {{ form.reclassification_reason }}
+            <div class="form-text">Anges om du byter tillgångstyp ovan, för att dokumentera anledningen till omklassificeringen.</div>
+            {% for error in form.reclassification_reason.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          {% endif %}
+
+          {% if form.errors %}
+          <div class="col-12">
+            <div class="alert alert-danger mb-0">
+              Kontrollera de markerade fälten och försök igen.
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="col-12 d-flex gap-2 justify-content-end">
+            {% if asset %}
+              {% if asset.depreciation_entries.exists or asset.impairment_entries.exists %}
+              <a href="{% url 'fixed_assets:asset_detail' asset.pk %}" class="btn btn-outline-danger me-auto">
+                Avyttra/utrangera tillgång
+              </a>
+              {% else %}
+              <button
+                type="submit"
+                class="btn btn-outline-danger me-auto"
+                formaction="{% url 'fixed_assets:asset_delete' asset.pk %}"
+                formmethod="post"
+                formnovalidate
+                onclick="return confirm('Är du säker på att du vill radera tillgången?');"
+              >
+                Radera tillgång
+              </button>
+              {% endif %}
+            {% endif %}
+            <a href="{% url 'fixed_assets:asset_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script>
+  (function () {
+    const { formatAmount } = window.SaldoVibe.formUtils;
+    const assetTypeInput = document.getElementById("id_asset_type");
+    const acquisitionInput = document.getElementById("id_acquisition_value");
+    const salvageInput = document.getElementById("id_salvage_value");
+    const lifeYearsInput = document.getElementById("id_useful_life_years");
+    const lifeMonthsInput = document.getElementById("id_useful_life_extra_months");
+    const startDateInput = document.getElementById("id_depreciation_start_date");
+
+    const depreciationStartWrapper = document.getElementById("depreciation-start-wrapper");
+    const salvageWrapper = document.getElementById("salvage-wrapper");
+    const usefulLifeWrapper = document.getElementById("useful-life-wrapper");
+    const nonDepreciableInfo = document.getElementById("non-depreciable-info");
+    const depreciationPreviewWrapper = document.getElementById("depreciation-preview-wrapper");
+
+    const depreciableOutput = document.getElementById("depreciable-amount-preview");
+    const monthlyOutput = document.getElementById("monthly-amount-preview");
+    const firstPeriodOutput = document.getElementById("first-period-preview");
+    const warning = document.getElementById("no-depreciation-warning");
+
+    if (!assetTypeInput || !acquisitionInput || !salvageInput || !lifeYearsInput || !lifeMonthsInput || !startDateInput) {
+      return;
+    }
+
+    const nonDepreciableKeys = (assetTypeInput.dataset.nonDepreciableKeys || "")
+      .split(",")
+      .map(function (v) { return v.trim(); })
+      .filter(function (v) { return v.length > 0; });
+
+    function isNonDepreciableType() {
+      return nonDepreciableKeys.indexOf(assetTypeInput.value) !== -1;
+    }
+
+    function toggleDepreciationSections() {
+      const nonDepreciable = isNonDepreciableType();
+
+      if (depreciationStartWrapper) {
+        depreciationStartWrapper.classList.toggle("d-none", nonDepreciable);
+      }
+      if (salvageWrapper) {
+        salvageWrapper.classList.toggle("d-none", nonDepreciable);
+      }
+      if (usefulLifeWrapper) {
+        usefulLifeWrapper.classList.toggle("d-none", nonDepreciable);
+      }
+      if (depreciationPreviewWrapper) {
+        depreciationPreviewWrapper.classList.toggle("d-none", nonDepreciable);
+      }
+      if (nonDepreciableInfo) {
+        nonDepreciableInfo.classList.toggle("d-none", !nonDepreciable);
+      }
+    }
+
+    function parseNumber(value) {
+      if (!value) {
+        return 0;
+      }
+      const normalized = String(value).replace(/\s+/g, "").replace(",", ".");
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatSEK(value) {
+      return formatAmount(value) + " kr";
+    }
+
+    function updatePreview() {
+      toggleDepreciationSections();
+
+      if (isNonDepreciableType()) {
+        return;
+      }
+
+      const acquisition = parseNumber(acquisitionInput.value);
+      const salvage = parseNumber(salvageInput.value);
+      const lifeYears = parseInt(lifeYearsInput.value || "0", 10) || 0;
+      const lifeMonths = parseInt(lifeMonthsInput.value || "0", 10) || 0;
+      const life = (lifeYears * 12) + lifeMonths;
+      const depreciable = acquisition - salvage;
+
+      depreciableOutput.textContent = formatSEK(depreciable);
+
+      if (depreciable > 0 && life > 0) {
+        monthlyOutput.textContent = formatSEK(depreciable / life);
+      } else {
+        monthlyOutput.textContent = "-";
+      }
+
+      const startValue = startDateInput.value;
+      if (startValue) {
+        const parts = startValue.split("-");
+        if (parts.length >= 2) {
+          firstPeriodOutput.textContent = parts[0] + "-" + parts[1];
+        } else {
+          firstPeriodOutput.textContent = "-";
+        }
+      } else {
+        firstPeriodOutput.textContent = "-";
+      }
+
+      if (warning) {
+        warning.classList.toggle("d-none", depreciable > 0);
+      }
+    }
+
+    [acquisitionInput, salvageInput, lifeYearsInput, lifeMonthsInput, startDateInput].forEach(function (el) {
+      el.addEventListener("input", updatePreview);
+      el.addEventListener("change", updatePreview);
+    });
+    assetTypeInput.addEventListener("change", updatePreview);
+
+    updatePreview();
+  })();
+</script>
+{% endblock %}

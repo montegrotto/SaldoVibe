@@ -1,0 +1,67 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block title %}HUVUDBOK{% endblock %}
+{% block subtitle %}{% if selected_year %}<span class="label">Räkenskapsår</span> <span class="value">{{ selected_year.name }}</span>{% endif %}{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    {% if selected_year %}
+    <tr><td class="label">Period</td><td class="value">{{ selected_year.start_date }} – {{ selected_year.end_date }}</td></tr>
+    {% endif %}
+  </table>
+
+  {% for item in ledger_accounts %}
+  <div class="section-title">{{ item.account.number }} {{ item.account.name|upper }}</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th style="width: 20mm;">DATUM</th>
+        <th style="width: 14mm;">VER</th>
+        <th>BESKRIVNING</th>
+        <th class="num" style="width: 26mm;">DEBET</th>
+        <th class="num" style="width: 26mm;">KREDIT</th>
+        <th class="num" style="width: 28mm;">SALDO</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if item.opening_balance %}
+      <tr>
+        <td colspan="5">Ingående saldo</td>
+        <td class="num">{{ item.opening_balance|floatformat:"2g" }}</td>
+      </tr>
+      {% endif %}
+      {% for row in item.rows %}
+      <tr>
+        <td>{{ row.date }}</td>
+        <td>{{ row.voucher }}</td>
+        <td>{{ row.description }}</td>
+        <td class="num">{% if row.debit %}{{ row.debit|floatformat:"2g" }}{% endif %}</td>
+        <td class="num">{% if row.credit %}{{ row.credit|floatformat:"2g" }}{% endif %}</td>
+        <td class="num">{{ row.balance|floatformat:"2g" }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="subtotal-row">
+        <td colspan="3">Utgående saldo</td>
+        <td class="num">{{ item.total_debit|floatformat:"2g" }}</td>
+        <td class="num">{{ item.total_credit|floatformat:"2g" }}</td>
+        <td class="num">{{ item.closing_balance|floatformat:"2g" }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% empty %}
+  <div class="message-banner">Inga konton med bokförda belopp för perioden.</div>
+  {% endfor %}
+
+  {% if ledger_accounts %}
+  <table class="report-table">
+    <tbody>
+      <tr class="grand">
+        <td>Summa debet / kredit</td>
+        <td class="num" style="width: 40mm;">{{ total_debit|floatformat:"2g" }} kr</td>
+        <td class="num" style="width: 40mm;">{{ total_credit|floatformat:"2g" }} kr</td>
+      </tr>
+    </tbody>
+  </table>
+  {% endif %}
+{% endblock %}

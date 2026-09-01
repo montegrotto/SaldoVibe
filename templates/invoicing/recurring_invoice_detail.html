@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ recurring_invoice.name }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ recurring_invoice.name }}{% endblock %}
+{% block nav_recurring_invoices %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <a href="{% url 'invoicing:recurring_invoice_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Till listan
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-repeat me-2"></i>Malldetaljer</h6>
+        {% if not recurring_invoice.is_active %}
+          <span class="badge bg-secondary-subtle text-secondary-emphasis">Pausad</span>
+        {% elif recurring_invoice.is_due %}
+          <span class="badge bg-warning-subtle text-warning-emphasis">Klar att generera</span>
+        {% else %}
+          <span class="badge bg-success-subtle text-success-emphasis">Aktiv</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Kund</div>
+            <div class="fw-semibold">{{ recurring_invoice.customer.name }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Intervall</div>
+            <div>{{ recurring_invoice.get_interval_display }}{% if recurring_invoice.interval == "custom_months" %} ({{ recurring_invoice.custom_interval_months }} mån){% endif %}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Nästa fakturadatum</div>
+            <div>{{ recurring_invoice.next_run_date }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Slutdatum</div>
+            <div>{{ recurring_invoice.end_date|default:"-" }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Startdatum</div>
+            <div>{{ recurring_invoice.start_date }}{% if recurring_invoice.anchor_to_month_end %} <span class="badge bg-info-subtle text-info-emphasis">Sista dagen i månaden</span>{% endif %}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Förfallodatum</div>
+            {% if recurring_invoice.due_date_mode == "day_of_month" %}
+              <div>{% if recurring_invoice.due_date_last_day_of_month %}Sista dagen i månaden{% else %}Dag {{ recurring_invoice.due_date_day_of_month }} i månaden{% endif %}</div>
+            {% else %}
+              <div>{{ recurring_invoice.payment_terms_days }} dagar efter fakturadatum</div>
+            {% endif %}
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Period som avses</div>
+            <div>{{ recurring_invoice.get_period_reference_display }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Er referens</div>
+            <div>{{ recurring_invoice.reference|default:"-" }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Senast genererad</div>
+            <div>{{ recurring_invoice.last_generated_at|date:"Y-m-d H:i"|default:"-" }}</div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Beskrivning</th>
+                <th class="text-end">Antal</th>
+                <th class="text-end">A-pris</th>
+                <th class="text-end">Moms %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in recurring_invoice.lines.all %}
+                {% if line.line_type == "text" %}
+                <tr>
+                  <td colspan="4" class="fst-italic text-muted">{{ line.description }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td>{{ line.description }}</td>
+                  <td class="text-end">{{ line.quantity }}</td>
+                  <td class="text-end">{{ line.unit_price|floatformat:"2g" }} kr</td>
+                  <td class="text-end">{{ line.vat_rate|floatformat:"2g" }}</td>
+                </tr>
+                {% endif %}
+              {% empty %}
+                <tr><td colspan="4" class="text-muted">Inga rader.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mt-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-receipt me-2"></i>Genererade fakturor</h6>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light"><tr><th class="ps-3">Faktura</th><th>Period</th><th>Datum</th><th class="text-end">Belopp</th><th class="text-end pe-3">Åtgärder</th></tr></thead>
+          <tbody>
+          {% for invoice in generated_invoices %}
+            <tr>
+              <td class="ps-3">{{ invoice.invoice_number }}</td>
+              <td>{{ invoice.recurring_period_label|default:"-" }}</td>
+              <td>{{ invoice.invoice_date }}</td>
+              <td class="text-end">{{ invoice.total_amount|floatformat:"2g" }} kr</td>
+              <td class="text-end pe-3">
+                <a href="{% url 'invoicing:invoice_detail' invoice.pk %}?return_to={{ request.path|urlencode }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-eye me-1"></i>Visa</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="text-muted ps-3 py-3">Inga fakturor har genererats ännu.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-gear me-2"></i>Åtgärder</h6>
+      </div>
+      <div class="card-body">
+        {% if recurring_invoice.is_active %}
+          <form method="post" action="{% url 'invoicing:recurring_invoice_generate' recurring_invoice.pk %}" class="mb-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary w-100" {% if not recurring_invoice.is_due %}disabled{% endif %}>
+              <i class="bi bi-arrow-repeat me-1"></i>Generera nu
+            </button>
+          </form>
+          {% if not recurring_invoice.is_due %}
+            <div class="form-text mb-2">Nästa faktura kan genereras tidigast {{ recurring_invoice.next_run_date }}.</div>
+          {% endif %}
+        {% endif %}
+
+        <a href="{% url 'invoicing:recurring_invoice_update' recurring_invoice.pk %}" class="btn btn-outline-secondary w-100 mb-2">
+          <i class="bi bi-pencil me-1"></i>Redigera
+        </a>
+
+        <form method="post" action="{% url 'invoicing:recurring_invoice_toggle_active' recurring_invoice.pk %}" class="mb-2">
+          {% csrf_token %}
+          {% if recurring_invoice.is_active %}
+            <button type="submit" class="btn btn-outline-warning w-100"><i class="bi bi-pause-circle me-1"></i>Pausa</button>
+          {% else %}
+            <button type="submit" class="btn btn-outline-success w-100"><i class="bi bi-play-circle me-1"></i>Återuppta</button>
+          {% endif %}
+        </form>
+
+        {% if not generated_invoices %}
+          <form method="post" action="{% url 'invoicing:recurring_invoice_delete' recurring_invoice.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Är du säker på att du vill ta bort den återkommande fakturan?');">
+              <i class="bi bi-trash me-1"></i>Ta bort
+            </button>
+          </form>
+        {% else %}
+          <div class="alert alert-secondary mb-0" role="alert">
+            Mallar som redan har genererat fakturor kan inte tas bort. Pausa mallen istället.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

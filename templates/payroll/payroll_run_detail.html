@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Lönekörning{% endblock %}
+{% block page_title %}Lönekörning {{ payroll_run.period_label|capfirst }}{% endblock %}
+{% block nav_payroll %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h5 class="mb-1">
+      Period {{ payroll_run.period_label|capfirst }}
+      {% if payroll_run.is_finished %}
+        {% if payroll_run.is_fully_paid %}
+          <span class="badge text-bg-success">Utbetald</span>
+        {% elif payroll_run.is_partially_paid %}
+          <span class="badge text-bg-info">Delvis utbetald</span>
+        {% else %}
+          <span class="badge text-bg-warning">Ej utbetald</span>
+        {% endif %}
+      {% endif %}
+    </h5>
+    <div class="text-muted small">Utbetalningsdatum: {{ payroll_run.payment_date }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if not payroll_run.is_finished %}
+    <form method="post" action="{% url 'payroll:payroll_run_finish' payroll_run.pk %}" onsubmit="return confirm('Är du säker på att du vill avsluta lönekörningen? Bokföringsverifikation och lönepåminnelser kommer att skapas.');">
+      {% csrf_token %}
+      <button class="btn btn-primary" type="submit">
+        <i class="bi bi-check2-square me-1"></i>Avsluta lönekörning
+      </button>
+    </form>
+    {% endif %}
+    {% if payroll_run.is_finished %}
+    <a href="{% url 'payroll:skatteverket_agi_xml_download' payroll_run.pk %}" class="btn btn-outline-primary">
+      <i class="bi bi-filetype-xml me-1"></i>AGI-fil till Skatteverket (XML)
+    </a>
+    {% endif %}
+    {% if not payroll_run.is_reported_to_skatteverket %}
+    <form method="post" action="{% url 'payroll:skatteverket_report_mark_reported' payroll_run.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-success" type="submit" {% if not payroll_run.is_finished %}disabled{% endif %}>
+        <i class="bi bi-check2-circle me-1"></i>Markera rapporterad
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="post" action="{% url 'payroll:payroll_run_add_employee' payroll_run.pk %}" class="row g-2 align-items-end">
+      {% csrf_token %}
+      <div class="col-md-8">
+        <label class="form-label">Lägg till anställd</label>
+        <select name="employee_id" class="form-select" {% if not available_employees %}disabled{% endif %}>
+          {% for employee in available_employees %}
+            <option value="{{ employee.pk }}">{{ employee }} ({{ employee.masked_personal_identity_number }})</option>
+          {% empty %}
+            <option>Alla aktiva anställda finns redan i lönekörningen</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-grid">
+        <button type="submit" class="btn btn-primary" {% if not available_employees %}disabled{% endif %}>
+          <i class="bi bi-person-plus me-1"></i>Lägg till
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+      <div class="text-muted small">Bruttolön</div>
+      <div class="h5 mb-0">{{ totals.total_gross|default:0|floatformat:"2g" }} kr</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+      <div class="text-muted small">Skatteavdrag</div>
+      <div class="h5 mb-0">{{ totals.total_tax|default:0|floatformat:"2g" }} kr</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+      <div class="text-muted small">Arbetsgivaravgift</div>
+      <div class="h5 mb-0">{{ totals.total_employer|default:0|floatformat:"2g" }} kr</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+      <div class="text-muted small">Nettolön</div>
+      <div class="h5 mb-0">{{ totals.total_net|default:0|floatformat:"2g" }} kr</div>
+      {% if payroll_run.is_finished %}
+        {% if payroll_run.is_fully_paid %}
+          <div class="small text-success mt-1">Utbetald {{ payroll_run.paid_amount|floatformat:"2g" }} kr</div>
+        {% else %}
+          <div class="small text-muted mt-1">
+            Utbetalt {{ payroll_run.paid_amount|floatformat:"2g" }} kr,
+            återstår {{ payroll_run.salary_payment_remaining|floatformat:"2g" }} kr
+          </div>
+        {% endif %}
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Anställd</th>
+          <th>Skattekälla</th>
+          <th class="text-end">Brutto</th>
+          <th class="text-end">Skatt</th>
+          <th class="text-end">AG-avgift</th>
+          <th class="text-end">Netto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in salary_records %}
+        <tr>
+          <td>{{ record.employee }}</td>
+          <td>
+            <span class="badge {% if record.tax_calculation_source == 'api' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
+              {{ record.get_tax_calculation_source_display }}
+            </span>
+          </td>
+          <td class="text-end">{{ record.gross_salary|floatformat:"2g" }}</td>
+          <td class="text-end">{{ record.preliminary_tax_amount|floatformat:"2g" }}</td>
+          <td class="text-end">{{ record.employer_contribution_amount|floatformat:"2g" }}</td>
+          <td class="text-end">{{ record.net_salary|floatformat:"2g" }}</td>
+          <td class="text-end">
+            {% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'payroll:salary_record_update' payroll_run.pk record.pk %}">Redigera</a>
+            {% endif %}
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'payroll:salary_report_print' payroll_run.pk record.pk %}" target="_blank">Lönespec</a>
+            {% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
+            <form method="post" action="{% url 'payroll:payroll_run_remove_employee' payroll_run.pk record.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger" type="submit">Ta bort</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Inga löneposter för perioden.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if payroll_run.is_finished %}
+<div class="alert alert-info mt-3 mb-0">
+  Lönekörningen avslutades {{ payroll_run.finished_at|date:"Y-m-d H:i" }}.
+  {% if payroll_run.booking_transaction_id %}
+    Bokförd verifikation: <a href="{% url 'bookkeeping:transaction_detail' payroll_run.booking_transaction_id %}?return_to={{ request.get_full_path|urlencode }}">{% if payroll_run.booking_transaction.voucher_number %}{{ payroll_run.booking_transaction.voucher_series }}{{ payroll_run.booking_transaction.voucher_number }}{% else %}#{{ payroll_run.booking_transaction_id }}{% endif %}</a>.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if payroll_run.is_reported_to_skatteverket %}
+<div class="alert alert-success mt-3 mb-0">
+  Rapporterad till Skatteverket {{ payroll_run.reported_at|date:"Y-m-d H:i" }}.
+  <div class="mt-2">
+    <a href="{% url 'payroll:skatteverket_report_evidence_download' payroll_run.pk %}" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-file-earmark-zip me-1"></i>Ladda ner AGI-bevispaket
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% if payment_reminders %}
+<div class="card border-0 shadow-sm mt-3">
+  <div class="card-header bg-light">
+    <strong>Påminnelser om utgående löner</strong>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Anställd</th>
+          <th>Förfallodatum</th>
+          <th class="text-end">Belopp</th>
+          <th>Beskrivning</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for reminder in payment_reminders %}
+        <tr>
+          <td>{{ reminder.employee }}</td>
+          <td>{{ reminder.due_date }}</td>
+          <td class="text-end">{{ reminder.amount|floatformat:"2g" }}</td>
+          <td>{{ reminder.description }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

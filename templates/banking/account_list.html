@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Bankkällor – SaldoVibe{% endblock %}
+{% block page_title %}Bankkällor{% endblock %}
+{% block nav_banking_accounts %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    {% if return_bank_account_id %}
+    <a href="{% url 'banking:transaction_list' %}?bank_account={{ return_bank_account_id }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Tillbaka
+    </a>
+    {% endif %}
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-bank me-2"></i>Bankkällor</h6>
+  </div>
+  <a href="{% url 'banking:account_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Ny bankkälla
+  </a>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if accounts %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Namn</th>
+            <th>Typ</th>
+            <th>CSV-format</th>
+            <th>Kontonummer</th>
+            <th>Bokföringskonto</th>
+            <th class="text-center">Status</th>
+            <th class="text-end pe-3">Åtgärd</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for account in accounts %}
+          <tr>
+            <td class="ps-3 fw-semibold">{{ account.name }}</td>
+            <td>{{ account.get_account_type_display }}</td>
+            <td>{{ account.get_default_bank_profile_display }}</td>
+            <td>{{ account.account_number|default:"-" }}</td>
+            <td>{{ account.bookkeeping_account.number }} {{ account.bookkeeping_account.name }}</td>
+            <td class="text-center">
+              {% if account.is_active %}
+              <span class="badge bg-success">Aktiv</span>
+              {% else %}
+              <span class="badge bg-secondary">Inaktiv</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              {% if account.account_type != "tax" %}
+              <a href="{% url 'banking:account_update' account.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil-square me-1"></i>Redigera
+              </a>
+              {% else %}
+              <span class="text-muted small">Systemstyrd</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-3 text-muted">Inga bankkällor registrerade ännu.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

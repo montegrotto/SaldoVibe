@@ -1,0 +1,40 @@
+name: saldovibe-standalone
+
+services:
+  web:
+    # Published image from Docker Hub (amd64 + arm64). To run from a local build instead,
+    # use docker-compose.prod.yml or `docker build -t montegrotto/saldovibe .` first.
+    image: montegrotto/saldovibe:${SALDOVIBE_VERSION:-latest}
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DJANGO_DEBUG: "0"
+    volumes:
+      - saldovibe-data:/data
+    restart: unless-stopped
+    labels:
+      ofelia.enabled: "true"
+      # Fetches email attachments every 15 minutes (ofelia's cron format leads with a
+      # seconds field). docker exec bypasses the entrypoint and lands as root, so drop
+      # to appuser explicitly -- otherwise imported attachments under /data/media end up
+      # root-owned and the web process can no longer manage them.
+      ofelia.job-exec.email-attachments.schedule: "0 */15 * * * *"
+      ofelia.job-exec.email-attachments.command: "gosu appuser /opt/venv/bin/python /app/manage.py hamta_epostbilagor"
+      # Daglig notisdigest kl 06:00 per företag; skickas bara när något behöver
+      # uppmärksamhet (samma källor som notisklockan i topbaren).
+      ofelia.job-exec.notification-digest.schedule: "0 0 6 * * *"
+      ofelia.job-exec.notification-digest.command: "gosu appuser /opt/venv/bin/python /app/manage.py skicka_notisdigest"
+
+  scheduler:
+    image: mcuadros/ofelia:0.3.22
+    command: daemon --docker
+    depends_on:
+      - web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+volumes:
+  saldovibe-data:

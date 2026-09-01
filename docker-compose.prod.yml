@@ -1,0 +1,83 @@
+services:
+  web:
+    # `docker compose pull` fetches the published image; `docker compose up --build` builds it
+    # from this checkout under the same name instead. See docs/ops/deploy-checklist.md.
+    image: montegrotto/saldovibe:${SALDOVIBE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_DEBUG: "0"
+      COMPLIANCE_EVIDENCE_DIR: /data/compliance-evidence/restore-tests
+    volumes:
+      - saldovibe-data:/data
+      - static-assets:/app/staticfiles
+      - media-assets:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    restart: unless-stopped
+    labels:
+      ofelia.enabled: "true"
+      # Runs the compliance restore dry-run + audit-chain verification at 03:00 on the 1st of
+      # every month, evidence written under docs/compliance/evidence/restore-runbook.md's
+      # retention policy. See docs/compliance/restore-runbook.md.
+      ofelia.job-exec.monthly-restore-dry-run.schedule: "0 0 3 1 * *"
+      ofelia.job-exec.monthly-restore-dry-run.command: "/usr/local/bin/monthly-restore-dry-run.sh"
+      # Fetches email attachments for every company with e-posthämtning enabled, every
+      # 15 minutes (ofelia's cron format leads with a seconds field). Failures for one
+      # company are reported without stopping the others; the command exits non-zero so
+      # a persistently broken mailbox shows up in the scheduler log.
+      # docker exec bypasses the entrypoint, so it lands as root -- drop to appuser
+      # explicitly, otherwise imported attachments under /data/media end up root-owned
+      # and the web process can no longer manage them.
+      ofelia.job-exec.email-attachments.schedule: "0 */15 * * * *"
+      ofelia.job-exec.email-attachments.command: "gosu appuser /opt/venv/bin/python /app/manage.py hamta_epostbilagor"
+      # Daglig notisdigest kl 06:00 per företag; skickas bara när något behöver
+      # uppmärksamhet (samma källor som notisklockan i topbaren).
+      ofelia.job-exec.notification-digest.schedule: "0 0 6 * * *"
+      ofelia.job-exec.notification-digest.command: "gosu appuser /opt/venv/bin/python /app/manage.py skicka_notisdigest"
+
+  scheduler:
+    image: mcuadros/ofelia:0.3.22
+    command: daemon --docker
+    depends_on:
+      - web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    env_file:
+      - .env.prod
+    volumes:
+      - saldovibe-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saldovibe -d saldovibe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - web
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static-assets:/static:ro
+      - media-assets:/media:ro
+    restart: unless-stopped
+
+volumes:
+  saldovibe-data:
+  saldovibe-postgres:
+  static-assets:
+  media-assets:

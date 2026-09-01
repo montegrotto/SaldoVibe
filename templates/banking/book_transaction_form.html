@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+{% block title %}Bokför transaktion – SaldoVibe{% endblock %}
+{% block page_title %}Bokför transaktion{% endblock %}
+{% block nav_banking_transactions %}active{% endblock %}
+{% load static %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .entry-row td { vertical-align: middle; }
+  .locked-amount { background-color: #e9ecef; }
+  .select2-container--default .select2-selection--single { border: 1px solid #ced4da; height: calc(1.5em + 0.75rem + 2px); }
+  #selected-attachments-list [data-attachment-id] { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:1100px;">
+  <div class="card-body p-4">
+    <h5 class="mb-4">Bokför banktransaktion</h5>
+
+    <form method="post" id="book-transaction-form">
+      {% csrf_token %}
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold" for="booking-mode-select">Bokföringsmetod</label>
+        <select class="form-select" name="booking_mode" id="booking-mode-select">
+          <option value="match" {% if booking_mode == 'match' %}selected{% endif %}>Mot faktura, utlägg eller lön</option>
+          <option value="manual" {% if booking_mode == 'manual' %}selected{% endif %}>Helt manuellt</option>
+          <option value="transfer" {% if booking_mode == 'transfer' %}selected{% endif %}>Intern överföring – koppla till bokförd verifikation</option>
+        </select>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Datum</label>
+          <input type="text" class="form-control" value="{{ bank_tx.date }}" readonly>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" for="description-input">Beskrivning</label>
+          <input type="text" class="form-control" id="description-input" name="description" value="{{ description_value }}">
+          <div class="form-text">Föreslagen från kontoutdraget: "{{ bank_tx.description }}". Ändra vid behov.</div>
+        </div>
+      </div>
+
+      {% include "banking/_alloc_panel.html" with panel_mode="match" panel_prefix="match" panel_label="Matcha mot fakturor, utlägg och löneutbetalningar" panel_option_groups=match_option_groups panel_has_options=match_has_options panel_allocation_rows=match_allocation_rows panel_extra_rows=match_extra_rows panel_placeholder="Välj post" panel_empty_text="Inga öppna fakturor, utlägg eller löneutbetalningar finns för denna transaktion." %}
+
+      <div class="booking-mode-panel" data-booking-mode-panel="transfer" {% if booking_mode != 'transfer' %}hidden{% endif %}>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="transfer-transaction-select">Bokförd verifikation</label>
+          {% if transfer_candidates %}
+          <select name="transfer_transaction_id" id="transfer-transaction-select" class="form-select transfer-transaction-select">
+            <option value="">Välj verifikation</option>
+            {% for candidate in transfer_candidates %}
+            <option value="{{ candidate.id }}" {% if selected_transfer_transaction_id == candidate.id|stringformat:'s' %}selected{% endif %}>{{ candidate.label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">
+            Verifikationen bokför redan {{ bank_tx.bank_account.bookkeeping_account.number }}
+            {{ bank_tx.bank_account.bookkeeping_account.name }} med rätt belopp – ingen ny verifikation skapas,
+            banktransaktionen kopplas bara till den befintliga.
+          </div>
+          {% else %}
+          <div class="alert alert-warning mb-0">
+            Ingen bokförd verifikation matchar beloppet {{ locked_amount|floatformat:'2g' }} kr på
+            {{ bank_tx.bank_account.bookkeeping_account.number }} {{ bank_tx.bank_account.bookkeeping_account.name }} ännu.
+            Bokför först den andra sidan av överföringen.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="booking-mode-panel" data-booking-mode-panel="manual" {% if booking_mode != 'manual' %}hidden{% endif %}>
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="entries-table">
+          <thead class="table-light">
+            <tr>
+              <th style="width:36%">Konto</th>
+              <th style="width:18%" class="text-end">Debet (kr)</th>
+              <th style="width:18%" class="text-end">Kredit (kr)</th>
+              <th style="width:24%" class="text-end">Saldo (kr)</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody id="entries-body">
+            <tr class="entry-row locked-row" data-account-id="{{ bank_tx.bank_account.bookkeeping_account_id|stringformat:'d' }}">
+              <td>
+                <input type="text" class="form-control" value="{{ bank_tx.bank_account.bookkeeping_account.number }} {{ bank_tx.bank_account.bookkeeping_account.name }}" readonly>
+              </td>
+              <td>
+                <input type="text" class="form-control text-end locked-amount" value="{% if is_incoming %}{{ locked_amount|floatformat:'2g' }}{% else %}0,00{% endif %}" readonly>
+              </td>
+              <td>
+                <input type="text" class="form-control text-end locked-amount" value="{% if is_incoming %}0,00{% else %}{{ locked_amount|floatformat:'2g' }}{% endif %}" readonly>
+              </td>
+              <td class="text-end small text-muted"><span class="account-balance"></span></td>
+              <td></td>
+            </tr>
+
+            <tr class="entry-row counter-row">
+              <td>
+                <select name="counter_account[]" class="form-select counter-account-select">
+                  <option value="">Välj konto</option>
+                  {% for account in counter_account_choices %}
+                  <option value="{{ account.pk|stringformat:'d' }}">{{ account.number }} {{ account.name }}</option>
+                  {% endfor %}
+                </select>
+                <div class="alert alert-info py-1 px-2 small mt-1 mb-0 d-none account-transfer-info" role="alert"></div>
+              </td>
+              <td>
+                {% if is_incoming %}
+                <input type="text" class="form-control text-end locked-amount" value="0,00" readonly>
+                {% else %}
+                <input type="text" name="counter_amount[]" class="form-control text-end counter-amount-input" value="{{ locked_amount|floatformat:'2g' }}">
+                {% endif %}
+              </td>
+              <td>
+                {% if is_incoming %}
+                <input type="text" name="counter_amount[]" class="form-control text-end counter-amount-input" value="{{ locked_amount|floatformat:'2g' }}">
+                {% else %}
+                <input type="text" class="form-control text-end locked-amount" value="0,00" readonly>
+                {% endif %}
+              </td>
+              <td class="text-end small text-muted"><span class="account-balance"></span></td>
+              <td class="text-center"><button type="button" class="btn btn-link text-danger p-0 remove-row-btn"><i class="bi bi-trash"></i></button></td>
+            </tr>
+          </tbody>
+          <tfoot class="totals">
+            <tr>
+              <td class="text-end text-muted small">Summa:</td>
+              <td class="text-end" id="total-debit">0,00</td>
+              <td class="text-end" id="total-credit">0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="text-end text-muted small">Differens:</td>
+              <td colspan="2" class="text-end" id="balance-diff">0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <template id="counter-row-template">
+        <tr class="entry-row counter-row">
+          <td>
+            <select name="counter_account[]" class="form-select counter-account-select">
+              <option value="">Välj konto</option>
+              {% for account in counter_account_choices %}
+              <option value="{{ account.pk|stringformat:'d' }}">{{ account.number }} {{ account.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="alert alert-info py-1 px-2 small mt-1 mb-0 d-none account-transfer-info" role="alert"></div>
+          </td>
+          <td>
+            {% if is_incoming %}
+            <input type="text" class="form-control text-end locked-amount" value="0,00" readonly>
+            {% else %}
+            <input type="text" name="counter_amount[]" class="form-control text-end counter-amount-input" value="">
+            {% endif %}
+          </td>
+          <td>
+            {% if is_incoming %}
+            <input type="text" name="counter_amount[]" class="form-control text-end counter-amount-input" value="">
+            {% else %}
+            <input type="text" class="form-control text-end locked-amount" value="0,00" readonly>
+            {% endif %}
+          </td>
+          <td class="text-end small text-muted"><span class="account-balance"></span></td>
+          <td class="text-center"><button type="button" class="btn btn-link text-danger p-0 remove-row-btn"><i class="bi bi-trash"></i></button></td>
+        </tr>
+      </template>
+
+      <div class="d-flex gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="add-row-btn">
+          <i class="bi bi-plus-lg me-1"></i>Lägg till rad
+        </button>
+        <span class="ms-auto text-muted small align-self-center">Debet och kredit måste vara lika för att kunna bokföra.</span>
+      </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Bilagor</label>
+        <input type="hidden" id="selected-attachment-ids" name="selected_attachment_ids" value="{{ selected_attachment_ids_csv }}">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <a
+            id="open-attachment-picker"
+            href="{% url 'attachments:attachment_picker' %}?return_to={{ picker_return_to|urlencode }}&selected={{ selected_attachment_ids_csv }}"
+            class="btn btn-outline-secondary btn-sm"
+          >
+            <i class="bi bi-paperclip me-1"></i>Välj bilagor
+          </a>
+          <span class="text-muted small">Välj bilagor i separat formulär.</span>
+        </div>
+        <div id="selected-attachments-list" class="list-group list-group-flush border rounded">
+          {% if selected_attachments %}
+            {% for attachment in selected_attachments %}
+              <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
+                <div class="fw-semibold small">{{ attachment.file_name }}</div>
+                <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="list-group-item text-muted small" id="no-selected-attachments">Inga bilagor valda.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary" id="save-booking-btn">
+          <i class="bi bi-journal-check me-2"></i>Bokför transaktion
+        </button>
+        <a href="{% url 'banking:transaction_list' %}?bank_account={{ bank_tx.bank_account_id }}" class="btn btn-outline-secondary">Avbryt</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=selected_attachments hide_thumb_nav=True %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ account_balances|json_script:"account-balances-data" }}
+{{ transfer_managed_accounts|json_script:"transfer-managed-accounts-data" }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script>
+(function () {
+  // Keeps this page's shorter name for the parser. Has to stay above lockedAmount:
+  // that line calls it, and a const binding isn't hoisted the way the old function
+  // declaration down the file was.
+  const { formatAmount, parseAmountValue: parseAmount } = window.SaldoVibe.formUtils;
+
+  const isIncoming = {{ is_incoming|yesno:"true,false" }};
+  const lockedAmount = parseAmount("{{ locked_amount|floatformat:'2g' }}");
+  const accountBalances = JSON.parse(document.getElementById('account-balances-data')?.textContent || '{}');
+  const transferManagedAccounts = JSON.parse(document.getElementById('transfer-managed-accounts-data')?.textContent || '{}');
+  const bankingTransactionListUrl = "{% url 'banking:transaction_list' %}";
+  const body = document.getElementById('entries-body');
+  const rowTemplate = document.getElementById('counter-row-template');
+  const modePanels = document.querySelectorAll('[data-booking-mode-panel]');
+
+  function initSelect2() {
+    document.querySelectorAll('.counter-account-select').forEach((select) => {
+      const $select = $(select);
+      window.SaldoVibe.select2Utils.initAccountSelect($select);
+      $select.off('change.recalc').on('change.recalc', recalc);
+    });
+    document.querySelectorAll('.alloc-invoice-select, .extra-account-select').forEach((select) => {
+      const $select = $(select);
+      window.SaldoVibe.select2Utils.initAccountSelect(
+        $select,
+        select.classList.contains('alloc-invoice-select') ? 'Sök faktura...' : 'Sök konto...'
+      );
+    });
+    document.querySelectorAll('.transfer-transaction-select').forEach((select) => {
+      window.SaldoVibe.select2Utils.initAccountSelect($(select), 'Sök verifikation...');
+    });
+  }
+
+  function getRowAmount(row) {
+    const input = row.querySelector('.counter-amount-input');
+    return parseAmount(input?.value);
+  }
+
+  function getAccountId(row) {
+    if (row.classList.contains('locked-row')) {
+      return row.dataset.accountId || '';
+    }
+    return row.querySelector('.counter-account-select')?.value || '';
+  }
+
+  function transactionDeltaForAccount(accountId) {
+    let delta = 0;
+    body.querySelectorAll('.entry-row').forEach((row) => {
+      if (getAccountId(row) !== String(accountId)) {
+        return;
+      }
+      if (row.classList.contains('locked-row')) {
+        if (isIncoming) {
+          delta += lockedAmount;
+        } else {
+          delta -= lockedAmount;
+        }
+      } else {
+        const rowAmount = getRowAmount(row);
+        if (isIncoming) {
+          delta -= rowAmount;
+        } else {
+          delta += rowAmount;
+        }
+      }
+    });
+    return delta;
+  }
+
+  function syncTransferInfoForRow(row) {
+    const infoEl = row.querySelector('.account-transfer-info');
+    if (!infoEl) return;
+
+    const accountId = getAccountId(row);
+    const info = accountId ? transferManagedAccounts[String(accountId)] : null;
+    if (!info) {
+      infoEl.classList.add('d-none');
+      infoEl.innerHTML = '';
+      return;
+    }
+
+    infoEl.classList.remove('d-none');
+    infoEl.innerHTML = 'Kontot hanteras av en annan bankkoppling. Bokför gärna den här verifikationen, men länka ' +
+      'motsvarande <a href="' + bankingTransactionListUrl + '?bank_account=' + info.bank_account_id +
+      '">banktransaktion</a> som en intern överföring istället för att bokföra den igen.';
+  }
+
+  function updateBalances() {
+    body.querySelectorAll('.entry-row').forEach((row) => {
+      syncTransferInfoForRow(row);
+      const el = row.querySelector('.account-balance');
+      if (!el) return;
+      const accountId = getAccountId(row);
+      if (!accountId) {
+        el.textContent = '';
+        return;
+      }
+      const base = parseAmount(accountBalances[String(accountId)] || '0');
+      const projected = base + transactionDeltaForAccount(accountId);
+      el.textContent = formatAmount(projected);
+    });
+  }
+
+  function recalc() {
+    let debit = 0;
+    let credit = 0;
+
+    if (isIncoming) {
+      debit += lockedAmount;
+    } else {
+      credit += lockedAmount;
+    }
+
+    body.querySelectorAll('.counter-row').forEach((row) => {
+      const amt = getRowAmount(row);
+      if (isIncoming) {
+        credit += amt;
+      } else {
+        debit += amt;
+      }
+    });
+
+    document.getElementById('total-debit').textContent = formatAmount(debit);
+    document.getElementById('total-credit').textContent = formatAmount(credit);
+
+    const diff = debit - credit;
+    const diffEl = document.getElementById('balance-diff');
+    diffEl.textContent = formatAmount(diff);
+    diffEl.className = 'text-end fw-bold ' + (Math.abs(diff) < 0.005 ? 'text-success' : 'text-danger');
+
+    updateBalances();
+  }
+
+  function bindRowEvents(row) {
+    const amountInput = row.querySelector('.counter-amount-input');
+    if (amountInput) {
+      amountInput.addEventListener('input', recalc);
+    }
+
+    const removeBtn = row.querySelector('.remove-row-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        if (document.querySelectorAll('.counter-row').length <= 1) {
+          return;
+        }
+        row.remove();
+        recalc();
+      });
+    }
+  }
+
+  function getSelectedBookingMode() {
+    return document.getElementById('booking-mode-select')?.value || 'manual';
+  }
+
+  function toggleBookingModePanels() {
+    const selectedMode = getSelectedBookingMode();
+    modePanels.forEach((panel) => {
+      panel.hidden = panel.dataset.bookingModePanel !== selectedMode;
+    });
+  }
+
+  document.getElementById('add-row-btn').addEventListener('click', function () {
+    const clone = rowTemplate.content.firstElementChild.cloneNode(true);
+    body.appendChild(clone);
+    bindRowEvents(clone);
+    initSelect2();
+    recalc();
+  });
+
+  function setupAllocPanel(panel) {
+    const allocBody = panel.querySelector('.alloc-body');
+    if (!allocBody) {
+      return;
+    }
+    const extraBody = panel.querySelector('.extra-body');
+    const allocTemplate = panel.querySelector('.alloc-row-template');
+    const extraTemplate = panel.querySelector('.extra-row-template');
+
+    function sumInputs(selector) {
+      let total = 0;
+      panel.querySelectorAll(selector).forEach((input) => {
+        total += parseAmount(input.value);
+      });
+      return total;
+    }
+
+    function allocSum() {
+      // Rows settling in the opposite direction of the bank transaction (netting)
+      // reduce the amount left to distribute.
+      const bankDirection = isIncoming ? 1 : -1;
+      let total = 0;
+      panel.querySelectorAll('.alloc-row').forEach((row) => {
+        const rowAmount = parseAmount(row.querySelector('.alloc-amount-input')?.value);
+        const select = row.querySelector('.alloc-invoice-select');
+        const option = select && select.selectedOptions[0];
+        const rawDirection = option && option.dataset ? parseInt(option.dataset.direction, 10) : NaN;
+        const direction = Number.isFinite(rawDirection) ? rawDirection : bankDirection;
+        total += direction === bankDirection ? rowAmount : -rowAmount;
+      });
+      return total;
+    }
+
+    function unallocated() {
+      return lockedAmount - allocSum() - sumInputs('.extra-amount-input');
+    }
+
+    function updateIndicator() {
+      const el = panel.querySelector('.alloc-unallocated');
+      if (!el) return;
+      const value = unallocated();
+      el.textContent = formatAmount(value);
+      el.className = 'alloc-unallocated fw-bold ' + (Math.abs(value) < 0.005 ? 'text-success' : 'text-danger');
+    }
+
+    function defaultAmountFor(select, row) {
+      const input = row.querySelector('.alloc-amount-input');
+      if (!input) return;
+      if (input.value.trim() === '' && select.value) {
+        const option = select.selectedOptions[0];
+        const remaining = parseAmount(option ? option.dataset.remaining : '');
+        const available = Math.max(unallocated(), 0);
+        const suggested = Math.min(remaining, available);
+        if (suggested > 0) {
+          input.value = formatAmount(suggested);
+        }
+      }
+      updateIndicator();
+    }
+
+    function bindAllocRow(row) {
+      const select = row.querySelector('.alloc-invoice-select');
+      if (select) {
+        $(select).off('change.alloc').on('change.alloc', function () {
+          defaultAmountFor(select, row);
+        });
+      }
+      row.querySelector('.alloc-amount-input')?.addEventListener('input', updateIndicator);
+      row.querySelector('.alloc-remove-btn')?.addEventListener('click', function () {
+        if (allocBody.querySelectorAll('.alloc-row').length <= 1) {
+          return;
+        }
+        row.remove();
+        updateIndicator();
+      });
+    }
+
+    function bindExtraRow(row) {
+      row.querySelector('.extra-amount-input')?.addEventListener('input', updateIndicator);
+      row.querySelector('.extra-remove-btn')?.addEventListener('click', function () {
+        row.remove();
+        updateIndicator();
+      });
+    }
+
+    panel.querySelector('.alloc-add-btn')?.addEventListener('click', function () {
+      const clone = allocTemplate.content.firstElementChild.cloneNode(true);
+      allocBody.appendChild(clone);
+      bindAllocRow(clone);
+      initSelect2();
+      updateIndicator();
+    });
+    panel.querySelector('.extra-add-btn')?.addEventListener('click', function () {
+      const clone = extraTemplate.content.firstElementChild.cloneNode(true);
+      extraBody.appendChild(clone);
+      bindExtraRow(clone);
+      initSelect2();
+      updateIndicator();
+    });
+
+    allocBody.querySelectorAll('.alloc-row').forEach(bindAllocRow);
+    if (extraBody) {
+      extraBody.querySelectorAll('.extra-row').forEach(bindExtraRow);
+    }
+    updateIndicator();
+  }
+
+  body.querySelectorAll('.counter-row').forEach(bindRowEvents);
+  document.getElementById('booking-mode-select')?.addEventListener('change', toggleBookingModePanels);
+  initSelect2();
+  document.querySelectorAll('.alloc-panel').forEach(setupAllocPanel);
+  toggleBookingModePanels();
+  recalc();
+
+  const formEl = document.getElementById('book-transaction-form');
+
+  SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
+  SaldoVibe.attachments.initFormStateRoundtrip({
+    form: formEl,
+    storageKey: 'book_transaction_form_state_v1',
+    // This form repeats field names across dynamic rows (counter_account[], …), so the
+    // shared name-keyed object would collapse them. Keep an ordered entry list instead
+    // and re-apply values by occurrence.
+    serialize: function (form) {
+      const entries = [];
+      new FormData(form).forEach(function (value, key) {
+        if (key === 'csrfmiddlewaretoken' || key === 'selected_attachment_ids') {
+          return;
+        }
+        entries.push([key, value]);
+      });
+      return entries;
+    },
+    growRows: function (entries) {
+      function grow(addBtn, rowSelector, name) {
+        if (!addBtn) return;
+        let current = document.querySelectorAll(rowSelector).length;
+        const desired = entries.filter(function (entry) { return entry[0] === name; }).length;
+        while (current < desired) {
+          addBtn.click();
+          current += 1;
+        }
+      }
+
+      grow(document.getElementById('add-row-btn'), '.counter-row', 'counter_account[]');
+      grow(document.querySelector('.alloc-add-btn'), '.alloc-row', 'match_alloc_invoice[]');
+      grow(document.querySelector('.extra-add-btn'), '.extra-row', 'match_extra_account[]');
+    },
+    apply: function (entries, form) {
+      const seenIndex = {};
+      entries.forEach(function (entry) {
+        const name = entry[0];
+        const value = entry[1];
+        const idx = seenIndex[name] || 0;
+        seenIndex[name] = idx + 1;
+        const field = form.querySelectorAll('[name="' + name.replace(/"/g, '\\"') + '"]')[idx];
+        if (!field) return;
+        if (field.type === 'checkbox' || field.type === 'radio') {
+          field.checked = field.value === value;
+        } else {
+          field.value = value;
+        }
+      });
+    },
+    afterRestore: function () {
+      document.querySelectorAll('.counter-account-select, .alloc-invoice-select, .extra-account-select, .transfer-transaction-select').forEach(function (select) {
+        $(select).trigger('change');
+      });
+
+      toggleBookingModePanels();
+      recalc();
+      document.querySelectorAll('.extra-amount-input, .alloc-amount-input').forEach(function (input) {
+        input.dispatchEvent(new Event('input'));
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Välj bilagor – SaldoVibe{% endblock %}
+{% block page_title %}Välj bilagor{% endblock %}
+{% block nav_attachments %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0">
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-paperclip me-2"></i>Bilageväljare</h6>
+    <a href="{{ return_to }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Tillbaka
+    </a>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" class="mb-4" id="attachment-upload-form">
+      {% csrf_token %}
+      <input type="hidden" name="return_to" value="{{ return_to }}">
+      <input type="hidden" name="selected_attachment_ids" value="{{ selected_ids_csv }}">
+      <input type="hidden" name="upload" value="1">
+      {{ attachment_form.file }}
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-primary" id="attachment-upload-submit" onclick="this.form.elements.file.click()">
+          <span id="attachment-upload-submit-label"><i class="bi bi-upload me-1"></i>Ladda upp fil</span>
+          <span id="attachment-upload-loading" class="d-none">
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Laddar upp, vänta...
+          </span>
+        </button>
+        <span class="text-muted small">PDF, PNG eller JPEG</span>
+      </div>
+      {% if attachment_form.file.errors %}
+        <div class="text-danger small mt-1">{{ attachment_form.file.errors.0 }}</div>
+      {% endif %}
+    </form>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="return_to" value="{{ return_to }}">
+
+      {% if attachments %}
+        <div class="list-group list-group-flush border rounded mb-3">
+          {% for attachment in attachments %}
+            <div class="list-group-item d-flex align-items-center gap-3 attachment-row">
+              <input
+                class="form-check-input mt-0"
+                type="checkbox"
+                name="attachment_ids"
+                id="attachment-{{ attachment.id }}"
+                value="{{ attachment.id }}"
+                {% if attachment.id in selected_ids %}checked{% endif %}
+              >
+              <button
+                type="button"
+                class="btn btn-link p-0 text-reset text-decoration-none text-start d-flex align-items-center gap-3 flex-grow-1 attachment-select-btn"
+                data-attachment-id="{{ attachment.id }}"
+              >
+                <i class="bi bi-file-earmark fs-5"></i>
+                <span>
+                  <span class="fw-semibold d-block">{{ attachment.file_name }}</span>
+                  <small class="text-muted">Uppladdad {{ attachment.uploaded_at|date:"Y-m-d H:i" }}{% if attachment.uploaded_by %} av {{ attachment.uploaded_by }}{% endif %}</small>
+                </span>
+              </button>
+              <a href="{% url 'attachments:attachment_preview' attachment.pk %}" download="{{ attachment.file_name }}" class="btn btn-outline-secondary btn-sm">Ladda ner</a>
+              <button
+                type="submit"
+                name="pick"
+                value="{{ attachment.id }}"
+                class="btn btn-primary btn-sm pick-selected-btn"
+                data-target-checkbox="attachment-{{ attachment.id }}"
+              >
+                Välj
+              </button>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2-circle me-1"></i>Använd valda bilagor
+          </button>
+        </div>
+      {% else %}
+        <div class="text-muted">Inga bilagor uppladdade ännu.</div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=attachments start_empty=True hide_thumb_nav=True %}
+</div>
+
+<style>
+  .attachment-row.attachment-row-active {
+    background-color: var(--bs-primary-bg-subtle);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script>
+  (function () {
+    SaldoVibe.attachments.initUploadLoadingState({
+      form: 'attachment-upload-form',
+      submitBtn: 'attachment-upload-submit',
+      label: 'attachment-upload-submit-label',
+      loading: 'attachment-upload-loading'
+    });
+
+    document.querySelectorAll('.attachment-select-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = Number(btn.dataset.attachmentId);
+        document.querySelectorAll('.attachment-row').forEach(function (row) {
+          row.classList.remove('attachment-row-active');
+        });
+        const row = btn.closest('.attachment-row');
+        if (row) {
+          row.classList.add('attachment-row-active');
+        }
+        document.dispatchEvent(new CustomEvent('attachment-viewer:show', { detail: { id: id } }));
+      });
+    });
+
+    document.querySelectorAll('.pick-selected-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const checkboxId = btn.getAttribute('data-target-checkbox');
+        if (!checkboxId) {
+          return;
+        }
+        const checkbox = document.getElementById(checkboxId);
+        if (checkbox) {
+          checkbox.checked = true;
+        }
+      });
+    });
+
+    function syncPickButtonLabels() {
+      const checkedCount = document.querySelectorAll('input[name="attachment_ids"]:checked').length;
+      const label = checkedCount > 1 ? 'Välj flera' : 'Välj';
+      document.querySelectorAll('.pick-selected-btn').forEach(function (btn) {
+        btn.textContent = label;
+      });
+    }
+
+    function syncPickButtonEnabledState() {
+      const checkedCount = document.querySelectorAll('input[name="attachment_ids"]:checked').length;
+      document.querySelectorAll('.pick-selected-btn').forEach(function (btn) {
+        const checkboxId = btn.getAttribute('data-target-checkbox');
+        const checkbox = checkboxId ? document.getElementById(checkboxId) : null;
+        const isChecked = checkbox ? checkbox.checked : false;
+
+        const shouldDisable = checkedCount > 0 && !isChecked;
+        btn.disabled = shouldDisable;
+        btn.classList.toggle('disabled', shouldDisable);
+      });
+    }
+
+    document.querySelectorAll('input[name="attachment_ids"]').forEach(function (checkbox) {
+      checkbox.addEventListener('change', function () {
+        syncPickButtonLabels();
+        syncPickButtonEnabledState();
+      });
+    });
+
+    syncPickButtonLabels();
+    syncPickButtonEnabledState();
+  })();
+</script>
+{% endblock %}

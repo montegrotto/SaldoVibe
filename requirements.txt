@@ -1,0 +1,29 @@
+Django==5.2.17
+python-dotenv==1.2.3
+qrcode==8.2
+certifi==2026.7.22
+xhtml2pdf==0.2.17
+gunicorn==26.1.0
+whitenoise==6.12.0
+psycopg[binary]==3.3.4
+pypdfium2==5.13.0
+# Imported directly by attachments/models.py for thumbnail generation. It also
+# arrives transitively via xhtml2pdf->reportlab, but that is incidental: swapping
+# the PDF engine would drop Pillow and break attachments in production only.
+pillow==12.3.0
+rfc3161ng==2.1.3
+# Imported directly by saldovibe/encryption.py (Fernet field encryption, GDPR
+# G-004/G-009). Also arrives transitively via rfc3161ng, but that is incidental.
+cryptography==50.0.0
+# Renders docs/user-guide/*.md for the in-app help section (bookkeeping/help_docs.py).
+Markdown==3.10.3
+# ReInvGrabber's field-extraction logic (attachments/extraction_client.py), pulled
+# in-process instead of run as a separate service - see its own repo
+# (https://github.com/montegrotto/ReInvGrabber) for the extraction code and the
+# standalone Flask+HTML tool still used to develop/tune it against local receipts.
+# A GitHub commit-archive URL rather than git+ - pip can only hash-verify (see
+# requirements.lock) a direct URL to an immutable artifact, not a VCS checkout.
+# Pinned to a commit, not a branch, so this only moves when deliberately bumped.
+reinvgrabber-extraction @ https://github.com/montegrotto/ReInvGrabber/archive/be5cfec13336d3fd0e5343acc575f650ca7b1122.tar.gz
+pdfplumber==0.11.10
+pytesseract==0.3.13

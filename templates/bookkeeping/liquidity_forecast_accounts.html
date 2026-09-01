@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Konton i likviditetsprognosen – SaldoVibe{% endblock %}
+{% block page_title %}Konton i likviditetsprognosen{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h5 class="mb-1">Konton i likviditetsprognosen</h5>
+  <p class="text-muted mb-0">
+    Välj vilka bank- och kassakonton (klass 19) som ska räknas med i dashboardens likviditetsprognos.
+    Kryssa ur t.ex. sparkonton som inte är tillgängliga för löpande betalningar. Valet sparas per företag
+    och gäller tills du ändrar det igen.
+  </p>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    {% if formset.forms %}
+    <form method="post">
+      {% csrf_token %}
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+      {% endif %}
+      <div class="table-responsive">
+      <table class="table align-middle mb-3">
+        <thead class="table-light">
+          <tr>
+            <th style="width:80px;">Inkludera</th>
+            <th style="width:120px;">Kontonummer</th>
+            <th>Kontonamn</th>
+            <th class="text-end" style="width:160px;">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for form in formset %}
+          <tr>
+            <td>
+              {{ form.id }}
+              {{ form.include_in_liquidity_forecast }}
+            </td>
+            <td>{{ form.instance.number }}</td>
+            <td>{{ form.instance.name }}</td>
+            <td class="text-end {% if form.display_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {{ form.display_balance|floatformat:"2g" }} kr
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <a href="{% url 'bookkeeping:dashboard' %}" class="btn btn-outline-secondary btn-sm">Avbryt</a>
+      <button type="submit" class="btn btn-primary btn-sm">Spara</button>
+    </form>
+    {% else %}
+      <div class="text-center text-muted py-4">
+        Inga bank- eller kassakonton (klass 19) hittades för företaget.
+      </div>
+      <a href="{% url 'bookkeeping:dashboard' %}" class="btn btn-outline-secondary btn-sm">Tillbaka</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

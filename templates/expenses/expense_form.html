@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Nytt utlägg – SaldoVibe{% endblock %}
+{% block page_title %}Nytt utlägg{% endblock %}
+{% block nav_expenses %}active{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+  .select2-container .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:860px;">
+  <div class="card-body p-4">
+    <h5 class="mb-4">Registrera utlägg</h5>
+
+    <form method="post" id="expense-form">
+      {% csrf_token %}
+      <input type="hidden" id="selected-attachment-ids" name="selected_attachment_ids" value="{{ selected_attachment_ids_csv }}">
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.employee.label }}</label>
+          {{ form.employee }}
+          {{ form.employee.errors }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.person_name.label }}</label>
+          {{ form.person_name }}
+          {{ form.person_name.errors }}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">{{ form.description.label }}</label>
+          {{ form.description }}
+          {{ form.description.errors }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.expense_date.label }}</label>
+          {{ form.expense_date }}
+          {{ form.expense_date.errors }}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.expense_account.label }}</label>
+          {{ form.expense_account }}
+          {{ form.expense_account.errors }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">{{ form.total_amount.label }}</label>
+          {{ form.total_amount }}
+          {{ form.total_amount.errors }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">{{ form.vat_amount.label }}</label>
+          {{ form.vat_amount }}
+          {{ form.vat_amount.errors }}
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Kvitton</label>
+        <div class="mb-2">
+          <a id="open-attachment-picker" class="btn btn-outline-secondary btn-sm"
+             href="{% url 'attachments:attachment_picker' %}?return_to={{ picker_return_to|urlencode }}&selected={{ selected_attachment_ids_csv }}">
+            <i class="bi bi-paperclip me-1"></i>Välj kvitton
+          </a>
+        </div>
+        <div id="selected-attachments-list" class="list-group list-group-flush border rounded">
+          {% if selected_attachments %}
+            {% for attachment in selected_attachments %}
+              <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
+                <div class="fw-semibold small">{{ attachment.file_name }}</div>
+                <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="list-group-item text-muted small" id="no-selected-attachments">Inga bilagor valda.</div>
+          {% endif %}
+        </div>
+        <div class="form-text">Skulden bokförs mot 2820 (Kortfristiga skulder till anställda) och regleras vid utbetalning.</div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" name="register" value="1" class="btn btn-primary">
+          <i class="bi bi-journal-check me-2"></i>Spara och bokför
+        </button>
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-save me-2"></i>Spara som utkast
+        </button>
+        <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=selected_attachments start_empty=True hide_thumb_nav=True %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script>
+  (function () {
+    if (typeof window.$ !== "undefined") {
+      const accountSelect = $("#{{ form.expense_account.id_for_label }}");
+      if (accountSelect.length) {
+        window.SaldoVibe.select2Utils.initAccountSelect(accountSelect);
+      }
+    }
+
+    SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
+    SaldoVibe.attachments.initFormStateRoundtrip({
+      form: 'expense-form',
+      storageKey: 'expense_form_state_v1',
+      afterRestore: function () {
+        if (typeof window.$ !== "undefined") {
+          $("#{{ form.expense_account.id_for_label }}").trigger('change');
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

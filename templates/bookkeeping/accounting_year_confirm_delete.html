@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ta bort räkenskapsår - SaldoVibe{% endblock %}
+{% block page_title %}Ta bort räkenskapsår{% endblock %}
+{% block nav_years %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Bekräfta borttagning</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">
+          Du är på väg att ta bort räkenskapsår <strong>{{ year.name }}</strong>
+          ({{ year.start_date }} - {{ year.end_date }}).
+        </p>
+        <p class="mb-3">
+          Antal verifikationer i räkenskapsåret: <strong>{{ transaction_count }}</strong>.
+        </p>
+
+        {% if gap_would_be_created %}
+          <div class="alert alert-danger mb-3">
+            Räkenskapsåret kan inte tas bort eftersom det skulle skapa ett glapp mellan räkenskapsår.
+          </div>
+        {% elif transaction_count %}
+          <div class="alert alert-danger mb-3">
+            Räkenskapsåret kan inte tas bort eftersom det innehåller verifikationer.
+          </div>
+        {% else %}
+          <div class="alert alert-warning mb-3">
+            Denna åtgärd kan inte ångras.
+          </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between">
+          <a href="{% url 'bookkeeping:accounting_year_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+          {% if not gap_would_be_created and not transaction_count %}
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash me-1"></i>Bekräfta borttagning
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

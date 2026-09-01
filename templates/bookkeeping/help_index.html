@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Hjälp – SaldoVibe{% endblock %}
+{% block page_title %}Hjälp{% endblock %}
+{% block nav_help %}active{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0" style="max-width:800px;">
+  <div class="card-body p-4">
+    <h5 class="mb-1">Användarhandbok</h5>
+    <p class="text-muted mb-4">
+      Så här använder du SaldoVibe – från att skapa ditt första företag till bokföring, fakturor,
+      bank, löner, moms och rapporter. Kapitlen är ordnade efter menyn i vänsterkolumnen.
+    </p>
+    <div class="list-group list-group-flush">
+      {% for chapter in chapters %}
+      <a href="{% url 'bookkeeping:help_chapter' chapter.slug %}"
+         class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        {{ chapter.title }}
+        <i class="bi bi-chevron-right text-muted" aria-hidden="true"></i>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

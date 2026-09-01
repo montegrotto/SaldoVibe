@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Verifikationer falt {{ field_code }} - SaldoVibe{% endblock %}
+{% block page_title %}Momsfalt {{ field_code }}{% endblock %}
+{% block nav_vat_report %}active{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <div>
+      <h6 class="mb-0 fw-semibold">Verifikationer for falt {{ field_code }}</h6>
+      <div class="small text-muted">{{ field_label }} ({{ selected_period.start_date }} - {{ selected_period.end_date }})</div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'vat:report' %}?year={{ selected_year.pk }}&period={{ selected_period.key }}">Tillbaka till momsrapport</a>
+  </div>
+  <div class="card-body">
+    {% if transactions %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Beskrivning</th>
+            <th>Referens</th>
+            <th class="text-end">Detaljer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in transactions %}
+          <tr>
+            <td>{{ txn.date }}</td>
+            <td>{{ txn.description }}</td>
+            <td>{{ txn.reference|default:"-" }}</td>
+            <td class="text-end">
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'bookkeeping:transaction_detail' txn.pk %}?return_to={{ return_to|urlencode }}">Oppna</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-0">Inga verifikationer hittades for detta falt i vald period.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

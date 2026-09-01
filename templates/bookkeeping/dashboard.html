@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard – SaldoVibe{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<!-- KPI cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-4">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+            <i class="bi bi-arrow-up-circle fs-4 text-success"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Intäkter</div>
+            <div class="fs-4 fw-bold">{{ rev_total|floatformat:"2g" }} kr</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="rounded-circle bg-danger bg-opacity-10 p-3 me-3">
+            <i class="bi bi-arrow-down-circle fs-4 text-danger"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Kostnader</div>
+            <div class="fs-4 fw-bold">{{ cost_total|floatformat:"2g" }} kr</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="rounded-circle {% if net_result >= 0 %}bg-success{% else %}bg-danger{% endif %} bg-opacity-10 p-3 me-3">
+            <i class="bi bi-graph-up fs-4 {% if net_result >= 0 %}text-success{% else %}text-danger{% endif %}"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Resultat</div>
+            <div class="fs-4 fw-bold {% if net_result >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {{ net_result|floatformat:"2g" }} kr
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+        <h6 class="mb-0 fw-semibold">Likviditetsprognos (10 veckor)</h6>
+        <div class="text-end">
+          <small class="text-muted d-block">Första punkt = nuläge, därefter veckans startsaldo</small>
+          <a href="{% url 'bookkeeping:liquidity_forecast_accounts' %}" class="small">
+            <i class="bi bi-sliders"></i> Välj konton
+          </a>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="text-muted small mb-1">Nuvarande saldo per inkluderat konto</div>
+          {% if account_balances %}
+            <div class="row g-2">
+              {% for row in account_balances %}
+              <div class="col-sm-6 col-lg-4">
+                <div class="d-flex justify-content-between">
+                  <span class="small me-2">{{ row.account.number }} – {{ row.account.name }}</span>
+                  <span class="fw-semibold small text-nowrap {% if row.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ row.balance|floatformat:"2g" }} kr
+                  </span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="small text-muted">Inga konton är valda för likviditetsprognosen.</div>
+          {% endif %}
+          {% if excluded_liquidity_account_count %}
+            <div class="small text-muted mt-1">
+              {% if excluded_liquidity_account_count == 1 %}
+                1 konto är exkluderat från prognosen.
+              {% else %}
+                {{ excluded_liquidity_account_count }} konton är exkluderade från prognosen.
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+
+        <div style="height: 320px;">
+          <canvas id="liquidityForecastChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+        <h6 class="mb-0 fw-semibold">Fakturor per vecka</h6>
+        <small class="text-muted">5 veckor bakåt, nu, 3 veckor framåt</small>
+      </div>
+      <div class="card-body">
+        <div style="height: 320px;">
+          <canvas id="invoiceStatusChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ liquidity_chart|json_script:"liquidity-chart-data" }}
+{{ invoice_status_chart|json_script:"invoice-status-chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script>
+  (function () {
+    const { formatAmount } = window.SaldoVibe.formUtils;
+    const chartElement = document.getElementById("liquidityForecastChart");
+    const payloadElement = document.getElementById("liquidity-chart-data");
+    if (!chartElement || !payloadElement || typeof Chart === "undefined") {
+      return;
+    }
+
+    const data = JSON.parse(payloadElement.textContent || "{}");
+    const labels = data.labels || [];
+    const projectedBalance = data.projected_balance || [];
+    const incomingInvoices = data.incoming_invoices || [];
+    const supplierPayments = data.supplier_payments || [];
+    const salaryPayments = data.salary_payments || [];
+
+    const ctx = chartElement.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, "rgba(13, 110, 253, 0.30)");
+    gradient.addColorStop(1, "rgba(13, 110, 253, 0.02)");
+
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Saldo",
+            data: projectedBalance,
+            borderColor: "#0d6efd",
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0,
+            borderWidth: 3,
+            pointRadius: function (context) {
+              return context.dataIndex === 0 ? 6 : 4;
+            },
+            pointHoverRadius: function (context) {
+              return context.dataIndex === 0 ? 8 : 6;
+            },
+            pointBorderWidth: function (context) {
+              return context.dataIndex === 0 ? 3 : 2;
+            },
+            pointBackgroundColor: function (context) {
+              return context.dataIndex === 0 ? "#ffffff" : "#0d6efd";
+            },
+            pointBorderColor: function (context) {
+              return context.dataIndex === 0 ? "#198754" : "#0d6efd";
+            },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: function (items) {
+                if (!items || items.length === 0) {
+                  return "";
+                }
+                if (items[0].dataIndex === 0) {
+                  return items[0].label + " (aktuell vecka)";
+                }
+                return items[0].label;
+              },
+              label: function (context) {
+                const value = Number(context.parsed.y || 0);
+                return "Saldo: " + formatAmount(value) + " kr";
+              },
+              afterLabel: function (context) {
+                const dayIndex = context.dataIndex;
+                const incoming = Number(incomingInvoices[dayIndex] || 0);
+                const supplier = Number(supplierPayments[dayIndex] || 0);
+                const salary = Number(salaryPayments[dayIndex] || 0);
+
+                const formatCurrency = function (amount) {
+                  return formatAmount(amount) + " kr";
+                };
+
+                const rows = [];
+                if (incoming !== 0) {
+                  rows.push("+ Inkommande kundfakturor: " + formatCurrency(incoming));
+                }
+                if (supplier !== 0) {
+                  rows.push("- Leverantörsbetalningar: " + formatCurrency(supplier));
+                }
+                if (salary !== 0) {
+                  rows.push("- Löneutbetalningar: " + formatCurrency(salary));
+                }
+
+                if (rows.length === 0) {
+                  return undefined;
+                }
+                return ["Påverkan denna vecka:"].concat(rows);
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              maxTicksLimit: 10,
+              callback: function (value) {
+                const label = this.getLabelForValue(value);
+                if (value === 0) {
+                  return label + " (nu)";
+                }
+                return label;
+              },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function (value) {
+                return Number(value).toLocaleString("sv-SE") + " kr";
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const invoiceChartElement = document.getElementById("invoiceStatusChart");
+    const invoicePayloadElement = document.getElementById("invoice-status-chart-data");
+    if (!invoiceChartElement || !invoicePayloadElement) {
+      return;
+    }
+
+    const invoiceData = JSON.parse(invoicePayloadElement.textContent || "{}");
+    const weekLabels = invoiceData.labels || [];
+    const currentWeekIndex = Number(invoiceData.current_week_index || 0);
+
+    const customerPaid = invoiceData.customer_paid || [];
+    const customerUnpaid = invoiceData.customer_unpaid || [];
+    const supplierPaid = invoiceData.supplier_paid || [];
+    const supplierUnpaid = invoiceData.supplier_unpaid || [];
+
+    const invoiceCtx = invoiceChartElement.getContext("2d");
+    new Chart(invoiceCtx, {
+      type: "bar",
+      data: {
+        labels: weekLabels,
+        datasets: [
+          {
+            label: "Kundfakturor betalda",
+            data: customerPaid,
+            stack: "customer",
+            backgroundColor: "rgba(25, 135, 84, 0.90)",
+            borderColor: "#198754",
+            borderWidth: 1,
+            borderRadius: 2,
+            barPercentage: 0.9,
+            categoryPercentage: 0.6,
+          },
+          {
+            label: "Kundfakturor obetalda",
+            data: customerUnpaid,
+            stack: "customer",
+            backgroundColor: "rgba(255, 255, 255, 0)",
+            borderColor: "#198754",
+            borderWidth: 2,
+            borderRadius: 2,
+            barPercentage: 0.9,
+            categoryPercentage: 0.6,
+          },
+          {
+            label: "Leverantörsfakturor betalda",
+            data: supplierPaid,
+            stack: "supplier",
+            backgroundColor: "rgba(220, 53, 69, 0.90)",
+            borderColor: "#dc3545",
+            borderWidth: 1,
+            borderRadius: 2,
+            barPercentage: 0.9,
+            categoryPercentage: 0.6,
+          },
+          {
+            label: "Leverantörsfakturor obetalda",
+            data: supplierUnpaid,
+            stack: "supplier",
+            backgroundColor: "rgba(255, 255, 255, 0)",
+            borderColor: "#dc3545",
+            borderWidth: 2,
+            borderRadius: 2,
+            barPercentage: 0.9,
+            categoryPercentage: 0.6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              boxWidth: 14,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              title: function (items) {
+                if (!items || items.length === 0) {
+                  return "";
+                }
+                if (items[0].dataIndex === currentWeekIndex) {
+                  return items[0].label + " (aktuell vecka)";
+                }
+                return items[0].label;
+              },
+              label: function (context) {
+                const value = Number(context.parsed.y || 0);
+                if (value === 0) {
+                  return undefined;
+                }
+                return context.dataset.label + ": " + formatAmount(value) + " kr";
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: {
+              display: false,
+            },
+            ticks: {
+              callback: function (value) {
+                const label = this.getLabelForValue(value);
+                if (value === currentWeekIndex) {
+                  return label + " (nu)";
+                }
+                return label;
+              },
+            },
+          },
+          y: {
+            stacked: true,
+            ticks: {
+              callback: function (value) {
+                return Number(value).toLocaleString("sv-SE") + " kr";
+              },
+            },
+          },
+        },
+      },
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,799 @@
+{% extends "base.html" %}
+{% block title %}Ny verifikation – SaldoVibe{% endblock %}
+{% block page_title %}Ny verifikation{% endblock %}
+{% block nav_transactions %}active{% endblock %}
+{% load static %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .entry-row td { vertical-align: middle; }
+  .delete-row-btn { cursor:pointer; }
+  tfoot .totals td { font-weight:600; }
+  .select2-container--default .select2-selection--single { border: 1px solid #ced4da; height: calc(1.5em + 0.75rem + 2px); }
+  .locked-amount { background-color: #e9ecef; }
+  #selected-attachments-list [data-attachment-id] { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:1100px;">
+  <div class="card-body p-4">
+    <h5 class="mb-4">Ny verifikation</h5>
+    <form method="post" id="transaction-form">
+      {% csrf_token %}
+
+      {% if extraction_applied %}
+      <div class="alert alert-info py-2 px-3 small mb-3">
+        <i class="bi bi-magic me-1"></i>Fält föreslagna från bilagans OCR-avläsning (ReInvGrabber) – kontrollera innan du sparar.
+      </div>
+      {% endif %}
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" for="verification-template-select">Verifikationsmall</label>
+          <select class="form-select" id="verification-template-select">
+            <option value="">Ingen mall</option>
+            {% for template in verification_templates %}
+              <option value="{{ template.pk }}" {% if selected_template and selected_template.pk == template.pk %}selected{% endif %}>
+                {{ template.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Välj en mall för att fylla i konton och förvald debet/kredit-sida.</div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end justify-content-end">
+          <a href="{% url 'bookkeeping:verification_template_list' %}" class="btn btn-outline-secondary" title="Hantera mallar">
+            <i class="bi bi-gear"></i>
+          </a>
+        </div>
+        <div class="col-md-8 d-none" id="base-amount-wrapper">
+          <label class="form-label fw-semibold" for="base-amount-input" id="base-amount-label">Basbelopp</label>
+          <input type="text" class="form-control" id="base-amount-input" inputmode="decimal" autocomplete="off">
+          <div class="form-text">Mallen räknar ut radbeloppen. Du kan justera varje rad efteråt.</div>
+        </div>
+      </div>
+
+      <!-- Verifikation header -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.date.label }}</label>
+          {{ form.date }}
+          {% if form.date.errors %}<div class="text-danger small">{{ form.date.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">{{ form.description.label }}</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors.0 }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Journal entries formset -->
+      {{ formset.management_form }}
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="entries-table">
+          <thead class="table-light">
+            <tr>
+              <th style="width:36%">Konto</th>
+              <th style="width:18%" class="text-end">Debet (kr)</th>
+              <th style="width:18%" class="text-end">Kredit (kr)</th>
+              <th style="width:24%" class="text-end">Saldo (kr)</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody id="entries-body">
+            {% for entry_form in formset %}
+            <tr class="entry-row">
+              <td>
+                {{ entry_form.id }}
+                {{ entry_form.account }}
+                {% if entry_form.account.errors %}<div class="text-danger small">{{ entry_form.account.errors.0 }}</div>{% endif %}
+                <div class="alert alert-warning py-1 px-2 small mt-1 mb-0 d-none account-bank-warning" role="alert"></div>
+              </td>
+              <td>{{ entry_form.debit }}</td>
+              <td>{{ entry_form.credit }}</td>
+              <td class="text-end small text-muted">
+                <span class="account-balance"></span>
+              </td>
+              <td class="text-center">
+                {% if entry_form.DELETE %}
+                  <span class="delete-row-btn text-danger" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </span>
+                  <div style="display:none">{{ entry_form.DELETE }}</div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="totals">
+            <tr>
+              <td class="text-end text-muted small">Summa:</td>
+              <td class="text-end" id="total-debit">0,00</td>
+              <td class="text-end" id="total-credit">0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="text-end text-muted small">Differens:</td>
+              <td colspan="2" class="text-end" id="balance-diff">0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <template id="entry-row-template">
+        <tr class="entry-row">
+          <td>
+            {{ formset.empty_form.id }}
+            {{ formset.empty_form.account }}
+            <div class="alert alert-warning py-1 px-2 small mt-1 mb-0 d-none account-bank-warning" role="alert"></div>
+          </td>
+          <td>{{ formset.empty_form.debit }}</td>
+          <td>{{ formset.empty_form.credit }}</td>
+          <td class="text-end small text-muted">
+            <span class="account-balance"></span>
+          </td>
+          <td class="text-center">
+            {% if formset.empty_form.DELETE %}
+              <span class="delete-row-btn text-danger" title="Ta bort rad">
+                <i class="bi bi-trash"></i>
+              </span>
+              <div style="display:none">{{ formset.empty_form.DELETE }}</div>
+            {% endif %}
+          </td>
+        </tr>
+      </template>
+
+      <div class="d-flex gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="add-row-btn">
+          <i class="bi bi-plus-lg me-1"></i>Lägg till rad
+        </button>
+        <span class="ms-auto text-muted small align-self-center">
+          Debet och kredit måste vara lika för att spara.
+        </span>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Bilagor</label>
+        <input type="hidden" id="selected-attachment-ids" name="selected_attachment_ids" value="{{ selected_attachment_ids_csv }}">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <a
+            id="open-attachment-picker"
+            href="{% url 'attachments:attachment_picker' %}?return_to={{ picker_return_to|urlencode }}&selected={{ selected_attachment_ids_csv }}"
+            class="btn btn-outline-secondary btn-sm"
+          >
+            <i class="bi bi-paperclip me-1"></i>Välj bilagor
+          </a>
+          <span class="text-muted small">Välj bilagor i separat formulär.</span>
+        </div>
+        <div id="selected-attachments-list" class="list-group list-group-flush border rounded">
+          {% if selected_attachments %}
+            {% for attachment in selected_attachments %}
+              <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
+                <div class="fw-semibold small">{{ attachment.file_name }}</div>
+                <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="list-group-item text-muted small" id="no-selected-attachments">Inga bilagor valda.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <span
+          id="save-transaction-tooltip-wrapper"
+          class="d-inline-block"
+          tabindex="0"
+          data-bs-toggle="tooltip"
+          data-bs-placement="top"
+          title="Fyll i datum, beskrivning och minst två balanserade rader för att kunna spara."
+        >
+          <button type="submit" class="btn btn-primary" id="save-transaction-btn" disabled>
+            <i class="bi bi-save me-2"></i>Spara verifikation
+          </button>
+        </span>
+        <a href="{% url 'bookkeeping:transaction_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=selected_attachments hide_thumb_nav=True %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ account_balances|json_script:"account-balances-data" }}
+{{ bank_managed_accounts|json_script:"bank-managed-accounts-data" }}
+{{ verification_templates_payload|json_script:"verification-templates-payload" }}
+{{ extraction_suggested_base_amount|json_script:"extraction-suggested-base-amount" }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script>
+(function () {
+  const { formatAmount, parseAmountValue, setDebitCreditLock, fetchAccountBalances } = window.SaldoVibe.formUtils;
+
+  const MIN_ROWS = 2;
+  const accountBalances = JSON.parse(document.getElementById('account-balances-data')?.textContent || '{}');
+  const bankManagedAccounts = JSON.parse(document.getElementById('bank-managed-accounts-data')?.textContent || '{}');
+  const bankingTransactionListUrl = "{% url 'banking:transaction_list' %}";
+  const verificationTemplatesPayload = JSON.parse(document.getElementById('verification-templates-payload')?.textContent || '{}');
+  const baseAmountWrapper = document.getElementById('base-amount-wrapper');
+  const baseAmountInput = document.getElementById('base-amount-input');
+  const baseAmountLabel = document.getElementById('base-amount-label');
+  const dateInput = document.getElementById('id_date');
+  let applyingTemplateAmounts = false;
+
+  // Initialize Select2 on all account dropdowns
+  function initSelect2() {
+    document.querySelectorAll('select[id$="-account"]').forEach(select => {
+      const $select = $(select);
+      window.SaldoVibe.select2Utils.initAccountSelect($select);
+      window.SaldoVibe.select2Utils.bindReopenOnFocus($select);
+    });
+  }
+
+  function bindAccountSelectHandlers(scope = document) {
+    $(scope).find('select[id$="-account"]').each(function () {
+      const $select = $(this);
+      $select.off('.accountsaldo');
+      $select.on('change.accountsaldo select2:select.accountsaldo select2:clear.accountsaldo', function () {
+        clearActiveTemplateSelection();
+        recalc();
+        syncSaveButtonState();
+      });
+    });
+  }
+
+  const totalForms = document.getElementById('id_entries-TOTAL_FORMS');
+  const body = document.getElementById('entries-body');
+  const rowTemplate = document.getElementById('entry-row-template');
+  const formEl = document.getElementById('transaction-form');
+  const saveBtn = document.getElementById('save-transaction-btn');
+  const templateSelect = document.getElementById('verification-template-select');
+  const saveTooltipWrapper = document.getElementById('save-transaction-tooltip-wrapper');
+  let saveTooltip = null;
+  let currentDiff = 0;
+  let suppressTemplateSelectChange = false;
+
+  function getFloat(input) {
+    return parseAmountValue(input?.value);
+  }
+
+  function isActiveRow(row) {
+    const del = row.querySelector('input[type=checkbox]');
+    return !(del && del.checked);
+  }
+
+  function clearActiveTemplateSelection() {
+    if (!templateSelect || !templateSelect.value) {
+      return;
+    }
+
+    suppressTemplateSelectChange = true;
+    templateSelect.value = '';
+    suppressTemplateSelectChange = false;
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('template');
+    window.history.replaceState({}, '', url.toString());
+
+    body.querySelectorAll('.entry-row').forEach(row => {
+      delete row.dataset.preferredSide;
+    });
+
+    syncAllRowsDebitCreditState();
+    syncBaseAmountVisibility();
+  }
+
+  function activeRowCount() {
+    let count = 0;
+    body.querySelectorAll('.entry-row').forEach(row => {
+      if (isActiveRow(row)) count += 1;
+    });
+    return count;
+  }
+
+  function syncDeleteButtons() {
+    const canDelete = activeRowCount() > MIN_ROWS;
+    body.querySelectorAll('.entry-row .delete-row-btn').forEach(btn => {
+      btn.style.pointerEvents = canDelete ? '' : 'none';
+      btn.style.opacity = canDelete ? '' : '0.35';
+      btn.setAttribute('aria-disabled', canDelete ? 'false' : 'true');
+      btn.title = canDelete ? 'Ta bort rad' : 'Minst två rader krävs';
+    });
+  }
+
+  function recalc() {
+    let debit = 0, credit = 0;
+    body.querySelectorAll('.entry-row').forEach(row => {
+      const del = row.querySelector('input[type=checkbox]');
+      if (del && del.checked) return;
+      debit  += getFloat(row.querySelector('input[id$="-debit"]'));
+      credit += getFloat(row.querySelector('input[id$="-credit"]'));
+    });
+    document.getElementById('total-debit').textContent  = formatAmount(debit);
+    document.getElementById('total-credit').textContent = formatAmount(credit);
+    const diff = debit - credit;
+    currentDiff = diff;
+    const diffEl = document.getElementById('balance-diff');
+    diffEl.textContent = formatAmount(diff);
+    diffEl.className = 'text-end fw-bold ' + (Math.abs(diff) < 0.005 ? 'text-success' : 'text-danger');
+
+    syncAllAccountBalances();
+  }
+
+  function getSelectedAccountId(row) {
+    return row.querySelector('select[id$="-account"]')?.value || '';
+  }
+
+  function getAccountBaseBalance(accountId) {
+    return parseAmountValue(accountBalances[String(accountId)]);
+  }
+
+  function getTransactionDeltaForAccount(accountId) {
+    let delta = 0;
+    body.querySelectorAll('.entry-row').forEach(row => {
+      if (!isActiveRow(row)) {
+        return;
+      }
+      if (getSelectedAccountId(row) !== String(accountId)) {
+        return;
+      }
+      delta += getFloat(row.querySelector('input[id$="-debit"]'));
+      delta -= getFloat(row.querySelector('input[id$="-credit"]'));
+    });
+    return delta;
+  }
+
+  function syncAccountBalanceForRow(row) {
+    const accountBalanceEl = row.querySelector('.account-balance');
+    if (!accountBalanceEl) {
+      return;
+    }
+
+    const accountId = getSelectedAccountId(row);
+    if (!accountId) {
+      accountBalanceEl.textContent = '';
+      accountBalanceEl.className = 'account-balance';
+      return;
+    }
+
+    const currentBalance = getAccountBaseBalance(accountId);
+    const projectedBalance = currentBalance + getTransactionDeltaForAccount(accountId);
+    accountBalanceEl.textContent = formatAmount(projectedBalance);
+    accountBalanceEl.className = 'account-balance text-primary';
+  }
+
+  function syncBankWarningForRow(row) {
+    const warningEl = row.querySelector('.account-bank-warning');
+    if (!warningEl) {
+      return;
+    }
+
+    const accountId = getSelectedAccountId(row);
+    const info = accountId ? bankManagedAccounts[String(accountId)] : null;
+    if (!info) {
+      warningEl.classList.add('d-none');
+      warningEl.innerHTML = '';
+      return;
+    }
+
+    warningEl.classList.remove('d-none');
+    warningEl.innerHTML = 'Kontot hanteras av en bankkoppling. Bokför hellre via <a href="' +
+      bankingTransactionListUrl + '?bank_account=' + info.bank_account_id + '">Banktransaktioner</a>.';
+  }
+
+  function syncAllAccountBalances() {
+    body.querySelectorAll('.entry-row').forEach(row => {
+      syncAccountBalanceForRow(row);
+      syncBankWarningForRow(row);
+    });
+  }
+
+  function refreshAccountBalancesForDate() {
+    if (!dateInput || !dateInput.value) {
+      return;
+    }
+    fetchAccountBalances("{% url 'bookkeeping:account_balances_lookup' %}", dateInput.value).then(function (data) {
+      if (!data) return;
+      Object.assign(accountBalances, data);
+      syncAllAccountBalances();
+    });
+  }
+
+  function rowIsComplete(row) {
+    if (!isActiveRow(row)) {
+      return true;
+    }
+    const account = row.querySelector('select[id$="-account"]');
+    const debitInput = row.querySelector('input[id$="-debit"]');
+    const creditInput = row.querySelector('input[id$="-credit"]');
+    const debitValue = parseAmountValue(debitInput?.value);
+    const creditValue = parseAmountValue(creditInput?.value);
+    const hasAccount = !!(account && account.value);
+    const isEmpty = !hasAccount && debitValue === 0 && creditValue === 0;
+    const isComplete = hasAccount && ((debitValue > 0 && creditValue === 0) || (creditValue > 0 && debitValue === 0));
+    return isEmpty || isComplete;
+  }
+
+  function completedRowCount() {
+    let count = 0;
+    for (const row of body.querySelectorAll('.entry-row')) {
+      if (!isActiveRow(row)) {
+        continue;
+      }
+      const account = row.querySelector('select[id$="-account"]');
+      const debitInput = row.querySelector('input[id$="-debit"]');
+      const creditInput = row.querySelector('input[id$="-credit"]');
+      const debitValue = parseAmountValue(debitInput?.value);
+      const creditValue = parseAmountValue(creditInput?.value);
+      const hasAccount = !!(account && account.value);
+      const isComplete = hasAccount && ((debitValue > 0 && creditValue === 0) || (creditValue > 0 && debitValue === 0));
+      if (isComplete) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  function canSaveForm() {
+    const dateInput = formEl.querySelector('#id_date');
+    const descriptionInput = formEl.querySelector('#id_description');
+
+    if (!dateInput || !dateInput.value) {
+      return false;
+    }
+    if (!descriptionInput || !descriptionInput.value.trim()) {
+      return false;
+    }
+    if (completedRowCount() < MIN_ROWS) {
+      return false;
+    }
+    if (Math.abs(currentDiff) >= 0.005) {
+      return false;
+    }
+
+    for (const row of body.querySelectorAll('.entry-row')) {
+      if (!rowIsComplete(row)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function syncSaveButtonState() {
+    if (!saveBtn) {
+      return;
+    }
+    const savable = canSaveForm();
+    saveBtn.disabled = !savable;
+
+    if (!saveTooltipWrapper) {
+      return;
+    }
+
+    const tooltipText = savable
+      ? 'Formuläret är klart att sparas.'
+      : 'Fyll i datum, beskrivning och minst två balanserade rader för att kunna spara.';
+    saveTooltipWrapper.setAttribute('title', tooltipText);
+    saveTooltipWrapper.setAttribute('data-bs-original-title', tooltipText);
+
+    if (saveTooltip) {
+      saveTooltip.setContent({ '.tooltip-inner': tooltipText });
+    }
+  }
+
+  function syncDebitCreditState(row, changedField = null) {
+    const debitInput = row.querySelector('input[id$="-debit"]');
+    const creditInput = row.querySelector('input[id$="-credit"]');
+    if (!debitInput || !creditInput) return;
+
+    let debitValue = parseAmountValue(debitInput.value);
+    let creditValue = parseAmountValue(creditInput.value);
+    const preferredSide = row.dataset.preferredSide || '';
+
+    if (debitValue > 0 && creditValue > 0) {
+      if (changedField === 'debit') {
+        creditInput.value = '0.00';
+        creditValue = 0;
+      } else {
+        debitInput.value = '0.00';
+        debitValue = 0;
+      }
+    }
+
+    if (debitValue > 0) {
+      setDebitCreditLock(debitInput, creditInput, 'credit');
+      return;
+    }
+
+    if (creditValue > 0) {
+      setDebitCreditLock(debitInput, creditInput, 'debit');
+      return;
+    }
+
+    setDebitCreditLock(debitInput, creditInput, null);
+
+    if (preferredSide === 'debit') {
+      setDebitCreditLock(debitInput, creditInput, 'credit');
+    } else if (preferredSide === 'credit') {
+      setDebitCreditLock(debitInput, creditInput, 'debit');
+    }
+  }
+
+  // Speglar compute_template_amounts() i bookkeeping/verification_template_catalog.py.
+  function parseBaseAmount(value) {
+    const cleaned = String(value || '').replace(/\s| /g, '').replace(',', '.');
+    if (!cleaned) return null;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function roundToCent(value) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  function computeTemplateAmounts(entries, base) {
+    const amounts = entries.map(() => null);
+    const totals = { debit: 0, credit: 0 };
+    let remainderIndex = -1;
+
+    entries.forEach((entry, index) => {
+      if (entry.amount_rule === 'percent') {
+        const amount = roundToCent(base * Number(entry.amount_percent) / 100);
+        amounts[index] = amount;
+        totals[entry.side] += amount;
+      } else if (entry.amount_rule === 'remainder') {
+        remainderIndex = index;
+      }
+    });
+
+    if (remainderIndex >= 0) {
+      const side = entries[remainderIndex].side;
+      const opposite = side === 'debit' ? 'credit' : 'debit';
+      amounts[remainderIndex] = roundToCent(totals[opposite] - totals[side]);
+    }
+
+    return amounts;
+  }
+
+  function selectedTemplateHasAmountRules() {
+    const tpl = verificationTemplatesPayload[templateSelect?.value || ''];
+    return Boolean(tpl && (tpl.entries || []).some(entry => entry.amount_rule && entry.amount_rule !== 'none'));
+  }
+
+  function syncBaseAmountVisibility() {
+    if (!baseAmountWrapper) return;
+
+    const tpl = verificationTemplatesPayload[templateSelect?.value || ''];
+    const show = selectedTemplateHasAmountRules();
+    baseAmountWrapper.classList.toggle('d-none', !show);
+    if (!show) {
+      if (baseAmountInput) baseAmountInput.value = '';
+      return;
+    }
+    if (baseAmountLabel) {
+      baseAmountLabel.textContent = (tpl && tpl.base_amount_label) || 'Basbelopp';
+    }
+  }
+
+  function applyTemplateAmounts() {
+    const tpl = verificationTemplatesPayload[templateSelect?.value || ''];
+    if (!tpl || !tpl.entries) return;
+
+    const base = parseBaseAmount(baseAmountInput?.value);
+    if (base === null) return;
+
+    const activeRows = Array.from(body.querySelectorAll('.entry-row')).filter(isActiveRow);
+    const amounts = computeTemplateAmounts(tpl.entries, base);
+
+    // Fyller vi i beloppen programmatiskt ska mallvalet inte nollställas av input-lyssnaren.
+    applyingTemplateAmounts = true;
+    activeRows.forEach((row, idx) => {
+      const entry = tpl.entries[idx];
+      const amount = amounts[idx];
+      if (!entry || amount === null) return;
+
+      const debitInput = row.querySelector('input[id$="-debit"]');
+      const creditInput = row.querySelector('input[id$="-credit"]');
+      const target = entry.side === 'debit' ? debitInput : creditInput;
+      const other = entry.side === 'debit' ? creditInput : debitInput;
+
+      if (other) other.value = '';
+      if (target) target.value = amount.toFixed(2);
+      syncDebitCreditState(row);
+    });
+    applyingTemplateAmounts = false;
+
+    recalc();
+    syncSaveButtonState();
+  }
+
+  function applyPreferredSidesForSelectedTemplate() {
+    body.querySelectorAll('.entry-row').forEach(row => {
+      delete row.dataset.preferredSide;
+    });
+
+    const templateId = templateSelect?.value || '';
+    const selectedTemplate = verificationTemplatesPayload[templateId];
+    if (!selectedTemplate || !selectedTemplate.entries) {
+      syncAllRowsDebitCreditState();
+      return;
+    }
+
+    const activeRows = Array.from(body.querySelectorAll('.entry-row')).filter(isActiveRow);
+    activeRows.forEach((row, idx) => {
+      const templateEntry = selectedTemplate.entries[idx];
+      if (templateEntry && (templateEntry.side === 'debit' || templateEntry.side === 'credit')) {
+        row.dataset.preferredSide = templateEntry.side;
+      }
+    });
+
+    syncAllRowsDebitCreditState();
+  }
+
+  function syncAllRowsDebitCreditState() {
+    body.querySelectorAll('.entry-row').forEach(syncDebitCreditState);
+  }
+
+  // Initialize Select2 on page load
+  initSelect2();
+  bindAccountSelectHandlers(document);
+  if (saveTooltipWrapper && window.bootstrap && window.bootstrap.Tooltip) {
+    saveTooltip = new bootstrap.Tooltip(saveTooltipWrapper);
+  }
+  syncAllRowsDebitCreditState();
+  applyPreferredSidesForSelectedTemplate();
+  syncBaseAmountVisibility();
+
+  // Basbeloppet kan vara föreslaget av ReInvGrabber (se transaction_add-vyn) - fylls i
+  // rakt av bara om fältet är tomt, så en tidigare manuell redigering aldrig skrivs över.
+  const extractionSuggestedBaseAmount = JSON.parse(
+    document.getElementById('extraction-suggested-base-amount')?.textContent || '""'
+  );
+  if (extractionSuggestedBaseAmount && baseAmountInput && !baseAmountInput.value) {
+    baseAmountInput.value = extractionSuggestedBaseAmount;
+    if (!baseAmountWrapper.classList.contains('d-none')) {
+      applyTemplateAmounts();
+    }
+  }
+
+  if (baseAmountInput) {
+    baseAmountInput.addEventListener('input', applyTemplateAmounts);
+  }
+  body.addEventListener('input', function (e) {
+    const row = e.target.closest('.entry-row');
+    if (row) {
+      const changedField = e.target.matches('input[id$="-debit"]')
+        ? 'debit'
+        : (e.target.matches('input[id$="-credit"]') ? 'credit' : null);
+      syncDebitCreditState(row, changedField);
+      if (changedField && !applyingTemplateAmounts) {
+        clearActiveTemplateSelection();
+      }
+    }
+    recalc();
+    syncSaveButtonState();
+  });
+  body.addEventListener('change', function () {
+    recalc();
+    syncSaveButtonState();
+  });
+  recalc();
+  syncDeleteButtons();
+  syncSaveButtonState();
+
+  if (dateInput) {
+    dateInput.addEventListener('change', refreshAccountBalancesForDate);
+  }
+
+  formEl.addEventListener('input', syncSaveButtonState);
+  formEl.addEventListener('change', syncSaveButtonState);
+
+  // Add row dynamically
+  document.getElementById('add-row-btn').addEventListener('click', function () {
+    const idx = parseInt(totalForms.value);
+    if (!rowTemplate || !rowTemplate.content.firstElementChild) {
+      return;
+    }
+
+    const newRow = rowTemplate.content.firstElementChild.cloneNode(true);
+    newRow.querySelectorAll('input, select').forEach(el => {
+      el.name = el.name.replace('__prefix__', String(idx));
+      el.id = el.id.replace('__prefix__', String(idx));
+      if (el.type !== 'hidden') el.value = '';
+      if (el.type === 'checkbox') el.checked = false;
+      if (el.matches('input[id$="-credit"], input[id$="-debit"]')) {
+        el.readOnly = false;
+        el.classList.remove('locked-amount');
+      }
+    });
+    body.appendChild(newRow);
+    totalForms.value = idx + 1;
+
+    // Re-init Select2 on the new select
+    initSelect2();
+    bindAccountSelectHandlers(newRow);
+    syncDebitCreditState(newRow);
+    clearActiveTemplateSelection();
+    recalc();
+    syncDeleteButtons();
+    syncSaveButtonState();
+  });
+
+  if (templateSelect) {
+    templateSelect.addEventListener('change', function () {
+      if (suppressTemplateSelectChange) {
+        return;
+      }
+
+      const selectedTemplateId = templateSelect.value;
+      if (!selectedTemplateId) {
+        clearActiveTemplateSelection();
+        recalc();
+        syncSaveButtonState();
+        return;
+      }
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('template', selectedTemplateId);
+      window.location.href = url.toString();
+    });
+  }
+
+  // Soft-delete row
+  body.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-row-btn');
+    if (!btn) return;
+    if (activeRowCount() <= MIN_ROWS) return;
+
+    const row = btn.closest('.entry-row');
+    const checkbox = row.querySelector('input[type=checkbox]');
+    if (checkbox) {
+      checkbox.checked = true;
+      row.style.display = 'none';
+    } else {
+      row.remove();
+      totalForms.value = parseInt(totalForms.value) - 1;
+    }
+    clearActiveTemplateSelection();
+    recalc();
+    syncDeleteButtons();
+    syncSaveButtonState();
+  });
+
+  const addRowBtn = document.getElementById('add-row-btn');
+
+  SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
+  SaldoVibe.attachments.initFormStateRoundtrip({
+    form: formEl,
+    storageKey: 'transaction_form_state_v1',
+    growRows: function (state) {
+      const desiredRows = Number(state['entries-TOTAL_FORMS'] || MIN_ROWS);
+      const rowsToAdd = Math.max(0, desiredRows - Number(totalForms.value || MIN_ROWS));
+      for (let i = 0; i < rowsToAdd; i += 1) {
+        addRowBtn.click();
+      }
+    },
+    afterRestore: function () {
+      initSelect2();
+      bindAccountSelectHandlers(document);
+      syncAllRowsDebitCreditState();
+      recalc();
+      syncDeleteButtons();
+      syncSaveButtonState();
+    }
+  });
+})();
+</script>
+{% endblock %}

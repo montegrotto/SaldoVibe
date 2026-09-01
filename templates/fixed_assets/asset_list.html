@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Anläggningstillgångar – SaldoVibe{% endblock %}
+{% block page_title %}Anläggningstillgångar{% endblock %}
+{% block nav_fixed_assets %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end gap-2 mb-3">
+  <a href="{% url 'fixed_assets:asset_type_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-sliders2 me-1"></i>Tillgångstyper
+  </a>
+  <a href="{% url 'fixed_assets:asset_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Ny tillgång
+  </a>
+</div>
+
+{% if due_assets %}
+<div class="alert alert-warning shadow-sm border-0" role="alert">
+  <div class="fw-semibold mb-2"><i class="bi bi-bell me-2"></i>Avskrivning påminnelse</div>
+  <ul class="mb-0 ps-3">
+    {% for asset in due_assets %}
+    <li>
+      <strong>{{ asset.name }}</strong>
+      {% if asset.due_months > 0 %}
+        – försenad med {{ asset.due_months }} månad{% if asset.due_months != 1 %}er{% endif %}
+      {% else %}
+        – klar för avskrivning denna månad
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-buildings me-2"></i>Tillgångsregister</h6>
+  </div>
+  <div class="card-body p-0">
+    {% if assets %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Namn</th>
+            <th>Typ</th>
+            <th class="text-end">Anskaffning</th>
+            <th class="text-end">Bokfört värde</th>
+            <th>Nästa avskrivning</th>
+            <th class="text-center">Status</th>
+            <th class="text-end pe-3">Åtgärder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in assets %}
+          <tr>
+            <td class="ps-3 fw-semibold">{{ asset.name }}</td>
+            <td>{{ asset.asset_type_name }}</td>
+            <td class="text-end">{{ asset.acquisition_value|floatformat:"2g" }} kr</td>
+            <td class="text-end">{{ asset.current_book_value|floatformat:"2g" }} kr</td>
+            <td>
+              {% if asset.next_depreciation_date %}
+                {{ asset.next_depreciation_date }}
+              {% else %}
+                <span class="text-muted">Slutförd</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if not asset.is_active %}
+                <span class="badge bg-secondary">Inaktiv</span>
+              {% elif asset.depreciable_amount <= 0 %}
+                <span class="badge bg-secondary">Ingen avskrivning</span>
+              {% elif asset.is_fully_depreciated %}
+                <span class="badge bg-success">Fullt avskriven</span>
+              {% elif asset.is_due_for_depreciation %}
+                <span class="badge bg-warning text-dark">Förfallen</span>
+              {% else %}
+                <span class="badge bg-info text-dark">Planerad</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <a href="{% url 'fixed_assets:asset_detail' asset.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-eye me-1"></i>Visa
+              </a>
+              <a href="{% url 'fixed_assets:asset_update' asset.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil-square me-1"></i>Redigera
+              </a>
+              {% if asset.is_active and asset.is_due_for_depreciation and not asset.is_fully_depreciated %}
+              <form method="post" action="{% url 'fixed_assets:asset_run_depreciation' asset.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <i class="bi bi-calendar-check me-1"></i>Bokför månad
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="p-3 text-muted">Inga anläggningstillgångar registrerade ännu.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

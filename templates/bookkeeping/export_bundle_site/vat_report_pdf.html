@@ -1,0 +1,46 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block extra_css %}
+    .report-table tr.group-row td {
+      font-weight: bold;
+      background-color: #eef2f7;
+      color: #111827;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+{% endblock %}
+
+{% block title %}MOMSDEKLARATION{% endblock %}
+{% block subtitle %}<span class="label">Period</span> <span class="value">{{ period_start|date:"Y-m-d" }} – {{ period_end|date:"Y-m-d" }}</span>{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    <tr><td class="label">Period</td><td class="value">{{ period_start|date:"Y-m-d" }} – {{ period_end|date:"Y-m-d" }}</td></tr>
+    <tr><td class="label">Stängd</td><td class="value">{{ closed_at|date:"Y-m-d H:i" }}{% if closed_by %} av {{ closed_by.get_full_name|default:closed_by.email }}{% endif %}</td></tr>
+  </table>
+
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th style="width: 18mm;">RUTA</th>
+        <th>BESKRIVNING</th>
+        <th class="num" style="width: 35mm;">BELOPP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in field_groups %}
+      <tr class="group-row">
+        <td colspan="3">{{ group.letter }}. {{ group.label }}</td>
+      </tr>
+      {% for row in group.rows %}
+      <tr>
+        <td>{{ row.code }}</td>
+        <td>{{ row.label }}</td>
+        <td class="num">{{ row.amount }} kr</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

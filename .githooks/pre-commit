@@ -1,0 +1,27 @@
+#!/bin/sh
+# Fast checks on every commit: lint + formatting.
+# Enable with: git config core.hooksPath .githooks
+set -e
+
+if [ -x .venv/bin/ruff ]; then
+    RUFF=.venv/bin/ruff
+else
+    RUFF=ruff
+fi
+
+echo "pre-commit: ruff check"
+$RUFF check .
+echo "pre-commit: ruff format --check"
+$RUFF format --check .
+
+if [ -x .venv/bin/python ]; then
+    PYTHON=.venv/bin/python
+else
+    PYTHON=python3
+fi
+
+echo "pre-commit: Dockerfile app copy check"
+$PYTHON scripts/check_dockerfile_apps.py
+
+echo "pre-commit: lockfile check"
+$PYTHON scripts/check_requirements_lock.py

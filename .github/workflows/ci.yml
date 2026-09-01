@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install ruff
+        run: pip install "$(grep '^ruff==' requirements-dev.txt)"
+      - name: Lint
+        run: ruff check .
+      - name: Check formatting
+        run: ruff format --check .
+      - name: Check Dockerfile copies all apps
+        run: python scripts/check_dockerfile_apps.py
+      - name: Check lockfiles match requirements
+        run: python scripts/check_requirements_lock.py
+
+  test:
+    name: test (${{ matrix.db }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: sqlite
+            engine: django.db.backends.sqlite3
+          - db: postgres
+            engine: django.db.backends.postgresql
+    # The ledger/audit-log immutability triggers have separate sqlite and Postgres
+    # implementations (see the *_triggers migrations), so the suite runs against both.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: saldovibe
+          POSTGRES_PASSWORD: saldovibe
+          POSTGRES_DB: saldovibe
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saldovibe"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_ENGINE: ${{ matrix.engine }}
+      DATABASE_NAME: saldovibe
+      DATABASE_USER: saldovibe
+      DATABASE_PASSWORD: saldovibe
+      DATABASE_HOST: localhost
+      DATABASE_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+      # Frontend deps are vendored from node_modules through STATICFILES_DIRS. Without
+      # them collectstatic still exits 0, but writes a manifest with no vendor/ entries.
+      - name: Install frontend dependencies
+        run: npm ci
+      # STORAGES uses WhiteNoise's manifest storage, so {% static %} raises
+      # "Missing staticfiles manifest entry" for anything not collected — which fails
+      # every test that renders a template, not just the ones touching static files.
+      - name: Collect static files
+        run: python manage.py collectstatic --noinput
+      - name: Run test suite
+        run: python manage.py test

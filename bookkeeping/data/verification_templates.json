@@ -1,0 +1,1307 @@
+[
+  {
+    "slug": "avskrivning-inventarier",
+    "name": "Avskrivning på inventarier",
+    "description": "Planenlig avskrivning för perioden.",
+    "category": "Anläggningstillgångar",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "7832",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1229",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "avskrivning-maskiner",
+    "name": "Avskrivning på maskiner",
+    "description": "Planenlig avskrivning för perioden.",
+    "category": "Anläggningstillgångar",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "7831",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1219",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forsaljning-inventarie",
+    "name": "Försäljning av inventarie",
+    "description": "Bokför bort anskaffningsvärde och ackumulerade avskrivningar, och redovisa resultatet.",
+    "category": "Anläggningstillgångar",
+    "base_amount_label": "",
+    "entries": [
+      {
+        "account": "1930",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "1229",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "1220",
+        "side": "credit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "3973",
+        "side": "credit",
+        "amount_rule": "none"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-inventarier",
+    "name": "Inköp av inventarier, 25 % moms",
+    "description": "Anskaffning av inventarier som ska skrivas av över tid.",
+    "category": "Anläggningstillgångar",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1220",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-maskiner",
+    "name": "Inköp av maskiner, 25 % moms",
+    "description": "Anskaffning av maskiner och tekniska anläggningar.",
+    "category": "Anläggningstillgångar",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1210",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "balansering-foregaende-ar",
+    "name": "Balansering av föregående års resultat",
+    "description": "Föregående års resultat förs om till balanserat resultat.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2098",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2091",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forutbetald-hyra",
+    "name": "Förutbetald hyra",
+    "description": "Hyra som betalats i förskott flyttas till nästa period.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1710",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "5010",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forutbetald-intakt",
+    "name": "Förutbetald intäkt",
+    "description": "Intäkt som fakturerats i förskott skjuts till nästa period.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "3001",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2970",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "upplupen-intakt",
+    "name": "Upplupen intäkt",
+    "description": "Intäkt som hör till perioden men faktureras senare.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1790",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "3001",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "upplupen-kostnad",
+    "name": "Upplupen kostnad",
+    "description": "Kostnad som hör till perioden men faktureras senare.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "6990",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2990",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "arets-resultat-vinst",
+    "name": "Årets resultat, vinst",
+    "description": "Överför årets vinst till eget kapital.",
+    "category": "Bokslut och periodisering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "8999",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2099",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "amortering-banklan",
+    "name": "Amortering av banklån",
+    "description": "Amortering minskar låneskulden.",
+    "category": "Eget kapital och finansiering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2350",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "egen-insattning",
+    "name": "Egen insättning",
+    "description": "Ägaren sätter in privata medel i verksamheten (enskild firma).",
+    "category": "Eget kapital och finansiering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1930",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2018",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "eget-uttag",
+    "name": "Eget uttag",
+    "description": "Ägaren tar ut medel ur verksamheten (enskild firma).",
+    "category": "Eget kapital och finansiering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2013",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "rantekostnad-lan",
+    "name": "Räntekostnad på lån",
+    "description": "Ränta på långfristig skuld.",
+    "category": "Eget kapital och finansiering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "8410",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "upptaget-banklan",
+    "name": "Upptaget banklån",
+    "description": "Lånet betalas ut till företagskontot.",
+    "category": "Eget kapital och finansiering",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1930",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2350",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forsaljning-tjanster-eu",
+    "name": "Försäljning av tjänster till annat EU-land",
+    "description": "Momsfri försäljning där köparen redovisar momsen.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1510",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "3308",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forsaljning-varor-utanfor-eu",
+    "name": "Försäljning av varor till land utanför EU",
+    "description": "Export. Momsfri försäljning.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1510",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "3105",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inbetalning-kundfaktura",
+    "name": "Inbetalning från kund",
+    "description": "Kunden betalar en tidigare bokförd kundfordran.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1930",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1510",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "konstaterad-kundforlust",
+    "name": "Konstaterad kundförlust",
+    "description": "Kunden kan inte betala. Momsen får återföras på den konstaterade förlusten.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "",
+    "entries": [
+      {
+        "account": "6351",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "2611",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "1510",
+        "side": "credit",
+        "amount_rule": "none"
+      }
+    ]
+  },
+  {
+    "slug": "kontantforsaljning-25",
+    "name": "Kontantförsäljning, 25 % moms",
+    "description": "Försäljning inom Sverige som betalas direkt.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1930",
+        "side": "debit",
+        "amount_rule": "remainder"
+      },
+      {
+        "account": "3001",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2611",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      }
+    ]
+  },
+  {
+    "slug": "kundfaktura-12",
+    "name": "Kundfaktura, 12 % moms",
+    "description": "Försäljning inom Sverige med 12 % moms.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1510",
+        "side": "debit",
+        "amount_rule": "remainder"
+      },
+      {
+        "account": "3002",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "89.2857"
+      },
+      {
+        "account": "2621",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "10.7143"
+      }
+    ]
+  },
+  {
+    "slug": "kundfaktura-25",
+    "name": "Kundfaktura, 25 % moms",
+    "description": "Försäljning inom Sverige mot faktura.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1510",
+        "side": "debit",
+        "amount_rule": "remainder"
+      },
+      {
+        "account": "3001",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2611",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      }
+    ]
+  },
+  {
+    "slug": "kundfaktura-6",
+    "name": "Kundfaktura, 6 % moms",
+    "description": "Försäljning inom Sverige med 6 % moms.",
+    "category": "Försäljning och kunder",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "1510",
+        "side": "debit",
+        "amount_rule": "remainder"
+      },
+      {
+        "account": "3003",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "94.3396"
+      },
+      {
+        "account": "2631",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "5.6604"
+      }
+    ]
+  },
+  {
+    "slug": "betalning-leverantorsfaktura",
+    "name": "Betalning av leverantörsfaktura",
+    "description": "Reglering av en tidigare bokförd leverantörsskuld.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2440",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-tjanster-omvand-sverige",
+    "name": "Inköp av byggtjänst i Sverige, omvänd betalningsskyldighet",
+    "description": "Omvänd betalningsskyldighet inom byggsektorn. Ange fakturans belopp exklusive moms.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Nettobelopp exkl. moms",
+    "entries": [
+      {
+        "account": "4425",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2647",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2614",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-tjanster-eu-25",
+    "name": "Inköp av tjänster från annat EU-land, omvänd betalningsskyldighet",
+    "description": "Du redovisar både utgående och ingående moms själv. Ange fakturans belopp exklusive moms.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Nettobelopp exkl. moms",
+    "entries": [
+      {
+        "account": "4535",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2645",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2614",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-varor-eu-25",
+    "name": "Inköp av varor från annat EU-land, 25 %",
+    "description": "Unionsinternt förvärv. Ange fakturans belopp exklusive moms.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Nettobelopp exkl. moms",
+    "entries": [
+      {
+        "account": "4515",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2645",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2614",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "25.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-varor-sverige-25",
+    "name": "Inköp av varor i Sverige, 25 % moms",
+    "description": "Leverantörsfaktura för varuinköp inom Sverige.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "4010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "inkop-varor-sverige-25-betalt",
+    "name": "Inköp av varor i Sverige, 25 % moms, betalt direkt",
+    "description": "Varuinköp som betalas från företagskontot vid köptillfället.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "4010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "leverantorsfaktura-12",
+    "name": "Leverantörsfaktura, 12 % moms",
+    "description": "Inköp med 12 % moms, till exempel livsmedel och restaurangbesök.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "4010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "89.2857"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "10.7143"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "leverantorsfaktura-6",
+    "name": "Leverantörsfaktura, 6 % moms",
+    "description": "Inköp med 6 % moms, till exempel böcker, tidningar och persontransport.",
+    "category": "Inköp och leverantörer",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "4010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "94.3396"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "5.6604"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "annonsering",
+    "name": "Annonsering och reklam, 25 % moms",
+    "description": "Marknadsföringskostnader.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "5910",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "bankkostnader",
+    "name": "Bankkostnader och avgifter",
+    "description": "Momsfria bankavgifter som dras från kontot.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "6570",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "drivmedel",
+    "name": "Drivmedel, 25 % moms",
+    "description": "Tankning av företagets fordon.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "5611",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "forbrukningsinventarier",
+    "name": "Förbrukningsinventarier, 25 % moms",
+    "description": "Inventarier av mindre värde som kostnadsförs direkt.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "5410",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "foretagsforsakring",
+    "name": "Företagsförsäkring",
+    "description": "Momsfri försäkringspremie.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "6310",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "kontorsmateriel",
+    "name": "Kontorsmateriel, 25 % moms",
+    "description": "Förbrukning av kontorsmaterial.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "6110",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "lokalhyra",
+    "name": "Lokalhyra, 25 % moms",
+    "description": "Månadshyra för verksamhetslokal.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "5010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "mobiltelefoni",
+    "name": "Mobiltelefoni, 25 % moms",
+    "description": "Abonnemang och samtalsavgifter.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "6212",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "redovisningstjanster",
+    "name": "Redovisnings- och revisionstjänster, 25 % moms",
+    "description": "Arvode till redovisningskonsult eller revisor.",
+    "category": "Lokal och drift",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "6530",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "representation",
+    "name": "Representation, avdragsgill",
+    "description": "Momsavdraget är begränsat till ett schablonbelopp per person — fyll i beloppen manuellt.",
+    "category": "Lokal och drift",
+    "base_amount_label": "",
+    "entries": [
+      {
+        "account": "6071",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "none"
+      }
+    ]
+  },
+  {
+    "slug": "betalning-skatt-avgifter",
+    "name": "Betalning av personalskatt och arbetsgivaravgifter",
+    "description": "Reglering av skulderna mot skattekontot efter arbetsgivardeklarationen.",
+    "category": "Lön och personal",
+    "base_amount_label": "",
+    "entries": [
+      {
+        "account": "2710",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "2731",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "1630",
+        "side": "credit",
+        "amount_rule": "none"
+      }
+    ]
+  },
+  {
+    "slug": "friskvardsbidrag",
+    "name": "Friskvårdsbidrag",
+    "description": "Skattefri motions- och friskvårdsförmån.",
+    "category": "Lön och personal",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "7690",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "foretagshalsovard",
+    "name": "Företagshälsovård, 25 % moms",
+    "description": "Avdragsgill företagshälsovård mot leverantörsfaktura.",
+    "category": "Lön och personal",
+    "base_amount_label": "Bruttobelopp inkl. moms",
+    "entries": [
+      {
+        "account": "7690",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "80.0000"
+      },
+      {
+        "account": "2641",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "20.0000"
+      },
+      {
+        "account": "2440",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "loneutbetalning-tjansteman",
+    "name": "Löneutbetalning med skatt och arbetsgivaravgifter",
+    "description": "Bruttolön, preliminärskatt 30 % och arbetsgivaravgifter 31,42 %. Ange bruttolönen.",
+    "category": "Lön och personal",
+    "base_amount_label": "Bruttolön",
+    "entries": [
+      {
+        "account": "7210",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "7510",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "31.4200"
+      },
+      {
+        "account": "2710",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "30.0000"
+      },
+      {
+        "account": "2731",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "31.4200"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "loneutbetalning-kollektiv",
+    "name": "Löneutbetalning till kollektivanställd",
+    "description": "Som ovan men mot konto 7010. Ange bruttolönen.",
+    "category": "Lön och personal",
+    "base_amount_label": "Bruttolön",
+    "entries": [
+      {
+        "account": "7010",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "7510",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "31.4200"
+      },
+      {
+        "account": "2710",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "30.0000"
+      },
+      {
+        "account": "2731",
+        "side": "credit",
+        "amount_rule": "percent",
+        "amount_percent": "31.4200"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "milersattning",
+    "name": "Skattefri bilersättning (milersättning)",
+    "description": "Ersättning för resa med egen bil i tjänsten, upp till schablonbeloppet.",
+    "category": "Lön och personal",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "7331",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "upplupna-semesterloner",
+    "name": "Upplupen semesterlöneskuld",
+    "description": "Bokslutspost för intjänad men inte uttagen semester.",
+    "category": "Lön och personal",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "7290",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2920",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "betalning-moms",
+    "name": "Betalning av moms",
+    "description": "Momsskulden regleras mot skattekontot.",
+    "category": "Moms och skatt",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2650",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1630",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "debiterad-preliminarskatt",
+    "name": "Debiterad preliminärskatt",
+    "description": "Månadens preliminära F-skatt dras på skattekontot.",
+    "category": "Moms och skatt",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "2510",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1630",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "insattning-skattekonto",
+    "name": "Insättning på skattekontot",
+    "description": "Överföring från företagskontot till skattekontot.",
+    "category": "Moms och skatt",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1630",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "1930",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "momsfordran",
+    "name": "Momsfordran vid överskjutande ingående moms",
+    "description": "Perioden ger moms att få tillbaka.",
+    "category": "Moms och skatt",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "1650",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2650",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  },
+  {
+    "slug": "momsredovisning",
+    "name": "Momsredovisning för perioden",
+    "description": "Nollställ utgående och ingående moms mot redovisningskontot för moms.",
+    "category": "Moms och skatt",
+    "base_amount_label": "",
+    "entries": [
+      {
+        "account": "2611",
+        "side": "debit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "2641",
+        "side": "credit",
+        "amount_rule": "none"
+      },
+      {
+        "account": "2650",
+        "side": "credit",
+        "amount_rule": "none"
+      }
+    ]
+  },
+  {
+    "slug": "arets-skatt",
+    "name": "Årets skatt på resultatet",
+    "description": "Bokslutspost för beräknad inkomstskatt.",
+    "category": "Moms och skatt",
+    "base_amount_label": "Belopp",
+    "entries": [
+      {
+        "account": "8910",
+        "side": "debit",
+        "amount_rule": "percent",
+        "amount_percent": "100.0000"
+      },
+      {
+        "account": "2512",
+        "side": "credit",
+        "amount_rule": "remainder"
+      }
+    ]
+  }
+]

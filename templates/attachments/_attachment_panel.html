@@ -1,0 +1,375 @@
+{% load attachment_extras %}
+{% if attachments %}
+{{ attachments|attachment_panel_data|json_script:"attachmentPanelData" }}
+<div class="attachment-viewer-pane card shadow-sm border-0" id="attachmentViewerPane" data-start-empty="{% if start_empty %}1{% else %}0{% endif %}">
+  <div class="card-header bg-white py-2">
+    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+      <div class="min-width-0">
+        <div class="fw-semibold small text-truncate" id="attachmentViewerTitle"></div>
+        <div class="text-muted small" id="attachmentViewerCounter"></div>
+      </div>
+      <div class="d-flex align-items-center gap-1 flex-wrap">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Zoom">
+          <button type="button" class="btn btn-outline-secondary" id="attachmentZoomOut" title="Zooma ut">
+            <i class="bi bi-zoom-out"></i>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" id="attachmentZoomReset" title="Återställ">
+            <i class="bi bi-aspect-ratio"></i>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" id="attachmentZoomIn" title="Zooma in">
+            <i class="bi bi-zoom-in"></i>
+          </button>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Rotera">
+          <button type="button" class="btn btn-outline-secondary" id="attachmentRotateLeft" title="Rotera vänster">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" id="attachmentRotateRight" title="Rotera höger">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+        <a href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm" id="attachmentOpenNewTab" title="Öppna i ny flik">
+          <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="attachment-viewer-stage bg-light-subtle">
+      <div class="text-muted small text-center p-4 d-none" id="attachmentViewerEmpty">
+        <i class="bi bi-file-earmark-text fs-2 d-block mb-2"></i>
+        Välj en bilaga för att visa den här.
+      </div>
+      <iframe id="attachmentViewerFrame" class="attachment-viewer-frame d-none"></iframe>
+      <img id="attachmentViewerImage" class="attachment-viewer-image d-none" alt="Förhandsvisning" draggable="false">
+      <div class="attachment-viewer-drag-layer" id="attachmentViewerDragLayer"></div>
+    </div>
+  </div>
+  {% if attachments|length > 1 and not hide_thumb_nav %}
+  <div class="card-footer bg-white d-flex align-items-center justify-content-between gap-2 py-2">
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="attachmentPrev">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <div class="d-flex flex-wrap gap-1 justify-content-center" id="attachmentThumbList"></div>
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="attachmentNext">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  .attachment-viewer-pane {
+    flex: 0 0 min(42%, 560px);
+    max-width: 560px;
+    min-width: 320px;
+    width: 100%;
+    position: sticky;
+    top: 1rem;
+  }
+  /* Matches the flex-lg-row wrapper in the pages that include this panel:
+     side-by-side from 992px, stacked below that. The xl breakpoint used to
+     push the viewer under the content on ordinary laptop widths. */
+  @media (max-width: 991.98px) {
+    .attachment-viewer-pane {
+      flex-basis: 100%;
+      max-width: 100%;
+      position: static;
+    }
+  }
+  .attachment-viewer-stage {
+    position: relative;
+    height: calc(100vh - 260px);
+    min-height: 360px;
+    max-height: 720px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+  .attachment-viewer-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    transition: transform 0.15s ease;
+    transform-origin: center center;
+  }
+  .attachment-viewer-image {
+    max-width: 100%;
+    max-height: 100%;
+    transition: transform 0.15s ease;
+    transform-origin: center center;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .attachment-viewer-stage.is-panning .attachment-viewer-frame,
+  .attachment-viewer-stage.is-panning .attachment-viewer-image {
+    transition: none;
+  }
+  .attachment-viewer-drag-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: none;
+    touch-action: none;
+  }
+  .attachment-viewer-stage.is-zoomed .attachment-viewer-drag-layer {
+    display: block;
+    cursor: grab;
+  }
+  .attachment-viewer-stage.is-panning .attachment-viewer-drag-layer {
+    cursor: grabbing;
+  }
+  .attachment-thumb-btn.active {
+    background-color: var(--bs-primary);
+    color: #fff;
+    border-color: var(--bs-primary);
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const dataEl = document.getElementById('attachmentPanelData');
+  if (!dataEl) {
+    return;
+  }
+
+  const items = JSON.parse(dataEl.textContent);
+  if (!items.length) {
+    return;
+  }
+
+  const frame = document.getElementById('attachmentViewerFrame');
+  const image = document.getElementById('attachmentViewerImage');
+  const titleEl = document.getElementById('attachmentViewerTitle');
+  const counterEl = document.getElementById('attachmentViewerCounter');
+  const openNewTabLink = document.getElementById('attachmentOpenNewTab');
+  const zoomInBtn = document.getElementById('attachmentZoomIn');
+  const zoomOutBtn = document.getElementById('attachmentZoomOut');
+  const zoomResetBtn = document.getElementById('attachmentZoomReset');
+  const rotateLeftBtn = document.getElementById('attachmentRotateLeft');
+  const rotateRightBtn = document.getElementById('attachmentRotateRight');
+  const prevBtn = document.getElementById('attachmentPrev');
+  const nextBtn = document.getElementById('attachmentNext');
+  const thumbList = document.getElementById('attachmentThumbList');
+  const emptyState = document.getElementById('attachmentViewerEmpty');
+  const paneEl = document.getElementById('attachmentViewerPane');
+  const startEmpty = !!paneEl && paneEl.dataset.startEmpty === '1';
+  const stage = document.querySelector('.attachment-viewer-stage');
+  const dragLayer = document.getElementById('attachmentViewerDragLayer');
+
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3;
+  const ZOOM_STEP = 0.25;
+
+  let currentIndex = 0;
+  let zoom = 1;
+  let rotation = 0;
+  let panX = 0;
+  let panY = 0;
+  let isPanning = false;
+  let panPointerId = null;
+  let panStartX = 0;
+  let panStartY = 0;
+  let panOriginX = 0;
+  let panOriginY = 0;
+
+  function setControlsEnabled(enabled) {
+    [zoomInBtn, zoomOutBtn, zoomResetBtn, rotateLeftBtn, rotateRightBtn, openNewTabLink].forEach(function (el) {
+      if (!el) {
+        return;
+      }
+      el.classList.toggle('disabled', !enabled);
+    });
+  }
+
+  if (thumbList) {
+    items.forEach(function (item, index) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-secondary btn-sm attachment-thumb-btn';
+      btn.textContent = index + 1;
+      btn.title = item.file_name;
+      btn.addEventListener('click', function () { render(index); });
+      thumbList.appendChild(btn);
+    });
+  }
+
+  function applyTransform() {
+    const transform = 'translate(' + panX + 'px, ' + panY + 'px) rotate(' + rotation + 'deg) scale(' + zoom + ')';
+    frame.style.transform = transform;
+    image.style.transform = transform;
+    if (stage) {
+      stage.classList.toggle('is-zoomed', zoom > 1);
+    }
+  }
+
+  function resetPan() {
+    panX = 0;
+    panY = 0;
+  }
+
+  function updateActiveThumb() {
+    if (!thumbList) {
+      return;
+    }
+    Array.prototype.forEach.call(thumbList.children, function (btn, index) {
+      btn.classList.toggle('active', index === currentIndex);
+    });
+  }
+
+  function render(index) {
+    currentIndex = (index + items.length) % items.length;
+    const item = items[currentIndex];
+    zoom = 1;
+    rotation = 0;
+    resetPan();
+
+    if (emptyState) {
+      emptyState.classList.add('d-none');
+    }
+    setControlsEnabled(true);
+
+    titleEl.textContent = item.file_name;
+    counterEl.textContent = items.length > 1 ? (currentIndex + 1) + ' av ' + items.length : '';
+    openNewTabLink.href = item.file_url;
+
+    if (item.is_pdf) {
+      frame.src = item.file_url + '#toolbar=0';
+      frame.classList.remove('d-none');
+      image.classList.add('d-none');
+      image.removeAttribute('src');
+    } else {
+      image.src = item.file_url;
+      image.classList.remove('d-none');
+      frame.classList.add('d-none');
+      frame.removeAttribute('src');
+    }
+
+    applyTransform();
+    updateActiveThumb();
+
+    const hasMultiple = items.length > 1;
+    prevBtn && prevBtn.classList.toggle('d-none', !hasMultiple);
+    nextBtn && nextBtn.classList.toggle('d-none', !hasMultiple);
+  }
+
+  zoomInBtn.addEventListener('click', function () {
+    zoom = Math.min(ZOOM_MAX, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+    applyTransform();
+  });
+  zoomOutBtn.addEventListener('click', function () {
+    zoom = Math.max(ZOOM_MIN, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+    if (zoom <= 1) {
+      resetPan();
+    }
+    applyTransform();
+  });
+  zoomResetBtn.addEventListener('click', function () {
+    zoom = 1;
+    rotation = 0;
+    resetPan();
+    applyTransform();
+  });
+  rotateLeftBtn.addEventListener('click', function () {
+    rotation = (rotation - 90 + 360) % 360;
+    applyTransform();
+  });
+  rotateRightBtn.addEventListener('click', function () {
+    rotation = (rotation + 90) % 360;
+    applyTransform();
+  });
+
+  if (dragLayer && stage) {
+    dragLayer.addEventListener('pointerdown', function (event) {
+      if (zoom <= 1) {
+        return;
+      }
+      isPanning = true;
+      panPointerId = event.pointerId;
+      panStartX = event.clientX;
+      panStartY = event.clientY;
+      panOriginX = panX;
+      panOriginY = panY;
+      stage.classList.add('is-panning');
+      dragLayer.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    dragLayer.addEventListener('pointermove', function (event) {
+      if (!isPanning || event.pointerId !== panPointerId) {
+        return;
+      }
+      panX = panOriginX + (event.clientX - panStartX);
+      panY = panOriginY + (event.clientY - panStartY);
+      applyTransform();
+    });
+
+    const endPan = function (event) {
+      if (!isPanning || (event && event.pointerId !== panPointerId)) {
+        return;
+      }
+      isPanning = false;
+      stage.classList.remove('is-panning');
+      if (event && dragLayer.hasPointerCapture(event.pointerId)) {
+        dragLayer.releasePointerCapture(event.pointerId);
+      }
+      panPointerId = null;
+    };
+    dragLayer.addEventListener('pointerup', endPan);
+    dragLayer.addEventListener('pointercancel', endPan);
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function () { render(currentIndex - 1); });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () { render(currentIndex + 1); });
+  }
+
+  document.addEventListener('attachment-viewer:show', function (event) {
+    const id = event && event.detail && event.detail.id;
+    if (id === undefined || id === null) {
+      return;
+    }
+    const index = items.findIndex(function (item) { return item.id === id; });
+    if (index > -1) {
+      render(index);
+    }
+  });
+
+  document.addEventListener('attachment-viewer:remove', function (event) {
+    const id = event && event.detail && event.detail.id;
+    if (id === undefined || id === null) {
+      return;
+    }
+    const index = items.findIndex(function (item) { return item.id === id; });
+    if (index === -1) {
+      return;
+    }
+    items.splice(index, 1);
+    if (thumbList && thumbList.children[index]) {
+      thumbList.children[index].remove();
+      Array.prototype.forEach.call(thumbList.children, function (btn, i) { btn.textContent = i + 1; });
+    }
+    if (!items.length) {
+      if (paneEl) {
+        paneEl.classList.add('d-none');
+      }
+      return;
+    }
+    render(Math.min(currentIndex, items.length - 1));
+  });
+
+  if (startEmpty) {
+    setControlsEnabled(false);
+    if (emptyState) {
+      emptyState.classList.remove('d-none');
+    }
+  } else {
+    render(0);
+  }
+});
+</script>
+{% endif %}

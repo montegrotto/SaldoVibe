@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Exportera bokföring – SaldoVibe{% endblock %}
+{% block page_title %}Exportera bokföring{% endblock %}
+{% block nav_export_bundle %}active{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    <h5 class="mb-1">Exportpaket</h5>
+    <p class="text-muted small mb-3">
+      Starta ett komplett exportpaket för valfri period: bilagor, bokföringsdata (SIE4),
+      kontospecifikationer, banktransaktioner samt rapporter (moms, AGI och lönebesked för redan
+      stängda/rapporterade perioder), tillsammans med en manifest.json med SHA256-kontrollsummor
+      för varje fil. Exporten körs i bakgrunden – du behöver inte vänta på sidan.
+    </p>
+    <form method="get" class="row row-cols-lg-auto g-2 align-items-end">
+      <div class="col-12">
+        <label for="{{ form.start_date.id_for_label }}" class="form-label small text-muted mb-0">{{ form.start_date.label }}</label>
+        {{ form.start_date }}
+      </div>
+      <div class="col-12">
+        <label for="{{ form.end_date.id_for_label }}" class="form-label small text-muted mb-0">{{ form.end_date.label }}</label>
+        {{ form.end_date }}
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-outline-primary">Förhandsgranska</button>
+      </div>
+    </form>
+    {% if form.errors %}
+    <div class="alert alert-danger mt-3 mb-0">
+      {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if preview %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">
+      Period {{ preview.start_date|date:"Y-m-d" }} – {{ preview.end_date|date:"Y-m-d" }}
+    </h6>
+  </div>
+  <div class="card-body">
+    <ul class="mb-4">
+      <li>
+        {{ preview.overlapping_years|length }} räkenskapsår ingår i exporten
+        {% if preview.overlapping_years %}
+        ({% for year in preview.overlapping_years %}{{ year.start_date|date:"Y-m-d" }}–{{ year.end_date|date:"Y-m-d" }}{% if not forloop.last %}, {% endif %}{% endfor %})
+        {% endif %}
+      </li>
+      <li>{{ preview.booked_count }} bokförda bilagor</li>
+      <li>{{ preview.not_booked_count }} ej bokförda bilagor</li>
+      <li>
+        {{ preview.bank.transaction_count }} banktransaktioner från {{ preview.bank.account_count }} bankkällor
+        ({{ preview.bank.not_booked_count }} ej bokförda)
+      </li>
+      <li>
+        {{ preview.reports.vat_period_count }} stängda momsperioder,
+        {{ preview.reports.agi_run_count }} rapporterade AGI-lönekörningar,
+        {{ preview.reports.payslip_count }} lönebesked
+      </li>
+    </ul>
+    <form method="post" action="{% url 'bookkeeping:export_bundle_start' %}">
+      {% csrf_token %}
+      <input type="hidden" name="start_date" value="{{ preview.start_date|date:'Y-m-d' }}">
+      <input type="hidden" name="end_date" value="{{ preview.end_date|date:'Y-m-d' }}">
+      <button type="submit" class="btn btn-success">
+        <i class="bi bi-play-circle me-1"></i>Starta export i bakgrunden
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">Mina exportpaket</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Period</th>
+          <th>Status</th>
+          <th>Skapad</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td>{{ job.start_date|date:"Y-m-d" }} – {{ job.end_date|date:"Y-m-d" }}</td>
+          <td>
+            {% if job.status == "completed" %}
+            <span class="badge bg-success">Klar</span>
+            {% elif job.status == "running" %}
+            <span class="badge bg-info text-dark">Pågår</span>
+            <div class="small text-muted">Uppdatera sidan för att se aktuell status.</div>
+            {% elif job.status == "failed" %}
+            <span class="badge bg-danger">Misslyckades</span>
+            {% if job.error_message %}<div class="small text-danger">{{ job.error_message }}</div>{% endif %}
+            {% else %}
+            <span class="badge bg-secondary">Väntar</span>
+            <div class="small text-muted">Uppdatera sidan för att se aktuell status.</div>
+            {% endif %}
+          </td>
+          <td>{{ job.created_at|date:"Y-m-d H:i" }}</td>
+          <td class="text-end">
+            {% if job.status == "completed" %}
+            <a href="{% url 'bookkeeping:export_bundle_download' job.pk %}" class="btn btn-outline-success btn-sm">
+              <i class="bi bi-download me-1"></i>Ladda ner
+            </a>
+            {% endif %}
+            <form method="post" action="{% url 'bookkeeping:export_bundle_delete' job.pk %}" class="d-inline" onsubmit="return confirm('Ta bort exportpaketet för {{ job.start_date|date:'Y-m-d' }} – {{ job.end_date|date:'Y-m-d' }}? Detta kan inte ångras.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>Ta bort
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted">Inga exportpaket ännu.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

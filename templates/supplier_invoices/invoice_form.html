@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+{% block title %}Ny leverantörsfaktura – SaldoVibe{% endblock %}
+{% block page_title %}Ny leverantörsfaktura{% endblock %}
+{% block nav_supplier_invoices %}active{% endblock %}
+{% load static %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+
+  .default-booking-row .form-control[disabled] {
+    background-color: #e9ecef;
+  }
+
+  .locked-amount {
+    background-color: #e9ecef;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'supplier_invoices:invoice_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-list-ul me-1"></i>Till fakturalista
+  </a>
+</div>
+
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:1100px;">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2"></i>Ny leverantörsfaktura</h6>
+      </div>
+      <div class="card-body">
+        <form id="supplier-invoice-form" method="post" enctype="multipart/form-data" class="row g-2">
+          {% csrf_token %}
+          {{ cost_line_formset.management_form }}
+          {% if extraction_applied %}
+          <div class="col-12">
+            <div class="alert alert-info py-2 px-3 small mb-1">
+              <i class="bi bi-magic me-1"></i>Fält föreslagna från bilagans OCR-avläsning (ReInvGrabber) – kontrollera innan du sparar.
+              {% if extraction_unmatched_vendor_name %}
+                Leverantören <strong>{{ extraction_unmatched_vendor_name }}</strong> hittades inte i registret.
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+              <label class="form-label mb-0">Leverantör</label>
+              <a
+                href="{% url 'supplier_invoices:supplier_create' %}?return_to={{ picker_return_to|urlencode }}{% if extraction_unmatched_vendor_name %}&name={{ extraction_unmatched_vendor_name|urlencode }}{% endif %}"
+                class="btn btn-link btn-sm p-0 text-decoration-none"
+              >
+                <i class="bi bi-plus-circle me-1"></i>Ny leverantör
+              </a>
+            </div>
+            {{ form.supplier }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Fakturanummer <span class="text-muted small">(valfritt)</span></label>
+            {{ form.invoice_number }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">OCR <span class="text-muted small">(valfritt)</span></label>
+            {{ form.ocr_code }}
+          </div>
+          <div class="col-6">
+            <label class="form-label">Fakturadatum</label>
+            {{ form.invoice_date }}
+          </div>
+          <div class="col-6">
+            <label class="form-label">Förfallodatum</label>
+            {{ form.due_date }}
+          </div>
+          <div class="col-6">
+            <label class="form-label">Totalbelopp</label>
+            {{ form.total_amount }}
+          </div>
+          <div class="col-6">
+            <label class="form-label">Moms</label>
+            {{ form.vat_amount }}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Kostnadsrader</label>
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle mb-0" id="supplier-cost-table">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:36%">Konto</th>
+                    <th style="width:18%" class="text-end">Debet (kr)</th>
+                    <th style="width:18%" class="text-end">Kredit (kr)</th>
+                    <th style="width:24%" class="text-end">Saldo (kr)</th>
+                    <th style="width:60px"></th>
+                  </tr>
+                </thead>
+                <tbody id="cost-lines-wrapper">
+                  {% for row_form in cost_line_formset %}
+                    <tr class="cost-line-row">
+                      <td>{{ row_form.expense_account }}</td>
+                      <td>{{ row_form.debit }}</td>
+                      <td>{{ row_form.credit }}</td>
+                      <td class="text-end small text-muted"><span class="account-balance"></span></td>
+                      <td class="text-center">
+                        <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tbody>
+                  <tr id="default-payable-row" class="default-booking-row" data-account-id="{% if payable_account %}{{ payable_account.id }}{% endif %}">
+                    <td>
+                      <input
+                        type="text"
+                        class="form-control"
+                        value="{% if payable_account %}{{ payable_account.number }} - {{ payable_account.name }}{% else %}2440 - Leverantörsfakturor{% endif %}"
+                        disabled
+                      >
+                    </td>
+                    <td>
+                      <input type="text" class="form-control text-end" value="0.00" disabled>
+                    </td>
+                    <td>
+                      <input id="default-payable-amount" type="text" class="form-control text-end" disabled>
+                    </td>
+                    <td class="text-end small text-muted"><span id="default-payable-balance" class="account-balance"></span></td>
+                    <td></td>
+                  </tr>
+                  <tr id="default-vat-row" class="default-booking-row d-none" data-account-id="{% if vat_account %}{{ vat_account.id }}{% endif %}">
+                    <td>
+                      <input
+                        type="text"
+                        class="form-control"
+                        value="{% if vat_account %}{{ vat_account.number }} - {{ vat_account.name }}{% else %}2640 - Ingående moms{% endif %}"
+                        disabled
+                      >
+                    </td>
+                    <td>
+                      <input id="default-vat-amount" type="text" class="form-control text-end" disabled>
+                    </td>
+                    <td>
+                      <input type="text" class="form-control text-end" value="0.00" disabled>
+                    </td>
+                    <td class="text-end small text-muted"><span id="default-vat-balance" class="account-balance"></span></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+                <tfoot class="totals">
+                  <tr>
+                    <td class="text-end text-muted small">Summa:</td>
+                    <td class="text-end" id="total-debit">0,00</td>
+                    <td class="text-end" id="total-credit">0,00</td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td class="text-end text-muted small">Differens:</td>
+                    <td colspan="2" class="text-end" id="balance-diff">0,00</td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <template id="cost-line-row-template">
+              <tr class="cost-line-row">
+                <td>{{ cost_line_formset.empty_form.expense_account }}</td>
+                <td>{{ cost_line_formset.empty_form.debit }}</td>
+                <td>{{ cost_line_formset.empty_form.credit }}</td>
+                <td class="text-end small text-muted"><span class="account-balance"></span></td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <button type="button" id="add-cost-line" class="btn btn-outline-secondary btn-sm mt-2">
+              <i class="bi bi-plus-circle me-1"></i>Lägg till rad
+            </button>
+          </div>
+
+          <div class="col-12">
+            <div class="form-text">Automatiska rader är låsta och följer totalbelopp/moms automatiskt.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Bilagor</label>
+            <input type="hidden" id="selected-attachment-ids" name="selected_attachment_ids" value="{{ selected_attachment_ids_csv }}">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <a
+                id="open-attachment-picker"
+                href="{% url 'attachments:attachment_picker' %}?return_to={{ picker_return_to|urlencode }}&selected={{ selected_attachment_ids_csv }}"
+                class="btn btn-outline-secondary btn-sm"
+              >
+                <i class="bi bi-paperclip me-1"></i>Välj bilagor
+              </a>
+              <span class="text-muted small">Välj bilagor i separat formulär.</span>
+            </div>
+            <div id="selected-attachments-list" class="list-group list-group-flush border rounded">
+              {% if selected_attachments %}
+                {% for attachment in selected_attachments %}
+                  <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
+                    <div class="fw-semibold small">{{ attachment.file_name }}</div>
+                    <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="list-group-item text-muted small" id="no-selected-attachments">Inga bilagor valda.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-12">{% include "partials/form_errors.html" with formset=cost_line_formset %}</div>
+
+          <div class="col-12">
+            <button type="submit" class="btn btn-outline-primary w-100 mb-2 invoice-submit-btn">
+              <i class="bi bi-save me-1"></i>Spara utkast
+            </button>
+            <button type="submit" name="register" value="1" class="btn btn-primary w-100 invoice-submit-btn">
+              <i class="bi bi-check2-circle me-1"></i>Registrera och bokför
+            </button>
+            <div id="invoice-validation-hint" class="small text-muted mt-2">
+              Fyll i obligatoriska fält och balansera raderna för att kunna spara.
+            </div>
+          </div>
+        </form>
+      </div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=selected_attachments hide_thumb_nav=True %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ account_balances|json_script:"account-balances-data" }}
+{{ prefill_supplier_id|default:""|json_script:"prefill-supplier-id" }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/select2-utils.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script>
+  (function () {
+    const { formatAmount, parseAmountValue, setDebitCreditLock, fetchAccountBalances } = window.SaldoVibe.formUtils;
+
+    const accountBalances = JSON.parse(document.getElementById('account-balances-data')?.textContent || '{}');
+
+    function getAccountBaseBalance(accountId) {
+      return parseAmountValue(accountBalances[String(accountId)]);
+    }
+
+    function getSelectedAccountId(row) {
+      return row.querySelector('select[name$="-expense_account"]')?.value || '';
+    }
+
+    // Sätts medan en rads konto fylls i programmatiskt (från leverantörens senaste faktura),
+    // så att den vanliga "resterande belopp"-ifyllningen inte lägger in ett belopp vi inte vill ha.
+    let suppressAutoAmount = false;
+    // Sätts medan raderna räknas om utifrån totalbelopp/moms, så att den omräkningen inte
+    // tolkas som en manuell redigering och kopplar bort raden från mallens fördelning.
+    let applyingRatioAmounts = false;
+
+    function getRowDebit(row) {
+      return parseAmountValue(row.querySelector('input[name$="-debit"]')?.value);
+    }
+
+    function getRowCredit(row) {
+      return parseAmountValue(row.querySelector('input[name$="-credit"]')?.value);
+    }
+
+    // Låser den andra sidans fält och nollar det, precis som på Ny verifikation:
+    // en kostnadsrad kan bara ha belopp i debet ELLER kredit, aldrig båda.
+    function syncDebitCreditState(row, changedField) {
+      const debitInput = row.querySelector('input[name$="-debit"]');
+      const creditInput = row.querySelector('input[name$="-credit"]');
+      if (!debitInput || !creditInput) {
+        return;
+      }
+
+      let debitValue = parseAmountValue(debitInput.value);
+      let creditValue = parseAmountValue(creditInput.value);
+
+      if (debitValue > 0 && creditValue > 0) {
+        if (changedField === 'credit') {
+          debitInput.value = '0.00';
+          debitValue = 0;
+        } else {
+          creditInput.value = '0.00';
+          creditValue = 0;
+        }
+      }
+
+      if (debitValue > 0) {
+        setDebitCreditLock(debitInput, creditInput, 'credit');
+        return;
+      }
+
+      if (creditValue > 0) {
+        setDebitCreditLock(debitInput, creditInput, 'debit');
+        return;
+      }
+
+      setDebitCreditLock(debitInput, creditInput, null);
+    }
+
+    function syncAllRowsDebitCreditState() {
+      document.querySelectorAll('.cost-line-row').forEach(function (row) {
+        syncDebitCreditState(row);
+      });
+    }
+
+    function calculateRemainingAmountForRow(targetRow) {
+      const totalAmount = parseAmountValue((document.getElementById('id_total_amount') || {}).value);
+      const vatAmount = parseAmountValue((document.getElementById('id_vat_amount') || {}).value);
+      let otherRowsTotal = 0;
+
+      document.querySelectorAll('.cost-line-row').forEach(function (row) {
+        if (row === targetRow) {
+          return;
+        }
+        otherRowsTotal += getRowDebit(row) - getRowCredit(row);
+      });
+
+      return totalAmount - vatAmount - otherRowsTotal;
+    }
+
+    function defaultRowAmountFromRemaining(row) {
+      if (!row || suppressAutoAmount) {
+        return;
+      }
+      const accountSelect = row.querySelector('select[name$="-expense_account"]');
+      const debitInput = row.querySelector('input[name$="-debit"]');
+      const creditInput = row.querySelector('input[name$="-credit"]');
+      if (!accountSelect || !debitInput || !creditInput || !accountSelect.value) {
+        return;
+      }
+
+      if (parseAmountValue(debitInput.value) > 0 || parseAmountValue(creditInput.value) > 0) {
+        return;
+      }
+
+      const remaining = calculateRemainingAmountForRow(row);
+      const nextValue = remaining > 0 ? remaining : 0;
+      debitInput.value = nextValue.toFixed(2);
+      syncDebitCreditState(row);
+    }
+
+    function getTransactionDeltaForAccount(accountId) {
+      let delta = 0;
+      document.querySelectorAll('.cost-line-row').forEach(function (row) {
+        if (getSelectedAccountId(row) !== String(accountId)) {
+          return;
+        }
+        delta += getRowDebit(row) - getRowCredit(row);
+      });
+
+      const defaultPayableRow = document.getElementById('default-payable-row');
+      const payableAccountId = defaultPayableRow ? (defaultPayableRow.dataset.accountId || '') : '';
+      if (payableAccountId && payableAccountId === String(accountId)) {
+        const payableCredit = parseAmountValue((document.getElementById('default-payable-amount') || {}).value);
+        delta -= payableCredit;
+      }
+
+      const defaultVatRow = document.getElementById('default-vat-row');
+      const vatAccountId = defaultVatRow ? (defaultVatRow.dataset.accountId || '') : '';
+      if (defaultVatRow && !defaultVatRow.classList.contains('d-none') && vatAccountId && vatAccountId === String(accountId)) {
+        const vatDebit = parseAmountValue((document.getElementById('default-vat-amount') || {}).value);
+        delta += vatDebit;
+      }
+
+      return delta;
+    }
+
+    function renumberRows() {
+      const rows = wrapper.querySelectorAll('.cost-line-row');
+      rows.forEach(function (row, index) {
+        row.querySelectorAll('input, select').forEach(function (field) {
+          if (field.name) {
+            field.name = field.name.replace(/cost_lines-\d+-/, 'cost_lines-' + index + '-');
+          }
+          if (field.id) {
+            field.id = field.id.replace(/id_cost_lines-\d+-/, 'id_cost_lines-' + index + '-');
+          }
+        });
+      });
+      totalForms.value = String(rows.length);
+    }
+
+    function syncDeleteButtons() {
+      const rows = wrapper.querySelectorAll('.cost-line-row');
+      const canDelete = rows.length > 1;
+      rows.forEach(function (row) {
+        const btn = row.querySelector('.delete-row-btn');
+        if (!btn) {
+          return;
+        }
+        btn.disabled = !canDelete;
+        btn.classList.toggle('text-muted', !canDelete);
+        btn.classList.toggle('text-danger', canDelete);
+        btn.title = canDelete ? 'Ta bort rad' : 'Minst en kostnadsrad krävs';
+      });
+    }
+
+    function syncAccountBalanceForRow(row) {
+      const accountBalanceEl = row.querySelector('.account-balance');
+      if (!accountBalanceEl) {
+        return;
+      }
+
+      const accountId = getSelectedAccountId(row);
+      if (!accountId) {
+        accountBalanceEl.textContent = '';
+        return;
+      }
+
+      const projectedBalance = getAccountBaseBalance(accountId) + getTransactionDeltaForAccount(accountId);
+      accountBalanceEl.textContent = projectedBalance.toLocaleString('sv-SE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      accountBalanceEl.className = 'account-balance text-primary';
+    }
+
+    function syncAllAccountBalances() {
+      document.querySelectorAll('.cost-line-row').forEach(syncAccountBalanceForRow);
+    }
+
+    function syncDefaultRowBalance(rowId, spanId) {
+      const row = document.getElementById(rowId);
+      const span = document.getElementById(spanId);
+      if (!row || !span) {
+        return;
+      }
+
+      const accountId = row.dataset.accountId || '';
+      if (!accountId || row.classList.contains('d-none')) {
+        span.textContent = '';
+        span.className = 'account-balance';
+        return;
+      }
+
+      const projectedBalance = getAccountBaseBalance(accountId) + getTransactionDeltaForAccount(accountId);
+      span.textContent = formatAmount(projectedBalance);
+      span.className = 'account-balance text-primary';
+    }
+
+    function syncAllDefaultRowBalances() {
+      syncDefaultRowBalance('default-payable-row', 'default-payable-balance');
+      syncDefaultRowBalance('default-vat-row', 'default-vat-balance');
+    }
+
+    function refreshAccountBalancesForDate() {
+      const invoiceDateInput = document.getElementById('id_invoice_date');
+      if (!invoiceDateInput || !invoiceDateInput.value) {
+        return;
+      }
+      fetchAccountBalances("{% url 'bookkeeping:account_balances_lookup' %}", invoiceDateInput.value).then(function (data) {
+        if (!data) return;
+        Object.assign(accountBalances, data);
+        syncAllAccountBalances();
+        syncAllDefaultRowBalances();
+      });
+    }
+
+    function recalcSummary() {
+      let debit = 0;
+      let credit = 0;
+
+      document.querySelectorAll('.cost-line-row').forEach(function (row) {
+        debit += getRowDebit(row);
+        credit += getRowCredit(row);
+      });
+
+      const vatDebitInput = document.getElementById('default-vat-amount');
+      const payableCreditInput = document.getElementById('default-payable-amount');
+      debit += parseAmountValue(vatDebitInput ? vatDebitInput.value : '0');
+      credit += parseAmountValue(payableCreditInput ? payableCreditInput.value : '0');
+
+      const diff = debit - credit;
+
+      const totalDebitEl = document.getElementById('total-debit');
+      const totalCreditEl = document.getElementById('total-credit');
+      const diffEl = document.getElementById('balance-diff');
+
+      if (totalDebitEl) {
+        totalDebitEl.textContent = formatAmount(debit);
+      }
+      if (totalCreditEl) {
+        totalCreditEl.textContent = formatAmount(credit);
+      }
+      if (diffEl) {
+        diffEl.textContent = formatAmount(diff);
+        diffEl.className = 'text-end fw-bold ' + (Math.abs(diff) < 0.005 ? 'text-success' : 'text-danger');
+      }
+    }
+
+    function initSelect2(scope) {
+      const root = scope || document;
+      root.querySelectorAll('select[name$="-expense_account"]').forEach(function (select) {
+        if (select.classList.contains('select2-hidden-accessible')) {
+          return;
+        }
+        const $select = $(select);
+        window.SaldoVibe.select2Utils.initAccountSelect($select);
+        window.SaldoVibe.select2Utils.bindReopenOnFocus($select);
+
+        $select.off('select2:select.defaultamount');
+        $select.on('select2:select.defaultamount', function () {
+          const row = select.closest('.cost-line-row');
+          defaultRowAmountFromRemaining(row);
+          syncAllAccountBalances();
+          syncAllDefaultRowBalances();
+          recalcSummary();
+          syncSubmitButtons();
+        });
+
+        $select.off('change.defaultamount');
+        $select.on('change.defaultamount', function () {
+          const row = select.closest('.cost-line-row');
+          defaultRowAmountFromRemaining(row);
+          syncAllAccountBalances();
+          syncAllDefaultRowBalances();
+          recalcSummary();
+          syncSubmitButtons();
+        });
+      });
+    }
+
+    const wrapper = document.getElementById("cost-lines-wrapper");
+    const addBtn = document.getElementById("add-cost-line");
+    const rowTemplate = document.getElementById('cost-line-row-template');
+    const totalForms = document.getElementById("id_cost_lines-TOTAL_FORMS");
+    if (!wrapper || !addBtn || !totalForms) {
+      return;
+    }
+
+    function createCostLineRow(initial) {
+      const index = Number(totalForms.value);
+      if (!rowTemplate || !rowTemplate.content.firstElementChild) {
+        return null;
+      }
+      const newRow = rowTemplate.content.firstElementChild.cloneNode(true);
+      newRow.querySelectorAll('input, select, textarea').forEach(function (field) {
+        if (field.name) {
+          field.name = field.name.replace('__prefix__', String(index));
+        }
+        if (field.id) {
+          field.id = field.id.replace('__prefix__', String(index));
+        }
+        if (field.tagName === 'SELECT') {
+          field.value = '';
+        } else if (field.type !== 'hidden' && field.type !== 'checkbox') {
+          field.value = '';
+        } else if (field.type === 'checkbox') {
+          field.checked = false;
+        }
+      });
+      wrapper.appendChild(newRow);
+      totalForms.value = String(index + 1);
+      initSelect2(newRow);
+
+      if (initial && initial.expense_account_id != null) {
+        const accountSelect = newRow.querySelector('select[name$="-expense_account"]');
+        if (accountSelect) {
+          // Bara kontot ska fyllas i från mallen, inget belopp – så vi stänger av
+          // resterande-belopp-ifyllningen som annars triggas av change-eventet.
+          suppressAutoAmount = true;
+          accountSelect.value = String(initial.expense_account_id);
+          $(accountSelect).trigger('change');
+          suppressAutoAmount = false;
+        }
+        if (initial.ratio != null) {
+          newRow.dataset.templateRatio = String(initial.ratio);
+        }
+      }
+
+      return newRow;
+    }
+
+    function clearCostLines() {
+      wrapper.querySelectorAll('.cost-line-row').forEach(function (row) {
+        row.remove();
+      });
+      totalForms.value = '0';
+    }
+
+    function applyCostLines(lines) {
+      clearCostLines();
+      if (lines && lines.length) {
+        lines.forEach(function (line) {
+          createCostLineRow({ expense_account_id: line.expense_account_id, ratio: line.ratio });
+        });
+      } else {
+        createCostLineRow(null);
+      }
+      syncDeleteButtons();
+      syncAllRowsDebitCreditState();
+      syncAllAccountBalances();
+      syncAllDefaultRowBalances();
+      recalcSummary();
+      syncSubmitButtons();
+    }
+
+    function applyRatiosToCostLines() {
+      const totalAmount = parseAmountValue(totalAmountInput ? totalAmountInput.value : '');
+      const vatAmount = parseAmountValue(vatAmountInput ? vatAmountInput.value : '');
+      const base = totalAmount - vatAmount;
+
+      const ratioRows = Array.from(wrapper.querySelectorAll('.cost-line-row')).filter(function (row) {
+        return row.dataset.templateRatio !== undefined;
+      });
+      if (!ratioRows.length || !(base > 0)) {
+        return;
+      }
+
+      applyingRatioAmounts = true;
+      let allocated = 0;
+      ratioRows.forEach(function (row, idx) {
+        const debitInput = row.querySelector('input[name$="-debit"]');
+        const creditInput = row.querySelector('input[name$="-credit"]');
+        if (!debitInput || !creditInput) {
+          return;
+        }
+        let amount;
+        if (idx === ratioRows.length - 1) {
+          // Sista raden absorberar öresavrundningen så summan alltid landar exakt på basbeloppet.
+          amount = base - allocated;
+        } else {
+          amount = Math.round(base * Number(row.dataset.templateRatio) * 100) / 100;
+          allocated += amount;
+        }
+        // Andelen kan vara negativ om raden var en kreditrad förra gången (t.ex. en rabatt),
+        // så vi lägger beloppet på rätt sida beroende på tecken.
+        if (amount < 0) {
+          debitInput.value = '0.00';
+          creditInput.value = (-amount).toFixed(2);
+        } else {
+          debitInput.value = amount.toFixed(2);
+          creditInput.value = '0.00';
+        }
+        syncDebitCreditState(row);
+      });
+      applyingRatioAmounts = false;
+
+      syncAllAccountBalances();
+      syncAllDefaultRowBalances();
+      recalcSummary();
+      syncSubmitButtons();
+    }
+
+    addBtn.addEventListener("click", function () {
+      createCostLineRow(null);
+      syncDeleteButtons();
+      syncAllAccountBalances();
+      syncAllDefaultRowBalances();
+      recalcSummary();
+      syncSubmitButtons();
+    });
+
+    const totalAmountInput = document.getElementById("id_total_amount");
+    const vatAmountInput = document.getElementById("id_vat_amount");
+    const payableAmountInput = document.getElementById("default-payable-amount");
+    const vatAmountPreviewInput = document.getElementById("default-vat-amount");
+    const defaultVatRow = document.getElementById("default-vat-row");
+
+    function parseDecimal(value) {
+      const parsed = Number(String(value || "").replace(/\s/g, "").replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatDecimal(value) {
+      return value.toLocaleString("sv-SE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function syncDefaultRows() {
+      const totalAmount = parseDecimal(totalAmountInput ? totalAmountInput.value : "0");
+      const vatAmount = parseDecimal(vatAmountInput ? vatAmountInput.value : "0");
+
+      if (payableAmountInput) {
+        payableAmountInput.value = formatDecimal(totalAmount);
+      }
+
+      if (vatAmountPreviewInput && defaultVatRow) {
+        vatAmountPreviewInput.value = formatDecimal(vatAmount);
+        if (vatAmount > 0) {
+          defaultVatRow.classList.remove("d-none");
+        } else {
+          defaultVatRow.classList.add("d-none");
+        }
+      }
+
+      syncAllDefaultRowBalances();
+      recalcSummary();
+      syncSubmitButtons();
+    }
+
+    if (totalAmountInput) {
+      totalAmountInput.addEventListener("input", function () {
+        syncDefaultRows();
+        applyRatiosToCostLines();
+      });
+    }
+    if (vatAmountInput) {
+      vatAmountInput.addEventListener("input", function () {
+        syncDefaultRows();
+        applyRatiosToCostLines();
+      });
+    }
+
+    const supplierSelect = document.getElementById("id_supplier");
+
+    function clearInvoiceAmountFields() {
+      if (totalAmountInput) {
+        totalAmountInput.value = "";
+      }
+      if (vatAmountInput) {
+        vatAmountInput.value = "";
+      }
+      applyCostLines([]);
+      syncDefaultRows();
+    }
+
+    function applySupplierLastInvoice(supplierId) {
+      const params = new URLSearchParams({ supplier: supplierId });
+      fetch("{% url 'supplier_invoices:supplier_last_invoice' %}?" + params.toString())
+        .then(function (resp) { return resp.ok ? resp.json() : null; })
+        .then(function (data) {
+          if (!data || !data.found) {
+            return;
+          }
+          // Bara kontona återanvänds här – inga belopp förrän totalbelopp/moms är ifyllda,
+          // så vi sparar varje rads andel av förra fakturans belopp (exkl. moms) för att
+          // kunna fördela ett nytt totalbelopp proportionellt på samma sätt.
+          const oldBase = parseAmountValue(data.total_amount) - parseAmountValue(data.vat_amount);
+          const lineCount = data.cost_lines.length || 1;
+          const lines = data.cost_lines.map(function (line) {
+            const amount = parseAmountValue(line.debit) - parseAmountValue(line.credit);
+            return {
+              expense_account_id: line.expense_account_id,
+              ratio: oldBase > 0 ? amount / oldBase : 1 / lineCount,
+            };
+          });
+          applyCostLines(lines);
+          applyRatiosToCostLines();
+        })
+        .catch(function () {});
+    }
+
+    if (supplierSelect) {
+      supplierSelect.addEventListener("change", function () {
+        clearInvoiceAmountFields();
+        if (supplierSelect.value) {
+          applySupplierLastInvoice(supplierSelect.value);
+        }
+      });
+
+      // Kommer man hit via "Ny faktura" på en leverantörs rad är leverantören redan
+      // förvald i GET-anropet (inget change-event att haka på), så mallen hämtas direkt.
+      const prefillSupplierId = JSON.parse(document.getElementById("prefill-supplier-id")?.textContent || '""');
+      if (prefillSupplierId) {
+        applySupplierLastInvoice(prefillSupplierId);
+      }
+    }
+
+    wrapper.addEventListener('input', function (event) {
+      const isDebit = event.target.matches('input[name$="-debit"]');
+      const isCredit = event.target.matches('input[name$="-credit"]');
+      if (isDebit || isCredit) {
+        const row = event.target.closest('.cost-line-row');
+        if (!applyingRatioAmounts) {
+          // Manuell redigering av beloppet bryter kopplingen till mallens fördelning för
+          // just den raden, så att den inte skrivs över nästa gång totalbelopp/moms ändras.
+          delete row.dataset.templateRatio;
+        }
+        syncDebitCreditState(row, isDebit ? 'debit' : 'credit');
+        syncAllAccountBalances();
+        syncAllDefaultRowBalances();
+        recalcSummary();
+        syncSubmitButtons();
+      }
+    });
+
+    wrapper.addEventListener('change', function (event) {
+      if (event.target.matches('select[name$="-expense_account"]')) {
+        const row = event.target.closest('.cost-line-row');
+        defaultRowAmountFromRemaining(row);
+        syncAllAccountBalances();
+        syncAllDefaultRowBalances();
+        recalcSummary();
+        syncSubmitButtons();
+      }
+    });
+
+    wrapper.addEventListener('click', function (event) {
+      const deleteBtn = event.target.closest('.delete-row-btn');
+      if (!deleteBtn) {
+        return;
+      }
+      const rows = wrapper.querySelectorAll('.cost-line-row');
+      if (rows.length <= 1) {
+        return;
+      }
+      const row = deleteBtn.closest('.cost-line-row');
+      if (!row) {
+        return;
+      }
+      row.remove();
+      renumberRows();
+      syncDeleteButtons();
+      syncAllAccountBalances();
+      syncAllDefaultRowBalances();
+      recalcSummary();
+      syncSubmitButtons();
+    });
+
+    function activeCostRows() {
+      return Array.from(wrapper.querySelectorAll('.cost-line-row'));
+    }
+
+    function formValidationError() {
+      const supplierValue = (document.getElementById('id_supplier') || {}).value || '';
+      const invoiceDateValue = (document.getElementById('id_invoice_date') || {}).value || '';
+      const dueDateValue = (document.getElementById('id_due_date') || {}).value || '';
+      const totalAmount = parseAmountValue((document.getElementById('id_total_amount') || {}).value);
+      const vatAmount = parseAmountValue((document.getElementById('id_vat_amount') || {}).value);
+
+      if (!supplierValue) {
+        return 'Välj en leverantör.';
+      }
+      if (!invoiceDateValue) {
+        return 'Ange fakturadatum.';
+      }
+      if (!dueDateValue) {
+        return 'Ange förfallodatum.';
+      }
+      if (totalAmount <= 0) {
+        return 'Totalbelopp måste vara större än 0.';
+      }
+      if (vatAmount < 0 || vatAmount > totalAmount) {
+        return 'Moms måste vara mellan 0 och totalbeloppet.';
+      }
+
+      const rows = activeCostRows();
+      let sumRows = 0;
+      for (const row of rows) {
+        const account = getSelectedAccountId(row);
+        const debitAmount = getRowDebit(row);
+        const creditAmount = getRowCredit(row);
+        const hasAccount = !!account;
+        const hasAmount = debitAmount > 0 || creditAmount > 0;
+        if ((hasAccount && !hasAmount) || (!hasAccount && hasAmount)) {
+          return 'Varje kostnadsrad behöver både konto och belopp.';
+        }
+        if (hasAccount && hasAmount) {
+          sumRows += debitAmount - creditAmount;
+        }
+      }
+
+      if (sumRows <= 0) {
+        return 'Lägg till minst en kostnadsrad med konto och belopp.';
+      }
+
+      const diff = Math.abs((sumRows + vatAmount) - totalAmount);
+      if (diff >= 0.005) {
+        return 'Kostnadsrader + moms måste summera till totalbeloppet.';
+      }
+
+      return null;
+    }
+
+    function syncSubmitButtons() {
+      const validationError = formValidationError();
+      const valid = !validationError;
+      document.querySelectorAll('.invoice-submit-btn').forEach(function (btn) {
+        btn.disabled = !valid;
+      });
+      const hint = document.getElementById('invoice-validation-hint');
+      if (hint) {
+        hint.textContent = valid
+          ? 'Raderna är balanserade och fakturan kan sparas.'
+          : validationError;
+      }
+    }
+
+    initSelect2(document);
+    syncDefaultRows();
+    syncDeleteButtons();
+    syncAllRowsDebitCreditState();
+    syncAllAccountBalances();
+    syncAllDefaultRowBalances();
+    recalcSummary();
+    syncSubmitButtons();
+
+    const invoiceForm = document.getElementById('supplier-invoice-form');
+
+    if (invoiceForm) {
+      invoiceForm.addEventListener('input', syncSubmitButtons);
+      invoiceForm.addEventListener('change', syncSubmitButtons);
+    }
+
+    const invoiceDateInput = document.getElementById('id_invoice_date');
+    if (invoiceDateInput) {
+      invoiceDateInput.addEventListener('change', refreshAccountBalancesForDate);
+    }
+
+    SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
+    SaldoVibe.attachments.initFormStateRoundtrip({
+      form: invoiceForm,
+      storageKey: 'supplier_invoice_form_state_v1',
+      growRows: function (state) {
+        const desiredRows = Number(state['cost_lines-TOTAL_FORMS'] || 1);
+        const rowsToAdd = Math.max(0, desiredRows - Number(totalForms.value || 1));
+        for (let i = 0; i < rowsToAdd; i += 1) {
+          addBtn.click();
+        }
+      },
+      afterRestore: function () {
+        invoiceForm.querySelectorAll('select[name$="-expense_account"]').forEach(function (select) {
+          $(select).trigger('change');
+        });
+        syncDefaultRows();
+        syncAllRowsDebitCreditState();
+        syncAllAccountBalances();
+        syncAllDefaultRowBalances();
+        recalcSummary();
+        syncSubmitButtons();
+      }
+    });
+  })();
+</script>
+{% endblock %}

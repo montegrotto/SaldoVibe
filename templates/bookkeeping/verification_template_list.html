@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Verifikationsmallar – SaldoVibe{% endblock %}
+{% block page_title %}Verifikationsmallar{% endblock %}
+{% block nav_verification_templates %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <h5 class="mb-0">Verifikationsmallar</h5>
+  <a href="{% url 'bookkeeping:verification_template_library' %}" class="btn btn-outline-primary btn-sm ms-auto">
+    <i class="bi bi-collection me-1"></i>Mallbibliotek
+  </a>
+  <a href="{% url 'bookkeeping:verification_template_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Ny mall
+  </a>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if templates %}
+      <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Mallnamn</th>
+            <th>Beskrivning</th>
+            <th class="text-center" style="width:120px;">Rader</th>
+            <th class="text-center" style="width:110px;">Status</th>
+            <th class="text-end" style="width:180px;">Åtgärder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for template in templates %}
+          <tr>
+            <td class="fw-semibold">{{ template.name }}</td>
+            <td class="text-muted">{{ template.description|default:"-" }}</td>
+            <td class="text-center">{{ template.entry_count }}</td>
+            <td class="text-center">
+              {% if template.is_active %}
+                <span class="badge bg-success">Aktiv</span>
+              {% else %}
+                <span class="badge bg-secondary">Inaktiv</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'bookkeeping:transaction_add' %}?template={{ template.pk }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-play-fill"></i>
+              </a>
+              <a href="{% url 'bookkeeping:verification_template_update' template.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form method="post" action="{% url 'bookkeeping:verification_template_delete' template.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Ta bort mallen?');">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-layout-text-window-reverse fs-1 d-block mb-2"></i>
+        Inga verifikationsmallar ännu.
+        <div class="mt-2 d-flex justify-content-center gap-2">
+          <a href="{% url 'bookkeeping:verification_template_library' %}" class="btn btn-primary btn-sm">Hämta från biblioteket</a>
+          <a href="{% url 'bookkeeping:verification_template_create' %}" class="btn btn-outline-secondary btn-sm">Skapa egen mall</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

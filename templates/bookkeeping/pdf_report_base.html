@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <style>
+    /*
+      Renderas med xhtml2pdf (bookkeeping/pdf.py) — inte i webbläsare. Bara
+      pisas CSS-delmängd fungerar: tabeller i stället för grid/flex, @frame i
+      stället för position:absolute, inga border-radius/skuggor.
+
+      Delad bas för alla rapport-PDF:er, med samma grafiska profil som
+      kundfakturan (templates/invoicing/invoice_print.html) och lönespecen
+      (templates/payroll/salary_report_print.html): logga/företagsnamn uppe
+      till vänster, rapporttitel uppe till höger, sidfot med
+      företagsuppgifter på varje sida. Rapporter har inget adressfönster,
+      så toppmarginalen behöver bara gå fri från sidhuvudet.
+      Kontexten måste innehålla `company` och `logo_size`
+      (bookkeeping.pdf.company_logo_size).
+    */
+    @page {
+      size: A4 portrait;
+      margin: 40mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      font-size: 12px;
+    }
+    /* pisa ger block-element egna standardmarginaler — nollställ och sätt
+       uttryckliga marginaler där de behövs. */
+    div, p, table { margin: 0; padding: 0; }
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .number-row { margin-top: 2mm; font-size: 11px; }
+    .number-row .label { font-weight: bold; color: #4b5563; }
+    .number-row .value { font-weight: bold; color: #111827; }
+    .company-name-fallback {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .facts-list { margin-bottom: 6mm; font-size: 11px; line-height: 1.2; }
+    .facts-list td { padding: 0.4mm 0; vertical-align: top; }
+    .facts-list .label { font-weight: bold; color: #111827; padding-right: 3mm; }
+    .facts-list .value { color: #1f2937; }
+    /* Ingen -pdf-keep-with-next här: pisa flyttar då hela nästa element till en
+       ny sida, och en tabell som är längre än en sida lämnar en tom förstasida
+       efter sig i stället för att delas. */
+    .section-title {
+      margin-top: 5mm;
+      margin-bottom: 3mm;
+      font-size: 10px;
+      font-weight: bold;
+      color: #6b7280;
+    }
+    .message-banner {
+      margin-bottom: 6mm;
+      padding: 3mm 5mm;
+      border-left: 3px solid #1a2340;
+      background-color: #f3f4f6;
+      font-size: 11px;
+      color: #4b5563;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    .report-table { margin-bottom: 6mm; }
+    .report-table th, .report-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    .report-table th {
+      text-align: left;
+      background-color: #eef2f7;
+      font-weight: bold;
+      color: #111827;
+      font-size: 11px;
+    }
+    .num { text-align: right; }
+    .report-table tr.subtotal-row td {
+      font-weight: bold;
+      background-color: #f3f4f6;
+    }
+    .report-table tr.grand td {
+      background-color: #1a2340;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: none;
+    }
+    .empty { color: #6b7280; font-style: italic; }
+    .invoice-footer {
+      border-top: 1px solid #e5e7eb;
+      font-size: 10px;
+      color: #6b7280;
+    }
+    .invoice-footer td { padding-top: 3mm; vertical-align: top; }
+    {% block extra_css %}{% endblock %}
+  </style>
+</head>
+<body>
+  <div id="headerLogo">
+    {% if logo_size %}
+    <img src="{{ company.company_icon.path }}" style="width: {{ logo_size.0 }}mm; height: {{ logo_size.1 }}mm;" alt="{{ company.name }} logga">
+    {% else %}
+    <div class="company-name-fallback">{{ company.name }}</div>
+    {% endif %}
+  </div>
+  <div id="headerTitle">
+    <div class="title">{% block title %}{% endblock %}</div>
+    <div class="number-row">{% block subtitle %}{% endblock %}</div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <div id="pageFooter">
+    <table class="invoice-footer">
+      <tr>
+        <td>
+          {% block footer_note %}{% endblock %}<strong>{{ company.name }}</strong>{% if company.address %} · {{ company.address }}{% endif %}{% if company.postal_code or company.city %} · {{ company.postal_code }} {{ company.city }}{% endif %}{% if company.org_number %} · Org.nr {{ company.org_number }}{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

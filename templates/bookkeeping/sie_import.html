@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Importera SIE – SaldoVibe{% endblock %}
+{% block page_title %}Importera SIE{% endblock %}
+{% block nav_transactions %}active{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0" style="max-width:760px;">
+  <div class="card-body p-4">
+    <h5 class="mb-3">Importera transaktioner från SIE</h5>
+    <p class="text-muted small mb-4">
+      Stöder verifikationer med #VER och #TRANS. Importen kopplas till valt räkenskapsår. <strong>Observera:</strong> verifikationer som tidigare skapats via SIE/SI-import för räkenskapsåret tas bort innan filens verifikationer läses in. Verifikationer bokförda direkt i SaldoVibe påverkas aldrig av en import.
+    </p>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Räkenskapsår</label>
+      <input type="text" class="form-control" value="{{ selected_year.name }}" readonly>
+    </div>
+
+    {% if selected_year_locked %}
+      <div class="alert alert-secondary py-2 small">
+        <i class="bi bi-lock-fill me-1"></i>Räkenskapsåret är låst. SIE-import är inte möjlig så länge räkenskapsåret är låst.
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'bookkeeping:period_lock_list' %}?year={{ selected_year.pk }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-unlock me-1"></i>Hantera periodlåsning
+        </a>
+        <a href="{% url 'bookkeeping:transaction_list' %}" class="btn btn-outline-secondary btn-sm">Tillbaka</a>
+      </div>
+    {% else %}
+      <form method="post" enctype="multipart/form-data" novalidate id="sie-import-form" data-existing-count="{{ existing_transaction_count|default:0 }}">
+        {% csrf_token %}
+        {% if existing_transaction_count %}
+          <div class="alert alert-danger py-2 small">
+            <strong>Varning:</strong> Räkenskapsåret innehåller redan <strong>{{ existing_transaction_count }}</strong> verifikationer.
+            {% if deletable_transaction_count %}
+              Om du startar importen tas <strong>{{ deletable_transaction_count }}</strong> tidigare importerade av dessa bort innan de nya verifikationerna från filen läses in. Detta går inte att ångra.
+            {% endif %}
+            {% if kept_existing_count %}
+              <br>{{ kept_existing_count }} verifikation(er) behålls: de ligger i låsta perioder eller är bokförda direkt i SaldoVibe (inte via import).
+            {% endif %}
+          </div>
+          {% if deletable_transaction_count %}
+            <div class="form-check mb-4">
+              {{ form.confirm_replace }}
+              <label class="form-check-label" for="{{ form.confirm_replace.id_for_label }}">
+                {{ form.confirm_replace.label }}
+              </label>
+              {% if form.confirm_replace.errors %}<div class="text-danger small">{{ form.confirm_replace.errors.0 }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endif %}
+        <div class="mb-4">
+          <label class="form-label fw-semibold">{{ form.sie_file.label }}</label>
+          {{ form.sie_file }}
+          {% if form.sie_file.errors %}<div class="text-danger small">{{ form.sie_file.errors.0 }}</div>{% endif %}
+        </div>
+        {% if form.non_field_errors %}<div class="text-danger small mb-3">{{ form.non_field_errors.0 }}</div>{% endif %}
+
+        <div class="d-flex align-items-center gap-2">
+          <button type="submit" class="btn btn-primary" id="sie-import-submit" {% if deletable_transaction_count %}disabled{% endif %}>
+            <span id="sie-import-submit-label"><i class="bi bi-upload me-1"></i>Starta import</span>
+          </button>
+          {% if diagnostics_available %}
+            <a href="{% url 'bookkeeping:sie_import_diagnostics_download' %}?year={{ selected_year.pk }}" class="btn btn-outline-info">
+              <i class="bi bi-filetype-json me-1"></i>Ladda ner diagnostik
+            </a>
+          {% endif %}
+          <a href="{% url 'bookkeeping:transaction_list' %}" class="btn btn-outline-secondary" id="sie-import-cancel">Avbryt</a>
+          <span id="sie-import-loading" class="text-muted small d-none">
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Importerar, vänta...
+          </span>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not selected_year_locked %}
+<script>
+(function () {
+  var form = document.getElementById("sie-import-form");
+  var submitBtn = document.getElementById("sie-import-submit");
+  var submitLabel = document.getElementById("sie-import-submit-label");
+  var cancelLink = document.getElementById("sie-import-cancel");
+  var loading = document.getElementById("sie-import-loading");
+  if (!form || !submitBtn) { return; }
+
+  {% if deletable_transaction_count %}
+  var checkbox = document.getElementById("{{ form.confirm_replace.id_for_label }}");
+  if (checkbox) {
+    var syncConfirm = function () { submitBtn.disabled = !checkbox.checked; };
+    checkbox.addEventListener("change", syncConfirm);
+    syncConfirm();
+  }
+  {% endif %}
+
+  form.addEventListener("submit", function () {
+    if (submitLabel) { submitLabel.classList.add("d-none"); }
+    if (loading) { loading.classList.remove("d-none"); }
+    if (cancelLink) { cancelLink.classList.add("disabled"); cancelLink.setAttribute("aria-disabled", "true"); }
+    // Disabling the submit button synchronously in the submit handler cancels
+    // the submission in Safari, so defer it until after the browser has
+    // started processing the form post.
+    window.setTimeout(function () { submitBtn.disabled = true; }, 0);
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

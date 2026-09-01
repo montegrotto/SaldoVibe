@@ -1,0 +1,56 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block extra_css %}
+    .fingerprint {
+      margin-top: 2mm;
+      color: #6b7280;
+      font-size: 8.5px;
+      word-break: break-all;
+    }
+{% endblock %}
+
+{% block title %}AGI-UNDERLAG{% endblock %}
+{% block subtitle %}<span class="label">Period</span> <span class="value">{{ payroll_run.period_label|capfirst }}</span>{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    <tr><td class="label">Utbetalningsdatum</td><td class="value">{{ payroll_run.payment_date|date:"Y-m-d" }}</td></tr>
+    <tr><td class="label">Rapporterad</td><td class="value">{{ payroll_run.reported_at|date:"Y-m-d H:i" }}</td></tr>
+  </table>
+
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th>ANSTÄLLD</th>
+        <th style="width: 27mm;">PERSONNUMMER</th>
+        <th class="num" style="width: 25mm;">BRUTTOLÖN</th>
+        <th class="num" style="width: 25mm;">SKATTEAVDRAG</th>
+        <th class="num" style="width: 25mm;">ARB.AVGIFT</th>
+        <th class="num" style="width: 25mm;">NETTOLÖN</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in salary_records %}
+      <tr>
+        <td>{{ record.employee }}</td>
+        <td>{{ record.employee.personal_identity_number }}</td>
+        <td class="num">{{ record.gross_salary|floatformat:"2g" }} kr</td>
+        <td class="num">{{ record.preliminary_tax_amount|floatformat:"2g" }} kr</td>
+        <td class="num">{{ record.employer_contribution_amount|floatformat:"2g" }} kr</td>
+        <td class="num">{{ record.net_salary|floatformat:"2g" }} kr</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">Inga löneposter i lönekörningen.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row">
+        <td colspan="2">Summa</td>
+        <td class="num">{{ totals.gross_salary|floatformat:"2g" }} kr</td>
+        <td class="num">{{ totals.preliminary_tax_amount|floatformat:"2g" }} kr</td>
+        <td class="num">{{ totals.employer_contribution_amount|floatformat:"2g" }} kr</td>
+        <td class="num">{{ totals.net_salary|floatformat:"2g" }} kr</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="fingerprint">SHA256 (AGI-underlag): {{ evidence.payload_hash }}</div>
+{% endblock %}

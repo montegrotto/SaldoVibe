@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title_text }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_companies %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" data-email-provider-form>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.org_number.id_for_label }}">{{ form.org_number.label }}</label>
+            {{ form.org_number }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.legal_form.id_for_label }}">{{ form.legal_form.label }}</label>
+            {{ form.legal_form }}
+            <div class="form-text">Krävs för bokslutsflödet – styr hur årets resultat bokas mot eget kapital.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.vat_number.id_for_label }}">{{ form.vat_number.label }}</label>
+            {{ form.vat_number }}
+            <div class="form-text">Krävs på utgående fakturor enligt mervärdesskattelagen 11 kap.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.country_code.id_for_label }}">{{ form.country_code.label }}</label>
+            {{ form.country_code }}
+            <div class="form-text">Krävs för e-fakturor (Peppol).</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.company_icon.id_for_label }}">{{ form.company_icon.label }}</label>
+            {{ form.company_icon }}
+            <div class="form-text">Ladda upp en ikon (PNG, JPG, SVG eller WEBP).</div>
+            {% if company and company.company_icon %}
+            <div class="mt-2 d-flex align-items-center gap-2">
+              <img src="{{ company.company_icon.url }}" alt="Ikon för {{ company.name }}" style="width:32px; height:32px; object-fit:contain;" class="border rounded bg-white p-1">
+              <small class="text-muted">Nuvarande ikon</small>
+            </div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.address.id_for_label }}">{{ form.address.label }}</label>
+            {{ form.address }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.postal_code.id_for_label }}">{{ form.postal_code.label }}</label>
+            {{ form.postal_code }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.city.id_for_label }}">{{ form.city.label }}</label>
+            {{ form.city }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+            {{ form.phone_number }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+            {{ form.email }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.bankgiro.id_for_label }}">{{ form.bankgiro.label }}</label>
+            {{ form.bankgiro }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.plusgiro.id_for_label }}">{{ form.plusgiro.label }}</label>
+            {{ form.plusgiro }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.reminder_fee.id_for_label }}">{{ form.reminder_fee.label }} (kr)</label>
+            {{ form.reminder_fee }}
+            <div class="form-text">{{ form.reminder_fee.help_text }}</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.vat_reporting_period.id_for_label }}">{{ form.vat_reporting_period.label }}</label>
+            {{ form.vat_reporting_period }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.vat_start_date.id_for_label }}">{{ form.vat_start_date.label }}</label>
+            {{ form.vat_start_date }}
+            <div class="form-text">Transaktioner före detta datum ignoreras i momsrapporten.</div>
+          </div>
+
+          <hr>
+          <h6 class="fw-semibold">E-postbilagor</h6>
+          <div class="form-check mb-3">
+            {{ form.email_fetch_enabled }}
+            <label class="form-check-label" for="{{ form.email_fetch_enabled.id_for_label }}">{{ form.email_fetch_enabled.label }}</label>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email_fetch_provider.id_for_label }}">{{ form.email_fetch_provider.label }}</label>
+            {{ form.email_fetch_provider }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email_fetch_address.id_for_label }}">{{ form.email_fetch_address.label }}</label>
+            {{ form.email_fetch_address }}
+          </div>
+          <div class="mb-3 gmail-only-field">
+            <label class="form-label" for="{{ form.email_fetch_password.id_for_label }}">{{ form.email_fetch_password.label }}</label>
+            {{ form.email_fetch_password }}
+            <div class="form-text">Gmail: använd app-losenord.</div>
+          </div>
+          <div class="mb-3 outlook-only-field">
+            <label class="form-label" for="{{ form.email_fetch_oauth_tenant_id.id_for_label }}">{{ form.email_fetch_oauth_tenant_id.label }}</label>
+            {{ form.email_fetch_oauth_tenant_id }}
+          </div>
+          <div class="mb-3 outlook-only-field">
+            <label class="form-label" for="{{ form.email_fetch_oauth_client_id.id_for_label }}">{{ form.email_fetch_oauth_client_id.label }}</label>
+            {{ form.email_fetch_oauth_client_id }}
+          </div>
+          <div class="mb-3 outlook-only-field">
+            <label class="form-label" for="{{ form.email_fetch_oauth_client_secret.id_for_label }}">{{ form.email_fetch_oauth_client_secret.label }}</label>
+            {{ form.email_fetch_oauth_client_secret }}
+            <div class="form-text">
+              Tenant ID, Client ID och Client Secret kommer fran appregistreringen i Microsoft Entra.
+              Appen laser brevladan utan inloggning, sa ingen MFA-anslutning behovs.
+              Se <code>docs/user-guide/04-bilagor.md</code> for uppsattningen i Entra och Exchange.
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email_fetch_folder.id_for_label }}">{{ form.email_fetch_folder.label }}</label>
+            {{ form.email_fetch_folder }}
+          </div>
+          <hr>
+          <h6 class="fw-semibold">Utgående e-post</h6>
+          <p class="text-muted small mb-3">Används för att skicka fakturor och betalningspåminnelser till kunder via e-post.</p>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email_send_provider.id_for_label }}">{{ form.email_send_provider.label }}</label>
+            {{ form.email_send_provider }}
+          </div>
+          <div class="mb-3 send-configured-field">
+            <label class="form-label" for="{{ form.email_send_from.id_for_label }}">{{ form.email_send_from.label }}</label>
+            {{ form.email_send_from }}
+            <div class="form-text send-graph-only-field">Brevlådan det skickas från. Lämnas fältet tomt används e-postkontot för bilageimport ovan.</div>
+          </div>
+          <div class="mb-3 send-smtp-only-field">
+            <label class="form-label" for="{{ form.email_send_smtp_host.id_for_label }}">{{ form.email_send_smtp_host.label }}</label>
+            {{ form.email_send_smtp_host }}
+          </div>
+          <div class="mb-3 send-smtp-only-field">
+            <label class="form-label" for="{{ form.email_send_smtp_port.id_for_label }}">{{ form.email_send_smtp_port.label }}</label>
+            {{ form.email_send_smtp_port }}
+            <div class="form-text">587 med STARTTLS ikryssat, eller 465 för implicit TLS.</div>
+          </div>
+          <div class="mb-3 send-smtp-only-field">
+            <label class="form-label" for="{{ form.email_send_smtp_username.id_for_label }}">{{ form.email_send_smtp_username.label }}</label>
+            {{ form.email_send_smtp_username }}
+          </div>
+          <div class="mb-3 send-smtp-only-field">
+            <label class="form-label" for="{{ form.email_send_smtp_password.id_for_label }}">{{ form.email_send_smtp_password.label }}</label>
+            {{ form.email_send_smtp_password }}
+            <div class="form-text">Gmail: använd app-lösenord. Lämna tomt för att behålla nuvarande lösenord.</div>
+          </div>
+          <div class="form-check mb-3 send-smtp-only-field">
+            {{ form.email_send_smtp_use_tls }}
+            <label class="form-check-label" for="{{ form.email_send_smtp_use_tls.id_for_label }}">{{ form.email_send_smtp_use_tls.label }}</label>
+          </div>
+          <div class="mb-3 send-graph-only-field">
+            <div class="form-text">
+              Återanvänder Microsoft 365-uppgifterna (Tenant ID, Client ID, Client Secret) under E-postbilagor ovan.
+              Appen behöver även Exchange-rollen <code>Application Mail.Send</code> för avsändarbrevlådan –
+              se kapitlet Företagsinställningar i hjälpen.
+            </div>
+          </div>
+
+          <hr>
+          <h6 class="fw-semibold">Notiser till användare</h6>
+          <p class="text-muted small mb-3">Konto för den dagliga notissammanfattningen till företagets användare. Standard är systemets globala e-postkonto.</p>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.email_notify_provider.id_for_label }}">{{ form.email_notify_provider.label }}</label>
+            {{ form.email_notify_provider }}
+          </div>
+          <div class="mb-3 notify-own-field">
+            <label class="form-label" for="{{ form.email_notify_from.id_for_label }}">{{ form.email_notify_from.label }}</label>
+            {{ form.email_notify_from }}
+            <div class="form-text notify-graph-only-field">Brevlådan notiserna skickas från. Lämnas fältet tomt används e-postkontot för bilageimport ovan.</div>
+          </div>
+          <div class="mb-3 notify-smtp-only-field">
+            <label class="form-label" for="{{ form.email_notify_smtp_host.id_for_label }}">{{ form.email_notify_smtp_host.label }}</label>
+            {{ form.email_notify_smtp_host }}
+          </div>
+          <div class="mb-3 notify-smtp-only-field">
+            <label class="form-label" for="{{ form.email_notify_smtp_port.id_for_label }}">{{ form.email_notify_smtp_port.label }}</label>
+            {{ form.email_notify_smtp_port }}
+            <div class="form-text">587 med STARTTLS ikryssat, eller 465 för implicit TLS.</div>
+          </div>
+          <div class="mb-3 notify-smtp-only-field">
+            <label class="form-label" for="{{ form.email_notify_smtp_username.id_for_label }}">{{ form.email_notify_smtp_username.label }}</label>
+            {{ form.email_notify_smtp_username }}
+          </div>
+          <div class="mb-3 notify-smtp-only-field">
+            <label class="form-label" for="{{ form.email_notify_smtp_password.id_for_label }}">{{ form.email_notify_smtp_password.label }}</label>
+            {{ form.email_notify_smtp_password }}
+            <div class="form-text">Lämna tomt för att behålla nuvarande lösenord.</div>
+          </div>
+          <div class="form-check mb-3 notify-smtp-only-field">
+            {{ form.email_notify_smtp_use_tls }}
+            <label class="form-check-label" for="{{ form.email_notify_smtp_use_tls.id_for_label }}">{{ form.email_notify_smtp_use_tls.label }}</label>
+          </div>
+          <div class="mb-3 notify-graph-only-field">
+            <div class="form-text">
+              Återanvänder Microsoft 365-uppgifterna under E-postbilagor ovan. Appen behöver Exchange-rollen
+              <code>Application Mail.Send</code> även för notisbrevlådan (utöka scopens filter om den skiljer sig
+              från avsändarbrevlådan ovan).
+            </div>
+          </div>
+
+          {% if user.is_staff %}
+          <div class="form-check mb-3">
+            {{ form.is_active }}
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+          </div>
+          {% endif %}
+
+          {% include "partials/form_errors.html" %}
+
+          <div class="d-flex justify-content-between">
+            <div class="d-flex gap-2">
+              <a href="{% url 'bookkeeping:company_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            </div>
+            <div class="d-flex gap-2">
+              {% if company %}
+              <button type="submit" name="fetch_email_attachments" value="1" class="btn btn-outline-primary">Spara och hamta e-postbilagor</button>
+              {% endif %}
+              <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            </div>
+          </div>
+        </form>
+
+        {% if company %}
+        <hr>
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span class="text-muted small">Tar bort företaget och dess kopplade bokforingsdata permanent.</span>
+          <form method="post" action="{% url 'bookkeeping:company_delete' company.pk %}" class="mb-0" onsubmit="return confirm('Ta bort företaget {{ company.name|escapejs }}? Detta kan inte ångras.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Ta bort företag</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.querySelector("form[data-email-provider-form]");
+    if (!form) {
+      return;
+    }
+
+    function updateProviderFields() {
+      const providerSelect = form.querySelector("select[name='email_fetch_provider']");
+      if (!providerSelect) {
+        return;
+      }
+      const outlookFields = form.querySelectorAll(".outlook-only-field");
+      const gmailFields = form.querySelectorAll(".gmail-only-field");
+
+      const showOutlook = providerSelect.value === "outlook";
+      outlookFields.forEach(function (field) {
+        field.style.display = showOutlook ? "" : "none";
+      });
+
+      const showGmail = providerSelect.value === "gmail";
+      gmailFields.forEach(function (field) {
+        field.style.display = showGmail ? "" : "none";
+      });
+    }
+
+    const providerSelect = form.querySelector("select[name='email_fetch_provider']");
+    if (providerSelect) {
+      providerSelect.addEventListener("change", updateProviderFields);
+      updateProviderFields();
+    }
+
+    function updateSendProviderFields() {
+      const sendSelect = form.querySelector("select[name='email_send_provider']");
+      if (!sendSelect) {
+        return;
+      }
+      const value = sendSelect.value;
+      form.querySelectorAll(".send-configured-field").forEach(function (field) {
+        field.style.display = value ? "" : "none";
+      });
+      form.querySelectorAll(".send-smtp-only-field").forEach(function (field) {
+        field.style.display = value === "smtp" ? "" : "none";
+      });
+      form.querySelectorAll(".send-graph-only-field").forEach(function (field) {
+        field.style.display = value === "graph" ? "" : "none";
+      });
+    }
+
+    const sendProviderSelect = form.querySelector("select[name='email_send_provider']");
+    if (sendProviderSelect) {
+      sendProviderSelect.addEventListener("change", updateSendProviderFields);
+      updateSendProviderFields();
+    }
+
+    function updateNotifyProviderFields() {
+      const notifySelect = form.querySelector("select[name='email_notify_provider']");
+      if (!notifySelect) {
+        return;
+      }
+      const value = notifySelect.value;
+      const ownAccount = value === "smtp" || value === "graph";
+      form.querySelectorAll(".notify-own-field").forEach(function (field) {
+        field.style.display = ownAccount ? "" : "none";
+      });
+      form.querySelectorAll(".notify-smtp-only-field").forEach(function (field) {
+        field.style.display = value === "smtp" ? "" : "none";
+      });
+      form.querySelectorAll(".notify-graph-only-field").forEach(function (field) {
+        field.style.display = value === "graph" ? "" : "none";
+      });
+    }
+
+    const notifyProviderSelect = form.querySelector("select[name='email_notify_provider']");
+    if (notifyProviderSelect) {
+      notifyProviderSelect.addEventListener("change", updateNotifyProviderFields);
+      updateNotifyProviderFields();
+    }
+  });
+</script>
+{% endblock %}

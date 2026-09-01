@@ -1,0 +1,57 @@
+<div class="card shadow-sm border-0 mb-3">
+  <div class="card-header bg-white py-2">
+    <h6 class="mb-0 fw-semibold small"><i class="bi bi-paperclip me-2"></i>Bilagor</h6>
+  </div>
+  <div class="card-body">
+    {% if attachments %}
+      <ul class="list-group list-group-flush mb-3">
+        {% for attachment in attachments %}
+        <li class="list-group-item d-flex align-items-center justify-content-between gap-2 px-0">
+          <a href="{% url 'attachments:attachment_preview' attachment.pk %}" target="_blank" rel="noopener" class="text-truncate">
+            <i class="bi bi-file-earmark me-1"></i>{{ attachment.file_name }}
+          </a>
+          {% if not period_locked %}
+          <form method="post" action="{{ detach_url }}" class="mb-0">
+            {% csrf_token %}
+            <input type="hidden" name="attachment_id" value="{{ attachment.pk }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Koppla bort bilaga (finns kvar i bilagevyn)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="text-muted small mb-3">Inga bilagor.</div>
+    {% endif %}
+
+    {% if period_locked %}
+      <div class="text-muted small"><i class="bi bi-lock me-1"></i>Perioden är låst - bilagor kan inte läggas till eller tas bort.</div>
+    {% else %}
+      {% if pending_attachments %}
+        <div class="border rounded p-2 mb-2">
+          <div class="small text-muted mb-1">Valda bilagor att lägga till:</div>
+          <ul class="list-unstyled mb-2">
+            {% for attachment in pending_attachments %}
+              <li class="small"><i class="bi bi-file-earmark me-1"></i>{{ attachment.file_name }}</li>
+            {% endfor %}
+          </ul>
+          <form method="post" action="{{ attach_url }}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="selected_attachment_ids" value="{{ pending_attachment_ids_csv }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-check2-circle me-1"></i>Lägg till valda bilagor
+            </button>
+          </form>
+        </div>
+      {% endif %}
+      <a
+        href="{% url 'attachments:attachment_picker' %}?return_to={{ return_to|urlencode }}&selected={{ pending_attachment_ids_csv }}"
+        class="btn btn-outline-primary btn-sm"
+      >
+        <i class="bi bi-paperclip me-1"></i>Välj bilaga
+      </a>
+    {% endif %}
+  </div>
+</div>

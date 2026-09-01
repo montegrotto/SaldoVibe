@@ -1,0 +1,18 @@
+name: saldovibe-dev
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    volumes:
+      - .:/app
+      - saldovibe-dev-data:/data
+    restart: unless-stopped
+
+volumes:
+  saldovibe-dev-data:

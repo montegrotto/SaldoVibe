@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Verifikationsserier – SaldoVibe{% endblock %}
+{% block page_title %}Verifikationsserier{% endblock %}
+{% block nav_voucher_series %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h5 class="mb-1">Verifikationsserier</h5>
+  <p class="text-muted mb-0">
+    Varje typ av händelse bokförs automatiskt i en egen verifikationsserie. Här styr du vilken
+    bokstav/kod respektive källa ska använda – användaren väljer aldrig serie manuellt.
+    En rättelse/reversering hamnar alltid i samma serie som verifikationen den rättar.
+  </p>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+      {% endif %}
+      <div class="table-responsive">
+      <table class="table align-middle mb-3">
+        <thead class="table-light">
+          <tr>
+            <th>Källa</th>
+            <th style="width:140px;">Serie</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for form in formset %}
+          <tr>
+            <td>
+              {{ form.id }}
+              {{ form.instance.get_source_display }}
+            </td>
+            <td>
+              {{ form.series_code }}
+              {% if form.series_code.errors %}
+                <div class="invalid-feedback d-block">{{ form.series_code.errors|join:", " }}</div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Spara</button>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">Använda serier per räkenskapsår</h6>
+  </div>
+  <div class="card-body p-0">
+    {% if active_series %}
+      <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Räkenskapsår</th>
+            <th>Serie</th>
+            <th class="text-end">Nästa nummer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for series in active_series %}
+          <tr>
+            <td>{{ series.accounting_year.name }}</td>
+            <td class="fw-semibold">{{ series.code }}</td>
+            <td class="text-end">{{ series.next_number }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <div class="text-center text-muted py-4">
+        Inga verifikationer bokförda ännu – serier skapas automatiskt vid första bokföringen.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

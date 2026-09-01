@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Anställda{% endblock %}
+{% block page_title %}Anställda{% endblock %}
+{% block nav_employees %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end gap-2 mb-3">
+  <a href="{% url 'payroll:payroll_run_create' %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-cash-stack me-1"></i>Ny lönekörning
+  </a>
+  <a href="{% url 'payroll:employee_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-person-plus me-1"></i>Ny anställd
+  </a>
+</div>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Namn</th>
+              <th>Personnummer</th>
+              <th class="text-end">Månadslön</th>
+              <th class="text-end">Skattetabell</th>
+              <th>Status</th>
+              <th class="text-end pe-3">Åtgärd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for employee in employees %}
+            <tr>
+              <td>{{ employee.first_name }} {{ employee.last_name }}</td>
+              <td>{{ employee.masked_personal_identity_number }}</td>
+              <td class="text-end">{{ employee.monthly_salary|floatformat:"2g" }} kr</td>
+              <td class="text-end">{{ employee.tax_table_number }} / {{ employee.get_tax_table_column_display }}</td>
+              <td>
+                {% if employee.is_active %}
+                  <span class="badge text-bg-success">Aktiv</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">Inaktiv</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-3">
+                <a href="{% url 'payroll:employee_update' employee.pk %}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-pencil-square me-1"></i>Redigera
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Inga anställda ännu.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

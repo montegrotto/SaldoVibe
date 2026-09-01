@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <style>
+    /*
+      Renderas med xhtml2pdf (bookkeeping/pdf.py) — inte i webbläsare. Bara
+      pisas CSS-delmängd fungerar: tabeller i stället för grid/flex, @frame i
+      stället för position:absolute, inga border-radius/skuggor.
+
+      Samma brevlayout som kundfakturan (invoice_print.html): adressfönstret
+      måste ligga vid 38 mm från överkanten och 108,5 mm från vänsterkanten
+      för att hamna rätt i ett svenskt C5/6-fönsterkuvert.
+    */
+    @page {
+      size: A4 portrait;
+      margin: 38mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame recipient_window {
+        -pdf-frame-content: recipientWindow;
+        left: 108.5mm;
+        top: 38mm;
+        width: 86mm;
+        height: 28mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      font-size: 12px;
+    }
+    div, p, table { margin: 0; padding: 0; }
+    .recipient-window {
+      padding: 2.5mm 3mm;
+      font-size: 12.5px;
+      line-height: 1.45;
+      border: 0.75pt solid #111827;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .number-row { margin-top: 2mm; font-size: 11px; }
+    .number-row .label { font-weight: bold; color: #4b5563; }
+    .number-row .value { font-weight: bold; color: #111827; }
+    .company-name-fallback {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .facts-list { margin-bottom: 6mm; font-size: 11px; line-height: 1.2; }
+    .facts-list td { padding: 0.4mm 0; vertical-align: top; }
+    .facts-list .label { font-weight: bold; color: #111827; padding-right: 3mm; }
+    .facts-list .value { color: #1f2937; }
+    .message-banner {
+      margin-bottom: 6mm;
+      padding: 3mm 5mm;
+      border-left: 3px solid #1a2340;
+      background-color: #f3f4f6;
+      font-size: 11px;
+      color: #4b5563;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    .num { text-align: right; }
+    .totals-row { margin-top: 7mm; }
+    .totals-row td { vertical-align: top; }
+    .totals-left { padding-right: 8mm; }
+    .qr-panel {
+      border: 1px solid #9ca3af;
+      background-color: #f3f4f6;
+    }
+    .qr-panel-body { padding: 4mm; }
+    .qr-inner td { vertical-align: middle; }
+    .qr-image { width: 28mm; height: 28mm; }
+    .qr-caption { padding-left: 4mm; }
+    .qr-caption-rows { font-size: 10px; color: #374151; }
+    .qr-caption-rows td { padding: 0.5mm 0; vertical-align: top; }
+    .qr-caption-label { font-weight: bold; width: 20mm; padding-right: 2mm; }
+    .totals td {
+      padding: 2.5mm 4mm;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .totals .grand {
+      background-color: #1a2340;
+    }
+    .totals .grand td {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: bold;
+      border-bottom: none;
+    }
+    .invoice-footer {
+      border-top: 1px solid #e5e7eb;
+      font-size: 10px;
+      color: #6b7280;
+    }
+    .invoice-footer td { padding-top: 3mm; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <div id="recipientWindow">
+    <div class="recipient-window">
+      {% for line in customer_address_lines %}{{ line }}<br>{% endfor %}
+    </div>
+  </div>
+
+  <div id="headerLogo">
+    {% if logo_size %}
+    <img src="{{ invoice.company.company_icon.path }}" style="width: {{ logo_size.0 }}mm; height: {{ logo_size.1 }}mm;" alt="{{ invoice.company.name }} logga">
+    {% else %}
+    <div class="company-name-fallback">{{ invoice.company.name }}</div>
+    {% endif %}
+  </div>
+  <div id="headerTitle">
+    <div class="title">BETALNINGSPÅMINNELSE</div>
+    <div class="number-row"><span class="label">Fakturanummer</span> <span class="value">{{ invoice.invoice_number }}</span></div>
+  </div>
+
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Påminnelse nr</td><td class="value" style="width: 56.5mm;">{{ reminder_number }}</td><td></td></tr>
+    <tr><td class="label">Kundnr</td><td class="value">{{ invoice.customer.pk }}</td></tr>
+    <tr><td class="label">Fakturadatum</td><td class="value">{{ invoice.invoice_date }}</td></tr>
+    <tr><td class="label">Förfallodatum</td><td class="value">{{ invoice.due_date }}</td></tr>
+    <tr><td class="label">Betala senast</td><td class="value">{{ pay_by_date }}</td></tr>
+    {% if invoice.reference %}
+    <tr><td class="label">Er referens</td><td class="value">{{ invoice.reference }}</td></tr>
+    {% endif %}
+    <tr><td class="label">Valuta</td><td class="value">{{ invoice.currency }}</td></tr>
+  </table>
+
+  <div class="message-banner">
+    Vår faktura {{ invoice.invoice_number }} med förfallodatum {{ invoice.due_date }} har enligt
+    våra noteringar ännu inte betalats. Vi ber er betala senast {{ pay_by_date }}. Har betalning
+    redan skett kan ni bortse från denna påminnelse.
+  </div>
+
+  <table class="totals-row">
+    <tr>
+      <td class="totals-left">
+        <table class="qr-panel"><tr><td class="qr-panel-body">
+          <table class="qr-inner">
+            <tr>
+              <td style="width: 30mm;">{% if payment_qr_png %}<img class="qr-image" src="{{ payment_qr_png }}" alt="Betalnings-QR">{% endif %}</td>
+              <td class="qr-caption">
+                <table class="qr-caption-rows">
+                  <tr><td class="qr-caption-label">OCR</td><td>{{ invoice.ocr_code|default:invoice.invoice_number }}</td></tr>
+                  {% if invoice.company.bankgiro %}
+                  <tr><td class="qr-caption-label">Bankgiro</td><td>{{ invoice.company.bankgiro }}</td></tr>
+                  {% elif invoice.company.plusgiro %}
+                  <tr><td class="qr-caption-label">Plusgiro</td><td>{{ invoice.company.plusgiro }}</td></tr>
+                  {% endif %}
+                  <tr><td colspan="2" class="qr-caption-label">Anges vid betalning.</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td></tr></table>
+      </td>
+      <td style="width: 86mm;">
+        <table class="totals">
+          <tr><td style="width: 58mm;">Fakturabelopp</td><td class="num">{{ invoice.total_amount|floatformat:"2g" }}</td></tr>
+          {% if invoice.paid_amount %}
+          <tr><td>Betalt</td><td class="num">-{{ invoice.paid_amount|floatformat:"2g" }}</td></tr>
+          {% endif %}
+          <tr><td>Återstående belopp</td><td class="num">{{ invoice.remaining_amount|floatformat:"2g" }}</td></tr>
+          {% if reminder_fee %}
+          <tr><td>Påminnelseavgift</td><td class="num">{{ reminder_fee|floatformat:"2g" }}</td></tr>
+          {% endif %}
+          <tr class="grand"><td>Att betala</td><td class="num">{{ amount_to_pay|floatformat:"2g" }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div id="pageFooter">
+    <table class="invoice-footer">
+      <tr>
+        <td>
+          <strong>{{ invoice.company.name }}</strong>{% if invoice.company.address %} · {{ invoice.company.address }}{% endif %}{% if invoice.company.postal_code or invoice.company.city %} · {{ invoice.company.postal_code }} {{ invoice.company.city }}{% endif %}{% if invoice.company.org_number %} · Org.nr {{ invoice.company.org_number }}{% endif %}{% if company_vat_number %} · Momsreg.nr {{ company_vat_number }}{% endif %}{% if invoice.company.email %} · {{ invoice.company.email }}{% endif %}{% if invoice.company.phone_number %} · {{ invoice.company.phone_number }}{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

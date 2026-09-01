@@ -1,0 +1,29 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Kontospecifikationer</h3>
+<p class="subinfo">En PDF per konto med bokförda transaktioner under den exporterade perioden</p>
+<table>
+    <thead>
+        <tr>
+            <th>Konto</th>
+            <th>Namn</th>
+            <th class="amount">Ingående saldo</th>
+            <th class="amount">Utgående saldo</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.account.number }}</td>
+            <td>{{ row.account.name }}</td>
+            <td class="amount">{{ row.opening_balance|floatformat:"2g" }} kr</td>
+            <td class="amount">{{ row.closing_balance|floatformat:"2g" }} kr</td>
+            <td><a href="{{ row.filename }}" class="button right">Öppna</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Inga konton med transaktioner under den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

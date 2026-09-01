@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Mallbibliotek – SaldoVibe{% endblock %}
+{% block page_title %}Mallbibliotek{% endblock %}
+{% block nav_verification_templates %}active{% endblock %}
+
+{% block content %}
+<form method="post">
+{% csrf_token %}
+
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h5 class="mb-0">Mallbibliotek</h5>
+    <div class="text-muted small">Standardkonteringar enligt BAS. Kryssa i de mallar du vill lägga till.</div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <a href="{% url 'bookkeeping:verification_template_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Mina mallar
+    </a>
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="bi bi-download me-1"></i>Importera valda
+    </button>
+  </div>
+</div>
+
+<div class="input-group mb-3">
+  <span class="input-group-text"><i class="bi bi-search"></i></span>
+  <input type="search" class="form-control" id="library-filter"
+         placeholder="Sök på mallnamn eller kontonummer…" autocomplete="off">
+  <span class="input-group-text text-muted small" id="library-filter-count"></span>
+</div>
+
+{% for category, templates in categories %}
+<div class="card shadow-sm border-0 mb-3 library-category">
+  <div class="card-header bg-light fw-semibold">{{ category }}</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:44px;"></th>
+          <th>Mall</th>
+          <th style="width:220px;">Konton</th>
+          <th class="text-center" style="width:130px;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for template in templates %}
+        <tr class="library-row" data-search="{{ template.name|lower }} {{ template.accounts|join:' ' }}">
+          <td>
+            <input type="checkbox" class="form-check-input" name="slugs" value="{{ template.slug }}"
+                   id="tpl-{{ template.slug }}"
+                   {% if template.missing_accounts %}disabled{% endif %}>
+          </td>
+          <td>
+            <label class="fw-semibold mb-0" for="tpl-{{ template.slug }}">{{ template.name }}</label>
+            {% if template.description %}
+              <div class="text-muted small">{{ template.description }}</div>
+            {% endif %}
+            {% if template.source_url %}
+              <a href="{{ template.source_url }}" target="_blank" rel="noopener noreferrer"
+                 class="small text-decoration-none">Källa <i class="bi bi-box-arrow-up-right"></i></a>
+            {% endif %}
+          </td>
+          <td class="text-muted small font-monospace">{{ template.accounts|join:", " }}</td>
+          <td class="text-center">
+            {% if template.missing_accounts %}
+              <span class="badge bg-warning text-dark"
+                    title="Saknade konton: {{ template.missing_accounts|join:', ' }}">Konto saknas</span>
+            {% elif template.is_imported %}
+              <span class="badge bg-success">Importerad</span>
+            {% else %}
+              <span class="badge bg-secondary">Ej importerad</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% empty %}
+<div class="card shadow-sm border-0">
+  <div class="card-body text-center text-muted py-5">
+    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+    Mallbiblioteket är tomt.
+  </div>
+</div>
+{% endfor %}
+
+{% if categories %}
+<div class="d-flex justify-content-end">
+  <button type="submit" class="btn btn-primary">
+    <i class="bi bi-download me-1"></i>Importera valda
+  </button>
+</div>
+{% endif %}
+
+</form>
+
+<script>
+(function () {
+  const filter = document.getElementById('library-filter');
+  const counter = document.getElementById('library-filter-count');
+  const rows = Array.from(document.querySelectorAll('.library-row'));
+  const categories = Array.from(document.querySelectorAll('.library-category'));
+  if (!filter) return;
+
+  function apply() {
+    const terms = filter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let visible = 0;
+
+    rows.forEach(row => {
+      const haystack = row.dataset.search || '';
+      const match = terms.every(term => haystack.includes(term));
+      row.classList.toggle('d-none', !match);
+      if (match) visible += 1;
+    });
+
+    // Dölj kategorikort som inte har några träffar kvar.
+    categories.forEach(card => {
+      const anyVisible = card.querySelector('.library-row:not(.d-none)') !== null;
+      card.classList.toggle('d-none', !anyVisible);
+    });
+
+    counter.textContent = terms.length ? `${visible} av ${rows.length}` : `${rows.length} mallar`;
+  }
+
+  filter.addEventListener('input', apply);
+  apply();
+})();
+</script>
+{% endblock %}

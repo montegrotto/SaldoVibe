@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.name }} – SaldoVibe{% endblock %}
+{% block page_title %}Anläggningstillgångar{% endblock %}
+{% block nav_fixed_assets %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h5 class="mb-0">
+    {{ asset.name }}
+    {% if asset.is_disposed %}
+    <span class="badge bg-secondary ms-2">{{ asset.get_disposal_type_display }} {{ asset.disposed_at }}</span>
+    {% endif %}
+  </h5>
+  <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Tillbaka
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-info-circle me-2"></i>Tillgångsdata</h6>
+      </div>
+      <div class="card-body">
+        {% if asset.depreciable_amount <= 0 %}
+        <div class="alert alert-info py-2">
+          Tillgången har inget avskrivningsbart belopp eftersom restvärde är lika med anskaffningsvärde.
+        </div>
+        {% endif %}
+        {% if asset.is_disposed %}
+        <div class="alert alert-secondary py-2">
+          Avgången {{ asset.disposed_at }} ({{ asset.get_disposal_type_display }}).
+          {% if asset.disposal_reason %}{{ asset.disposal_reason }}{% endif %}
+          {% if asset.disposal_transaction %}<a href="{% url 'bookkeeping:transaction_detail' asset.disposal_transaction.pk %}">Verifikation {{ asset.disposal_transaction.voucher_series }}{{ asset.disposal_transaction.voucher_number }}</a>{% endif %}
+        </div>
+        {% endif %}
+        <dl class="row mb-0">
+          <dt class="col-6">Typ</dt><dd class="col-6">{{ asset.asset_type_name }}</dd>
+          <dt class="col-6">Anskaffning</dt><dd class="col-6 text-end">{{ asset.acquisition_value|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Restvärde</dt><dd class="col-6 text-end">{{ asset.salvage_value|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Avskrivningsbart</dt><dd class="col-6 text-end">{{ asset.depreciable_amount|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Månadsbelopp</dt><dd class="col-6 text-end">{{ asset.monthly_depreciation_amount|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Ackumulerad nedskrivning</dt><dd class="col-6 text-end">{{ asset.total_impaired|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Bokfört värde</dt><dd class="col-6 text-end">{{ asset.current_book_value|floatformat:"2g" }} kr</dd>
+          <dt class="col-6">Nästa avskrivning</dt>
+          <dd class="col-6">
+            {% if asset.is_disposed %}
+            -
+            {% elif asset.next_depreciation_date %}
+            {{ asset.next_depreciation_date }}
+            {% else %}
+            Slutförd
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+      {% if not asset.is_disposed %}
+      <div class="card-footer bg-white border-top-0 py-3">
+        <button type="button" class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="collapse" data-bs-target="#disposalForm">
+          <i class="bi bi-box-arrow-right me-1"></i>Avyttra/utrangera
+        </button>
+        <div class="collapse mt-3" id="disposalForm">
+          <form method="post" action="{% url 'fixed_assets:asset_dispose' asset.pk %}">
+            {% csrf_token %}
+            <div class="mb-2">
+              <label class="form-label small">{{ disposal_form.disposal_date.label }}</label>
+              {{ disposal_form.disposal_date }}
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">{{ disposal_form.disposal_type.label }}</label>
+              {{ disposal_form.disposal_type }}
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">{{ disposal_form.disposal_reason.label }}</label>
+              {{ disposal_form.disposal_reason }}
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">{{ disposal_form.sale_price.label }}</label>
+              {{ disposal_form.sale_price }}
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">{{ disposal_form.proceeds_account.label }}</label>
+              {{ disposal_form.proceeds_account }}
+            </div>
+            <p class="small text-muted mb-2">Bokfört värde {{ asset.current_book_value|floatformat:"2g" }} kr bokas bort; skillnaden mot försäljningspriset hamnar på typens vinst-/förlustkonto.</p>
+            <button type="submit" class="btn btn-danger btn-sm w-100">Bekräfta avgång</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-calendar3 me-2"></i>Registrerade avskrivningar</h6>
+        {% if asset.is_active and not asset.is_disposed and asset.is_due_for_depreciation and not asset.is_fully_depreciated %}
+        <form method="post" action="{% url 'fixed_assets:asset_run_depreciation' asset.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-calendar-check me-1"></i>Bokför månad
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if asset.depreciation_entries.all %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Period</th>
+                <th class="text-end pe-3">Belopp</th>
+                <th class="text-end pe-3">Verifikation</th>
+                <th class="text-end pe-3">Åtgärd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dep in asset.depreciation_entries.all %}
+              <tr{% if dep.is_correction %} class="table-warning"{% endif %}>
+                <td class="ps-3">
+                  {{ dep.period }}
+                  {% if dep.is_correction %}<span class="badge bg-warning text-dark ms-1">Korrigering</span>{% endif %}
+                  {% if dep.reason %}<div class="small text-muted">{{ dep.reason }}</div>{% endif %}
+                </td>
+                <td class="text-end pe-3">{{ dep.amount|floatformat:"2g" }} kr</td>
+                <td class="text-end pe-3">
+                  {% if dep.transaction %}
+                  <a href="{% url 'bookkeeping:transaction_detail' dep.transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-journal-text me-1"></i>Visa
+                  </a>
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-3">
+                  {% if not dep.is_correction %}
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#correctDep{{ dep.pk }}">
+                    Korrigera
+                  </button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% if not dep.is_correction %}
+              <tr class="collapse" id="correctDep{{ dep.pk }}">
+                <td colspan="4" class="ps-3 pe-3">
+                  <form method="post" action="{% url 'fixed_assets:asset_correct_depreciation' asset.pk dep.pk %}" class="d-flex gap-2 flex-wrap align-items-end py-2">
+                    {% csrf_token %}
+                    <div>
+                      <label class="form-label small mb-0">Belopp (+/-)</label>
+                      <input type="number" step="0.01" name="amount" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="flex-grow-1">
+                      <label class="form-label small mb-0">Anledning</label>
+                      <input type="text" name="reason" class="form-control form-control-sm" required>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Spara korrigering</button>
+                  </form>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="p-3 text-muted">Inga avskrivningar registrerade ännu.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-graph-down-arrow me-2"></i>Nedskrivningar</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if asset.impairment_entries.all %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Period</th>
+                <th class="text-end pe-3">Belopp</th>
+                <th class="text-end pe-3">Verifikation</th>
+                <th class="text-end pe-3">Åtgärd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for imp in asset.impairment_entries.all %}
+              <tr{% if imp.is_correction %} class="table-warning"{% endif %}>
+                <td class="ps-3">
+                  {{ imp.period }}
+                  {% if imp.is_correction %}<span class="badge bg-warning text-dark ms-1">Korrigering</span>{% endif %}
+                  <div class="small text-muted">{{ imp.reason }}</div>
+                </td>
+                <td class="text-end pe-3">{{ imp.amount|floatformat:"2g" }} kr</td>
+                <td class="text-end pe-3">
+                  {% if imp.transaction %}
+                  <a href="{% url 'bookkeeping:transaction_detail' imp.transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-journal-text me-1"></i>Visa
+                  </a>
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-3">
+                  {% if not imp.is_correction %}
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#correctImp{{ imp.pk }}">
+                    Korrigera
+                  </button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% if not imp.is_correction %}
+              <tr class="collapse" id="correctImp{{ imp.pk }}">
+                <td colspan="4" class="ps-3 pe-3">
+                  <form method="post" action="{% url 'fixed_assets:asset_correct_impairment' asset.pk imp.pk %}" class="d-flex gap-2 flex-wrap align-items-end py-2">
+                    {% csrf_token %}
+                    <div>
+                      <label class="form-label small mb-0">Belopp (+/-)</label>
+                      <input type="number" step="0.01" name="amount" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="flex-grow-1">
+                      <label class="form-label small mb-0">Anledning</label>
+                      <input type="text" name="reason" class="form-control form-control-sm" required>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Spara korrigering</button>
+                  </form>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="p-3 text-muted">Inga nedskrivningar registrerade.</div>
+        {% endif %}
+      </div>
+      {% if not asset.is_disposed %}
+      <div class="card-footer bg-white py-3">
+        <form method="post" action="{% url 'fixed_assets:asset_register_impairment' asset.pk %}" class="row g-2 align-items-end">
+          {% csrf_token %}
+          <div class="col-sm-4">
+            <label class="form-label small mb-0">{{ impairment_form.period.label }}</label>
+            {{ impairment_form.period }}
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-0">{{ impairment_form.amount.label }}</label>
+            {{ impairment_form.amount }}
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-0">{{ impairment_form.reason.label }}</label>
+            {{ impairment_form.reason }}
+          </div>
+          <div class="col-sm-2">
+            <button type="submit" class="btn btn-outline-danger btn-sm w-100">Skriv ned</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-left-right me-2"></i>Omklassificeringar</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if asset.reclassification_entries.all %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Datum</th>
+                <th>Från</th>
+                <th>Till</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for reclass in asset.reclassification_entries.all %}
+              <tr>
+                <td class="ps-3">{{ reclass.changed_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ reclass.from_asset_type_name }}</td>
+                <td>{{ reclass.to_asset_type_name }}</td>
+              </tr>
+              {% if reclass.reason %}
+              <tr><td colspan="3" class="ps-3 small text-muted">{{ reclass.reason }}</td></tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="p-3 text-muted">Ingen omklassificering registrerad.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

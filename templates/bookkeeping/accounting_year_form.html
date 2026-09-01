@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title_text }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_years %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">{{ form.start_date.label }}</label>
+            {{ form.start_date }}
+            {% if form.start_date.errors %}<div class="text-danger small">{{ form.start_date.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.end_date.label }}</label>
+            {{ form.end_date }}
+            {% if form.end_date.errors %}<div class="text-danger small">{{ form.end_date.errors.0 }}</div>{% endif %}
+          </div>
+          {% if form.non_field_errors %}<div class="text-danger small mb-3">{{ form.non_field_errors.0 }}</div>{% endif %}
+          {% if year %}
+            <div class="mb-3">
+              <a href="{% url 'bookkeeping:sie_import' %}?year={{ year.pk }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-upload me-1"></i>Importera SIE
+              </a>
+            </div>
+          {% endif %}
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'bookkeeping:accounting_year_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>{{ submit_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

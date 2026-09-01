@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Compliance-översikt – SaldoVibe{% endblock %}
+{% block page_title %}Compliance-översikt{% endblock %}
+{% block nav_compliance %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+  <h5 class="mb-0">Compliance-anomalier</h5>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label for="year-select" class="form-label mb-0 small text-muted">Räkenskapsår</label>
+    <select id="year-select" name="year" class="form-select form-select-sm" style="min-width:0; max-width:200px;" onchange="this.form.submit()">
+      {% for year in years %}
+      <option value="{{ year.pk }}" {% if selected_year and selected_year.pk == year.pk %}selected{% endif %}>
+        {{ year.name }} ({{ year.start_date }} – {{ year.end_date }})
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <div class="text-muted small">Nummerluckor</div>
+        <div class="fs-4 fw-bold {% if voucher_gaps %}text-danger{% else %}text-success{% endif %}">{{ voucher_gaps|length }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <div class="text-muted small">Sena bokföringar (&gt;7 dagar)</div>
+        <div class="fs-4 fw-bold {% if late_postings_count %}text-warning{% else %}text-success{% endif %}">{{ late_postings_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <div class="text-muted small">Bokförda lev.fakturor utan bilaga</div>
+        <div class="fs-4 fw-bold {% if supplier_invoices_without_attachments %}text-danger{% else %}text-success{% endif %}">{{ supplier_invoices_without_attachments }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <div class="text-muted small">Audit chain avvikelser</div>
+        <div class="fs-4 fw-bold {% if chain_mismatch_count %}text-danger{% else %}text-success{% endif %}">{{ chain_mismatch_count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white"><strong>Nummerluckor per serie</strong></div>
+      <div class="card-body p-0">
+        {% if voucher_gaps %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Serie</th><th>Antal luckor</th><th>Exempel</th></tr>
+            </thead>
+            <tbody>
+              {% for row in voucher_gaps %}
+              <tr>
+                <td>{{ row.series }}</td>
+                <td>{{ row.missing_count }}</td>
+                <td class="small text-muted">{{ row.sample }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-success">Inga nummerluckor hittades i valt räkenskapsår.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white"><strong>Övriga riskindikatorer</strong></div>
+      <div class="card-body">
+        <ul class="mb-0">
+          <li>
+            Momsstängningar där underlaget ändrats efter stängning:
+            {% if vat_snapshot_drift %}
+            <strong class="text-danger">{{ vat_snapshot_drift|length }}</strong>
+            <span class="small text-muted">
+              ({% for snapshot in vat_snapshot_drift %}{{ snapshot.period_start|date:"Y-m-d" }} – {{ snapshot.period_end|date:"Y-m-d" }}{% if not forloop.last %}, {% endif %}{% endfor %})
+            </span>
+            {% else %}
+            <strong class="text-success">0</strong>
+            {% endif %}
+          </li>
+          <li>Orphan-bilagor (utan koppling till leverantörsfaktura): <strong>{{ orphan_attachments }}</strong></li>
+          <li>Lock/period-relaterade logghändelser senaste 30 dagar: <strong>{{ lock_attempt_events_30d }}</strong></li>
+          <li>
+            Senaste externa förankring av auditkedjan (RFC 3161):
+            {% if last_chain_anchor %}
+            <strong>{{ last_chain_anchor.created_at|date:"Y-m-d H:i" }}</strong>
+            <span class="text-muted small">(verifieras månadsvis, se <code>verify_audit_chain_anchors</code>)</span>
+            {% else %}
+            <strong class="text-danger">saknas</strong>
+            {% endif %}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white"><strong>Sena bokföringar (urval)</strong></div>
+      <div class="card-body p-0">
+        {% if late_postings %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Verifikation</th><th>Datum</th><th>Bokförd</th><th>Dagar fördröjning</th></tr>
+            </thead>
+            <tbody>
+              {% for txn in late_postings %}
+              <tr>
+                <td><a href="{% url 'bookkeeping:transaction_detail' txn.id %}?return_to={{ request.get_full_path|urlencode }}">{{ txn.reference }}</a></td>
+                <td>{{ txn.date }}</td>
+                <td>{{ txn.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ txn.lag_days }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-success">Inga sena bokföringar över tröskelvärdet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

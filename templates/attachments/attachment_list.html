@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Bilagor – SaldoVibe{% endblock %}
+{% block page_title %}Bilagor{% endblock %}
+{% block nav_attachments %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0">
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-paperclip me-2"></i>Bilagor</h6>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" class="mb-4" id="attachment-upload-form">
+      {% csrf_token %}
+      {{ attachment_form.file }}
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-primary" id="attachment-upload-submit" onclick="this.form.elements.file.click()">
+          <span id="attachment-upload-submit-label"><i class="bi bi-upload me-1"></i>Ladda upp fil</span>
+          <span id="attachment-upload-loading" class="d-none">
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Laddar upp, vänta...
+          </span>
+        </button>
+        <span class="text-muted small">PDF, PNG eller JPEG</span>
+      </div>
+      {% if attachment_form.file.errors %}
+        <div class="text-danger small mt-1">{{ attachment_form.file.errors.0 }}</div>
+      {% endif %}
+    </form>
+
+    {% if attachments %}
+      <div class="list-group list-group-flush border rounded">
+        {% for attachment in attachments %}
+          <div class="list-group-item d-flex align-items-center gap-3 attachment-row">
+            <button
+              type="button"
+              class="btn btn-link p-0 text-reset text-decoration-none text-start d-flex align-items-center gap-3 flex-grow-1 attachment-select-btn"
+              data-attachment-id="{{ attachment.id }}"
+            >
+              <i class="bi bi-file-earmark fs-5"></i>
+              <span>
+                <span class="fw-semibold d-block">{{ attachment.file_name }}</span>
+                <small class="text-muted">Uppladdad {{ attachment.uploaded_at|date:"Y-m-d H:i" }}{% if attachment.uploaded_by %} av {{ attachment.uploaded_by }}{% endif %}</small>
+                {% if attachment.source == 'email' %}
+                  <small class="text-muted d-block">
+                    Hämtad från e-post{% if attachment.source_provider %} ({{ attachment.source_provider|title }}){% endif %}
+                    {% if attachment.source_email_subject %} – Ämne: {{ attachment.source_email_subject }}{% endif %}
+                  </small>
+                {% endif %}
+              </span>
+            </button>
+            <a href="{% url 'attachments:attachment_preview' attachment.pk %}" download="{{ attachment.file_name }}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-download me-1"></i>Ladda ner
+            </a>
+            <div class="btn-group">
+              <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-plus-lg me-1"></i>Skapa
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a class="dropdown-item" href="{% url 'bookkeeping:transaction_add' %}?selected_attachments={{ attachment.id }}">
+                    <i class="bi bi-journal-plus me-2"></i>Transaktion
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{% url 'supplier_invoices:invoice_create' %}?selected_attachments={{ attachment.id }}">
+                    <i class="bi bi-receipt me-2"></i>Leverantörsfaktura
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{% url 'expenses:expense_create' %}?selected_attachments={{ attachment.id }}">
+                    <i class="bi bi-wallet2 me-2"></i>Utlägg
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <form method="post" action="{% url 'attachments:attachment_delete' attachment.pk %}" class="mb-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm" title="Ta bort bilaga">
+                <i class="bi bi-trash me-1"></i>Ta bort
+              </button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">Inga bilagor uppladdade ännu.</div>
+    {% endif %}
+  </div>
+</div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=attachments start_empty=True hide_thumb_nav=True %}
+</div>
+
+<style>
+  .attachment-row.attachment-row-active {
+    background-color: var(--bs-primary-bg-subtle);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script>
+  (function () {
+    SaldoVibe.attachments.initUploadLoadingState({
+      form: 'attachment-upload-form',
+      submitBtn: 'attachment-upload-submit',
+      label: 'attachment-upload-submit-label',
+      loading: 'attachment-upload-loading'
+    });
+
+    document.querySelectorAll('.attachment-select-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = Number(btn.dataset.attachmentId);
+        document.querySelectorAll('.attachment-row').forEach(function (row) {
+          row.classList.remove('attachment-row-active');
+        });
+        const row = btn.closest('.attachment-row');
+        if (row) {
+          row.classList.add('attachment-row-active');
+        }
+        document.dispatchEvent(new CustomEvent('attachment-viewer:show', { detail: { id: id } }));
+      });
+    });
+  })();
+</script>
+{% endblock %}

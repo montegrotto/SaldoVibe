@@ -1,0 +1,112 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block title %}BALANSRÄKNING{% endblock %}
+{% block subtitle %}{% if selected_year %}<span class="label">Räkenskapsår</span> <span class="value">{{ selected_year.name }}</span>{% endif %}{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    {% if selected_year %}
+    <tr><td class="label">Period</td><td class="value">{{ selected_year.start_date }} – {{ selected_year.end_date }}</td></tr>
+    {% endif %}
+  </table>
+
+  <div class="section-title">TILLGÅNGAR</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in assets %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga tillgångskonton med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa tillgångar</td><td class="num">{{ total_assets|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">EGET KAPITAL</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in equity %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga konton för eget kapital med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa eget kapital</td><td class="num">{{ total_equity|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">OBESKATTADE RESERVER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in untaxed_reserves %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga obeskattade reserver med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa obeskattade reserver</td><td class="num">{{ total_untaxed_reserves|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">AVSÄTTNINGAR</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in provisions %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga avsättningar med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa avsättningar</td><td class="num">{{ total_provisions|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">LÅNGFRISTIGA SKULDER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in long_term_liabilities %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga långfristiga skulder med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa långfristiga skulder</td><td class="num">{{ total_long_term_liabilities|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">KORTFRISTIGA SKULDER</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr><th style="width: 22mm;">KONTO</th><th>NAMN</th><th class="num" style="width: 40mm;">BELOPP</th></tr>
+    </thead>
+    <tbody>
+      {% for row in current_liabilities %}
+      <tr><td>{{ row.account.number }}</td><td>{{ row.account.name }}</td><td class="num">{{ row.balance|floatformat:"2g" }} kr</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">Inga kortfristiga skulder med saldo.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="2">Summa kortfristiga skulder</td><td class="num">{{ total_current_liabilities|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">SAMMANSTÄLLNING</div>
+  <table class="report-table">
+    <tbody>
+      <tr><td>Tillgångar</td><td class="num" style="width: 40mm;">{{ total_assets|floatformat:"2g" }} kr</td></tr>
+      <tr><td>Skulder + eget kapital</td><td class="num">{{ total_equity_and_liabilities|floatformat:"2g" }} kr</td></tr>
+      <tr class="grand"><td>{% if balance_difference >= 0 %}Vinst{% else %}Förlust{% endif %}</td><td class="num">{{ balance_difference|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+{% endblock %}

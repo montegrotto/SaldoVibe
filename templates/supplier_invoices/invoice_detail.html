@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Leverantörsfaktura {{ invoice.invoice_number }} - SaldoVibe{% endblock %}
+{% block page_title %}Leverantörsfaktura {{ invoice.invoice_number }}{% endblock %}
+{% block nav_supplier_invoices %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Till fakturalista
+  </a>
+</div>
+
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0">
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-receipt me-2"></i>Fakturadetaljer</h6>
+        <span class="badge {{ invoice.payment_status_badge.css_class }}">{{ invoice.payment_status_badge.label }}</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Fakturanummer</div>
+            <div class="fw-semibold">{{ invoice.invoice_number|default:"-" }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">OCR</div>
+            <div>{{ invoice.ocr_code|default:"-" }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Fakturadatum</div>
+            <div>{{ invoice.invoice_date }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Förfallodatum</div>
+            <div>{{ invoice.due_date }}</div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Leverantör</div>
+            <div class="fw-semibold">{{ invoice.supplier_display_name }}</div>
+          </div>
+          {% if invoice.supplier and invoice.supplier.bankgiro %}
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Bankgiro</div>
+            <div>{{ invoice.supplier.bankgiro }}</div>
+            <span
+              class="small text-decoration-none text-primary qr-hover-trigger"
+              role="button"
+              tabindex="0"
+              data-qr-url="{% url 'supplier_invoices:invoice_qr_svg' invoice.pk %}"
+            >
+              <i class="bi bi-qr-code me-1"></i>Visa QR
+            </span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Kostnadskonto</th>
+                <th class="text-end">Debet</th>
+                <th class="text-end">Kredit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in invoice.cost_lines.all %}
+              <tr>
+                <td>{{ line.expense_account.number }} {{ line.expense_account.name }}</td>
+                <td class="text-end">{% if line.debit %}{{ line.debit|floatformat:"2g" }} kr{% endif %}</td>
+                <td class="text-end">{% if line.credit %}{{ line.credit|floatformat:"2g" }} kr{% endif %}</td>
+              </tr>
+              {% empty %}
+                <tr><td colspan="3" class="text-muted">Inga kostnadsrader.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th class="text-end" colspan="2">Summa exkl. moms</th>
+                <th class="text-end">{{ invoice.amount_ex_vat|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th class="text-end" colspan="2">Moms</th>
+                <th class="text-end">{{ invoice.vat_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th class="text-end" colspan="2">Att betala</th>
+                <th class="text-end">{{ invoice.total_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              {% if invoice.paid_amount > 0 %}
+              <tr>
+                <th class="text-end" colspan="2">Betalt</th>
+                <th class="text-end">{{ invoice.paid_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              <tr>
+                <th class="text-end" colspan="2">Återstår</th>
+                <th class="text-end">{{ invoice.remaining_amount|floatformat:"2g" }} kr</th>
+              </tr>
+              {% endif %}
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-gear me-2"></i>Åtgärder</h6>
+      </div>
+      <div class="card-body">
+        {% if invoice.registered_transaction %}
+          <a href="{% url 'bookkeeping:transaction_detail' invoice.registered_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary w-100 mb-2">
+            <i class="bi bi-journal-text me-1"></i>Öppna faktura-verifikation
+          </a>
+        {% endif %}
+
+        {% if not invoice.is_registered %}
+          <form method="post" action="{% url 'supplier_invoices:invoice_register' invoice.pk %}" class="mb-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-journal-check me-1"></i>Bokför faktura
+            </button>
+          </form>
+        {% elif not invoice.is_paid %}
+          {% url 'supplier_invoices:invoice_register_payment' invoice.pk as register_payment_url %}
+          {% url 'supplier_invoices:invoice_offset' invoice.pk as offset_url %}
+          {% include "bookkeeping/_register_payment.html" with document=invoice %}
+        {% endif %}
+
+        {% if invoice.is_paid %}
+          <div class="alert alert-success mb-0" role="alert">
+            Fakturan är markerad som betald{% if invoice.payment_date %} {{ invoice.payment_date }}{% endif %}.
+          </div>
+        {% elif invoice.is_partially_paid %}
+          <div class="alert alert-info mb-0" role="alert">
+            Fakturan är delbetald. Återstående belopp: {{ invoice.remaining_amount|floatformat:"2g" }} kr.
+          </div>
+        {% endif %}
+
+        {% if invoice.payment_transaction %}
+          <a href="{% url 'bookkeeping:transaction_detail' invoice.payment_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-secondary w-100 mt-2">
+            <i class="bi bi-cash-coin me-1"></i>Öppna senaste betalningsverifikation
+          </a>
+          <a href="{% url 'banking:payment_undo_confirm' invoice.payment_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger w-100 mt-2">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra betalning
+          </a>
+        {% elif invoice.is_paid %}
+          <form method="post" action="{% url 'supplier_invoices:invoice_unmark_manually_paid' invoice.pk %}" class="mt-2">
+            {% csrf_token %}
+            <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-outline-danger w-100">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra manuell betalning
+            </button>
+          </form>
+        {% endif %}
+
+        {% include "bookkeeping/_payment_history.html" with payments=invoice.payments.all %}
+      </div>
+    </div>
+  </div>
+</div>
+{% include "attachments/_attachment_manager.html" with attachments=invoice.attachments.all attach_url=attach_url return_to=return_to period_locked=period_locked %}
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=invoice.attachments.all %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<style>
+  .invoice-qr-popover {
+    --bs-popover-max-width: 360px;
+  }
+
+  .invoice-qr-popover .popover-body {
+    padding: 0.5rem;
+  }
+</style>
+<script src="{% static 'js/qr-popover.js' %}"></script>
+<script>
+  SaldoVibe.qrPopover.init();
+</script>
+{% include "bookkeeping/_register_payment_js.html" %}
+{% endblock %}

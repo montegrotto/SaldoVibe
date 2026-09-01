@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Momsrapport - SaldoVibe{% endblock %}
+{% block page_title %}Momsrapport{% endblock %}
+{% block nav_vat_report %}active{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">Momsdeklaration (Skatteverket)</h6>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label">Räkenskapsår</label>
+        <select name="year" class="form-select" onchange="this.form.submit()">
+          {% for year in years %}
+          <option value="{{ year.pk }}" {% if selected_year and selected_year.pk == year.pk %}selected{% endif %}>{{ year.name }} ({{ year.start_date }} - {{ year.end_date }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-7">
+        <label class="form-label">Momsperiod</label>
+        <select name="period" class="form-select" onchange="this.form.submit()">
+          {% for period in periods %}
+          <option value="{{ period.key }}" {% if selected_period and selected_period.key == period.key %}selected{% endif %}>{{ period.label }}{% if period.status == "ongoing" %} (pågående){% elif period.is_reported %} (rapporterad){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+
+    {% if selected_period and field_groups %}
+    <div class="mt-4">
+      {% if selected_period.status == "ongoing" %}
+      <div class="alert alert-info mb-3">Perioden pågår fortfarande och kan inte rapporteras eller stängas förrän den är avslutad. Siffrorna nedan visar utfallet hittills.</div>
+      {% else %}
+      <div class="mb-3">
+        <h6 class="mb-2">Valideringsstatus</h6>
+        {% if validation_status.errors %}
+        <div class="alert alert-danger mb-2">
+          <div class="fw-semibold mb-1">Export kan inte genomforas</div>
+          <ul class="mb-0 ps-3">
+            {% for item in validation_status.errors %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% elif validation_status.warnings %}
+        <div class="alert alert-warning mb-2">
+          <div class="fw-semibold mb-1">Export ar mojlig men kontroll rekommenderas</div>
+          <ul class="mb-0 ps-3">
+            {% for item in validation_status.warnings %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% else %}
+        <div class="alert alert-success mb-2">Klar för export enligt nuvarande valideringsregler.</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h6 class="mb-0">Skatteverkets fältkoder för vald period</h6>
+        {% if selected_period.status != "ongoing" %}
+        <div class="d-flex align-items-center gap-2">
+          {% if closing_transaction %}
+          <span class="badge text-bg-secondary">Period closed</span>
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'bookkeeping:transaction_detail' closing_transaction.pk %}?return_to={{ request.get_full_path|urlencode }}">Visa stängning</a>
+          {% else %}
+          <form method="post" action="{% url 'vat:close_period' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="year" value="{{ selected_year.pk }}">
+            <input type="hidden" name="period" value="{{ selected_period.key }}">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Stäng momsperiod</button>
+          </form>
+          {% endif %}
+          {% if validation_status.errors %}
+          <span class="badge text-bg-danger">Blocked</span>
+          {% elif validation_status.warnings %}
+          <span class="badge text-bg-warning">Warnings</span>
+          {% else %}
+          <span class="badge text-bg-success">Ready</span>
+          {% endif %}
+          <a class="btn btn-primary btn-sm" href="{% url 'vat:export_skatteverket' %}?year={{ selected_year.pk }}&period={{ selected_period.key }}">Exportera till Skatteverket (XML)</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Fältkod</th>
+              <th>Beskrivning</th>
+              <th class="text-end">Belopp</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in field_groups %}
+            <tr class="table-light">
+              <th colspan="4" class="small text-uppercase text-muted">{{ group.letter }}. {{ group.label }}</th>
+            </tr>
+            {% for row in group.rows %}
+            <tr>
+              <td class="fw-semibold">{{ row.code }}</td>
+              <td>{{ row.label }}</td>
+              <td class="text-end">{{ row.amount|floatformat:'0g' }}</td>
+              <td class="text-end">
+                {% if row.code in field_codes_with_transactions %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'vat:field_transactions' row.code %}?year={{ selected_year.pk }}&period={{ selected_period.key }}">Visa verifikationer</a>
+                {% else %}
+                <span class="text-muted small">-</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% elif selected_year %}
+    <div class="alert alert-info mt-4 mb-0">Inga momsperioder finns for valt rakenskapsar annu.</div>
+    {% else %}
+    <div class="alert alert-warning mt-4 mb-0">Skapa ett rakenskapsar for att kunna rapportera moms.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

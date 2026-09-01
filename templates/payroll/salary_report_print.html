@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <style>
+    /*
+      Renderas med xhtml2pdf (bookkeeping/pdf.py) — inte i webbläsare. Bara
+      pisas CSS-delmängd fungerar: tabeller i stället för grid/flex, @frame i
+      stället för position:absolute, inga border-radius/skuggor.
+
+      Fönsterkuvert (svenskt C5/6, högerställt "H2"-fönster): mottagarens
+      adress måste ligga exakt vid 38 mm från papprets överkant och
+      108,5 mm från vänsterkanten, 86 mm bred — samma mått som fakturans
+      fönsterkuvert (templates/invoicing/invoice_print.html). Frame-
+      koordinaterna räknas från papprets kant, inte från sidmarginalen.
+    */
+    @page {
+      size: A4 portrait;
+      margin: 38mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame recipient_window {
+        -pdf-frame-content: recipientWindow;
+        left: 108.5mm;
+        top: 38mm;
+        width: 86mm;
+        height: 28mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    /* Följdsidor utan adressfönster — väljs via pdf:nexttemplate i body. */
+    @page regular {
+      size: A4 portrait;
+      margin: 38mm 14mm 32mm 18mm;
+      @frame header_logo {
+        -pdf-frame-content: headerLogo;
+        left: 18mm;
+        top: 16mm;
+        width: 90.5mm;
+        height: 20mm;
+      }
+      @frame header_title {
+        -pdf-frame-content: headerTitle;
+        left: 108.5mm;
+        top: 16mm;
+        width: 87.5mm;
+        height: 20mm;
+      }
+      @frame page_footer {
+        -pdf-frame-content: pageFooter;
+        left: 18mm;
+        top: 267mm;
+        width: 178mm;
+        height: 16mm;
+      }
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      font-size: 12px;
+    }
+    /* pisa ger block-element egna standardmarginaler — nollställ och sätt
+       uttryckliga marginaler där de behövs. */
+    div, p, table { margin: 0; padding: 0; }
+    .recipient-window {
+      padding: 2.5mm 3mm;
+      font-size: 12.5px;
+      line-height: 1.45;
+      border: 0.75pt solid #111827;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .number-row { margin-top: 2mm; font-size: 11px; }
+    .number-row .label { font-weight: bold; color: #4b5563; }
+    .number-row .value { font-weight: bold; color: #111827; }
+    .company-name-fallback {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2340;
+    }
+    .facts-list { margin-bottom: 6mm; font-size: 11px; line-height: 1.2; }
+    .facts-list td { padding: 0.4mm 0; vertical-align: top; }
+    .facts-list .label { font-weight: bold; color: #111827; padding-right: 3mm; }
+    .facts-list .value { color: #1f2937; }
+    .section-title {
+      margin-bottom: 3mm;
+      font-size: 10px;
+      font-weight: bold;
+      color: #6b7280;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    .salary-table { margin-bottom: 8mm; }
+    .salary-table th, .salary-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    .salary-table th {
+      text-align: left;
+      background-color: #eef2f7;
+      font-weight: bold;
+      color: #111827;
+      font-size: 11px;
+    }
+    .num { text-align: right; }
+    .salary-table tr.net td {
+      background-color: #1a2340;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: none;
+    }
+    .invoice-footer {
+      border-top: 1px solid #e5e7eb;
+      font-size: 10px;
+      color: #6b7280;
+    }
+    .invoice-footer td { padding-top: 3mm; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <pdf:nexttemplate name="regular" />
+  <div id="recipientWindow">
+    <div class="recipient-window">
+      {% for line in employee_address_lines %}{{ line }}<br>{% endfor %}
+    </div>
+  </div>
+
+  <div id="headerLogo">
+    {% if logo_size %}
+    <img src="{{ salary_record.payroll_run.company.company_icon.path }}" style="width: {{ logo_size.0 }}mm; height: {{ logo_size.1 }}mm;" alt="{{ salary_record.payroll_run.company.name }} logga">
+    {% else %}
+    <div class="company-name-fallback">{{ salary_record.payroll_run.company.name }}</div>
+    {% endif %}
+  </div>
+  <div id="headerTitle">
+    <div class="title">LÖNESPECIFIKATION</div>
+    <div class="number-row"><span class="label">Period</span> <span class="value">{{ salary_record.payroll_run.period_label|capfirst }}</span></div>
+  </div>
+
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Anställd</td><td class="value" style="width: 56.5mm;">{{ salary_record.employee }}</td><td></td></tr>
+    <tr><td class="label">Personnummer</td><td class="value">{{ salary_record.employee.personal_identity_number }}</td></tr>
+    <tr><td class="label">Utbetalningsdatum</td><td class="value">{{ salary_record.payroll_run.payment_date }}</td></tr>
+    <tr><td class="label">Skatteunderlag</td><td class="value">Tabell {{ salary_record.tax_table_number }}, {{ salary_record.get_tax_table_column_display }}</td></tr>
+    <tr><td class="label">Skattekälla</td><td class="value">{{ salary_record.get_tax_calculation_source_display }}</td></tr>
+    {% if salary_record.tax_calculation_reference %}
+    <tr><td class="label">API-referens</td><td class="value">{{ salary_record.tax_calculation_reference }}</td></tr>
+    {% endif %}
+  </table>
+
+  <table class="salary-table">
+    <thead>
+      <tr>
+        <th>POST</th>
+        <th class="num" style="width: 45mm;">BELOPP (SEK)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Bruttolön</td><td class="num">{{ salary_record.gross_salary|floatformat:"2g" }}</td></tr>
+      <tr><td>Skattepliktiga tillägg</td><td class="num">{{ salary_record.total_taxable_additions|floatformat:"2g" }}</td></tr>
+      <tr><td>Avdrag före skatt</td><td class="num">-{{ salary_record.total_pre_tax_deductions|floatformat:"2g" }}</td></tr>
+      <tr><td>Underlag för skatt</td><td class="num">{{ salary_record.taxable_salary|floatformat:"2g" }}</td></tr>
+      <tr><td>Preliminärskatt ({{ salary_record.preliminary_tax_rate|floatformat:"2g" }} %)</td><td class="num">-{{ salary_record.preliminary_tax_amount|floatformat:"2g" }}</td></tr>
+      <tr><td>Skattefria tillägg</td><td class="num">{{ salary_record.total_non_taxable_additions|floatformat:"2g" }}</td></tr>
+      <tr><td>Avdrag efter skatt</td><td class="num">-{{ salary_record.total_post_tax_deductions|floatformat:"2g" }}</td></tr>
+      <tr class="net"><td>Nettolön</td><td class="num">{{ salary_record.net_salary|floatformat:"2g" }}</td></tr>
+    </tbody>
+  </table>
+
+  {% if salary_record.adjustments.count %}
+  <div class="section-title">JUSTERINGAR</div>
+  <table class="salary-table">
+    <thead>
+      <tr>
+        <th>JUSTERING</th>
+        <th>TYP</th>
+        <th>NÄR</th>
+        <th class="num" style="width: 45mm;">BELOPP (SEK)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for adj in salary_record.adjustments.all %}
+      <tr>
+        <td>{{ adj.description }}</td>
+        <td>{{ adj.get_direction_display }}</td>
+        <td>{{ adj.get_phase_display }}</td>
+        <td class="num">{{ adj.amount|floatformat:"2g" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="section-title">ARBETSGIVARUPPGIFT</div>
+  <table class="salary-table">
+    <thead>
+      <tr>
+        <th>ARBETSGIVARUPPGIFT</th>
+        <th class="num" style="width: 45mm;">BELOPP (SEK)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Arbetsgivaravgift ({{ salary_record.employer_contribution_rate|floatformat:"2g" }} %)</td>
+        <td class="num">{{ salary_record.employer_contribution_amount|floatformat:"2g" }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div id="pageFooter">
+    <table class="invoice-footer">
+      <tr>
+        <td>
+          Denna lönespecifikation är framtagen för svensk lönerapportering och AGI-underlag till Skatteverket.<br>
+          <strong>{{ salary_record.payroll_run.company.name }}</strong>{% if salary_record.payroll_run.company.address %} · {{ salary_record.payroll_run.company.address }}{% endif %}{% if salary_record.payroll_run.company.postal_code or salary_record.payroll_run.company.city %} · {{ salary_record.payroll_run.company.postal_code }} {{ salary_record.payroll_run.company.city }}{% endif %}{% if salary_record.payroll_run.company.org_number %} · Org.nr {{ salary_record.payroll_run.company.org_number }}{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Reskontra – SaldoVibe{% endblock %}
+{% block page_title %}Reskontra{% endblock %}
+{% block nav_reskontra %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  {% if active_company and active_company.company_icon %}
+    <img src="{{ active_company.company_icon.url }}" alt="{{ active_company.name }}" style="width:30px; height:30px; object-fit:contain;" class="border rounded bg-white p-1 me-2">
+  {% endif %}
+  <h5 class="mb-0">Reskontra</h5>
+  <a class="btn btn-outline-secondary btn-sm ms-3" href="{% url 'bookkeeping:reskontra_pdf' %}?date={{ report_date|date:'Y-m-d' }}">
+    <i class="bi bi-filetype-pdf me-1"></i>Exportera PDF
+  </a>
+  <form method="get" class="d-flex align-items-center gap-2 ms-3">
+    <label for="reskontra-date" class="text-muted small mb-0">Per</label>
+    <input type="date" id="reskontra-date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm" style="width:auto;">
+    <button type="submit" class="btn btn-outline-primary btn-sm">Visa</button>
+  </form>
+</div>
+
+<div class="card shadow-sm border-0 report-print mb-4" style="max-width:1100px;">
+  <div class="card-body p-0">
+    <div class="px-4 pt-4 pb-2">
+      <h6 class="text-primary fw-bold"><i class="bi bi-person-badge me-2"></i>Kundreskontra – obetalda kundfakturor</h6>
+    </div>
+    {% if customer_side.rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr class="text-muted small">
+          <th class="ps-4">Faktura</th>
+          <th>Kund</th>
+          <th>Förfallodatum</th>
+          <th class="text-end">Dagar försenad</th>
+          <th class="text-end pe-4">Återstående</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in customer_side.rows %}
+        <tr>
+          <td class="ps-4"><a href="{% url 'invoicing:invoice_detail' row.document.pk %}" class="text-decoration-none">{{ row.document.invoice_number|default:"–" }}</a></td>
+          <td>{{ row.counterparty|default:"–" }}</td>
+          <td>{{ row.due_date|default:"–" }}</td>
+          <td class="text-end {% if row.is_overdue %}text-danger fw-semibold{% endif %}">{% if row.is_overdue %}{{ row.days_overdue }}{% else %}–{% endif %}</td>
+          <td class="text-end pe-4 fw-semibold">{{ row.remaining|floatformat:"2g" }} kr</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td class="ps-4" colspan="4">Summa kundreskontra</td>
+          <td class="text-end pe-4">{{ customer_side.reskontra_total|floatformat:"2g" }} kr</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    {% else %}
+    <div class="text-muted px-4 pb-3">Inga obetalda kundfakturor.</div>
+    {% endif %}
+
+    <div class="px-4 pt-3 pb-2">
+      <div class="text-uppercase text-muted small fw-semibold">Åldersanalys</div>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr class="text-muted small">
+          {% for bucket in customer_side.buckets %}<th class="{% if forloop.first %}ps-4{% else %}text-end{% endif %} {% if forloop.last %}pe-4{% endif %}">{{ bucket.label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {% for bucket in customer_side.buckets %}<td class="{% if forloop.first %}ps-4{% else %}text-end{% endif %} {% if forloop.last %}pe-4{% endif %}">{{ bucket.total|floatformat:"2g" }} kr</td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="px-4 py-4">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div>
+          <span class="text-muted me-2">Summa reskontra:</span>
+          <strong>{{ customer_side.reskontra_total|floatformat:"2g" }} kr</strong>
+        </div>
+        <div class="vr"></div>
+        <div>
+          <span class="text-muted me-2">Bokfört saldo{% if customer_side.ledger_accounts %} ({% for account in customer_side.ledger_accounts %}{{ account.number }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}:</span>
+          <strong>{{ customer_side.ledger_total|floatformat:"2g" }} kr</strong>
+        </div>
+        <div class="ms-auto text-end">
+          <div class="text-muted small">Differens</div>
+          <div class="fw-bold {% if customer_side.difference %}text-danger{% else %}text-success{% endif %}">{{ customer_side.difference|floatformat:"2g" }} kr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0 report-print" style="max-width:1100px;">
+  <div class="card-body p-0">
+    <div class="px-4 pt-4 pb-2">
+      <h6 class="text-secondary fw-bold"><i class="bi bi-building me-2"></i>Leverantörsreskontra – obetalda leverantörsfakturor</h6>
+    </div>
+    {% if supplier_side.rows %}
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr class="text-muted small">
+          <th class="ps-4">Faktura</th>
+          <th>Leverantör</th>
+          <th>Förfallodatum</th>
+          <th class="text-end">Dagar försenad</th>
+          <th class="text-end pe-4">Återstående</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in supplier_side.rows %}
+        <tr>
+          <td class="ps-4"><a href="{% url 'supplier_invoices:invoice_detail' row.document.pk %}" class="text-decoration-none">{{ row.document.invoice_number|default:"–" }}</a></td>
+          <td>{{ row.counterparty|default:row.document.supplier_name|default:"–" }}</td>
+          <td>{{ row.due_date|default:"–" }}</td>
+          <td class="text-end {% if row.is_overdue %}text-danger fw-semibold{% endif %}">{% if row.is_overdue %}{{ row.days_overdue }}{% else %}–{% endif %}</td>
+          <td class="text-end pe-4 fw-semibold">{{ row.remaining|floatformat:"2g" }} kr</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td class="ps-4" colspan="4">Summa leverantörsreskontra</td>
+          <td class="text-end pe-4">{{ supplier_side.reskontra_total|floatformat:"2g" }} kr</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    {% else %}
+    <div class="text-muted px-4 pb-3">Inga obetalda leverantörsfakturor.</div>
+    {% endif %}
+
+    <div class="px-4 pt-3 pb-2">
+      <div class="text-uppercase text-muted small fw-semibold">Åldersanalys</div>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr class="text-muted small">
+          {% for bucket in supplier_side.buckets %}<th class="{% if forloop.first %}ps-4{% else %}text-end{% endif %} {% if forloop.last %}pe-4{% endif %}">{{ bucket.label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {% for bucket in supplier_side.buckets %}<td class="{% if forloop.first %}ps-4{% else %}text-end{% endif %} {% if forloop.last %}pe-4{% endif %}">{{ bucket.total|floatformat:"2g" }} kr</td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="px-4 py-4">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div>
+          <span class="text-muted me-2">Summa reskontra:</span>
+          <strong>{{ supplier_side.reskontra_total|floatformat:"2g" }} kr</strong>
+        </div>
+        <div class="vr"></div>
+        <div>
+          <span class="text-muted me-2">Bokfört saldo{% if supplier_side.ledger_accounts %} ({% for account in supplier_side.ledger_accounts %}{{ account.number }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}:</span>
+          <strong>{{ supplier_side.ledger_total|floatformat:"2g" }} kr</strong>
+        </div>
+        <div class="ms-auto text-end">
+          <div class="text-muted small">Differens</div>
+          <div class="fw-bold {% if supplier_side.difference %}text-danger{% else %}text-success{% endif %}">{{ supplier_side.difference|floatformat:"2g" }} kr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

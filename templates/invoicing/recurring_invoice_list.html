@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Återkommande fakturor - SaldoVibe{% endblock %}
+{% block page_title %}Återkommande fakturor{% endblock %}
+{% block nav_recurring_invoices %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'invoicing:recurring_invoice_create' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Ny återkommande faktura</a>
+</div>
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3"><h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-repeat me-2"></i>Mallar</h6></div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead class="table-light"><tr><th class="ps-3">Namn</th><th>Kund</th><th>Intervall</th><th>Nästa fakturadatum</th><th>Status</th><th class="text-end pe-3">Åtgärder</th></tr></thead>
+      <tbody>
+      {% for recurring_invoice in recurring_invoices %}
+        <tr>
+          <td class="ps-3"><div class="fw-semibold">{{ recurring_invoice.name }}</div>{% if recurring_invoice.reference %}<small class="text-muted">Ref: {{ recurring_invoice.reference }}</small>{% endif %}</td>
+          <td>{{ recurring_invoice.customer.name }}</td>
+          <td>{{ recurring_invoice.get_interval_display }}{% if recurring_invoice.interval == "custom_months" %} ({{ recurring_invoice.custom_interval_months }} mån){% endif %}</td>
+          <td>{{ recurring_invoice.next_run_date }}</td>
+          <td>
+            {% if not recurring_invoice.is_active %}
+              <span class="badge bg-secondary-subtle text-secondary-emphasis">Pausad</span>
+            {% elif recurring_invoice.is_due %}
+              <span class="badge bg-warning-subtle text-warning-emphasis">Klar att generera</span>
+            {% else %}
+              <span class="badge bg-success-subtle text-success-emphasis">Aktiv</span>
+            {% endif %}
+          </td>
+          <td class="text-end pe-3">
+            {% if recurring_invoice.is_due %}
+              <form method="post" action="{% url 'invoicing:recurring_invoice_generate' recurring_invoice.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning btn-sm me-1"><i class="bi bi-arrow-repeat me-1"></i>Generera nu</button>
+              </form>
+            {% endif %}
+            <a href="{% url 'invoicing:recurring_invoice_detail' recurring_invoice.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-eye me-1"></i>Visa</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted ps-3 py-3">Inga återkommande fakturor ännu.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

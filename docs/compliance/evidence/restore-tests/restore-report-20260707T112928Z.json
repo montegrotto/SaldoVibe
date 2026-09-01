@@ -1,0 +1,17 @@
+{
+  "schema": "restore-dry-run-v1",
+  "generated_at_utc": "20260707T112928Z",
+  "source_database": "db.sqlite3",
+  "restored_copy": "docs/compliance/evidence/restore-tests/restore-copy-20260707T112928Z.sqlite3",
+  "source_sha256": "7cf4399bc927329978f9a8d4be97558158987bbc1f0957bc8f988358f1745bf0",
+  "restored_sha256": "7cf4399bc927329978f9a8d4be97558158987bbc1f0957bc8f988358f1745bf0",
+  "table_counts": {
+    "bookkeeping_company": 1,
+    "bookkeeping_accountingyear": 10,
+    "bookkeeping_transaction": 3572,
+    "bookkeeping_journalentry": 10040,
+    "auditlog_auditlogentry": 18671,
+    "bookkeeping_transactionattachment": 0
+  },
+  "status": "ok"
+}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title_text }}{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_employees %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">{{ page_title_text }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {{ formset.management_form }}
+          {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <div class="alert alert-danger">{{ error }}</div>
+          {% endfor %}
+
+          <hr>
+          <h6>Standardtillägg och standardavdrag</h6>
+          <p class="text-muted small mb-2">Samma typer av rader som i lönekörning. Dessa kopieras in när anställd läggs till i en lönekörning.</p>
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="add-empty-default-adjustment">Lägg till tom rad</button>
+            {% for preset in adjustment_presets %}
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm add-default-preset-adjustment"
+              data-phase="{{ preset.phase }}"
+              data-direction="{{ preset.direction }}"
+              data-category="{{ preset.category }}"
+              data-description="{{ preset.description }}"
+            >
+              {{ preset.label }}
+            </button>
+            {% endfor %}
+          </div>
+
+          <div id="default-adjustment-rows">
+            {% for entry_form in formset.forms %}
+            <div class="border rounded p-3 mb-2 default-adjustment-row{% if entry_form.DELETE.value %} d-none{% endif %}">
+              {% for hidden in entry_form.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ entry_form.category.id_for_label }}">{{ entry_form.category.label }}</label>
+                  {{ entry_form.category }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ entry_form.phase.id_for_label }}">{{ entry_form.phase.label }}</label>
+                  {{ entry_form.phase }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ entry_form.direction.id_for_label }}">{{ entry_form.direction.label }}</label>
+                  {{ entry_form.direction }}
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ entry_form.description.id_for_label }}">{{ entry_form.description.label }}</label>
+                  {{ entry_form.description }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ entry_form.amount.id_for_label }}">{{ entry_form.amount.label }}</label>
+                  {{ entry_form.amount }}
+                </div>
+              </div>
+              <div class="row g-2 mt-1">
+                <div class="col-md-4 d-flex align-items-center gap-2">
+                  {% if entry_form.DELETE %}
+                    {{ entry_form.DELETE.as_hidden }}
+                  {% endif %}
+                  <button type="button" class="btn btn-outline-danger btn-sm remove-default-adjustment-row">Ta bort rad</button>
+                </div>
+              </div>
+              {% for error in entry_form.non_field_errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+              {% for field in entry_form.visible_fields %}
+                {% for error in field.errors %}
+                  <div class="invalid-feedback d-block">{{ field.label }}: {{ error }}</div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+
+          <template id="default-adjustment-empty-template">
+            <div class="border rounded p-3 mb-2 default-adjustment-row">
+              {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+              <div class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ formset.empty_form.category.id_for_label }}">{{ formset.empty_form.category.label }}</label>
+                  {{ formset.empty_form.category }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ formset.empty_form.phase.id_for_label }}">{{ formset.empty_form.phase.label }}</label>
+                  {{ formset.empty_form.phase }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ formset.empty_form.direction.id_for_label }}">{{ formset.empty_form.direction.label }}</label>
+                  {{ formset.empty_form.direction }}
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="{{ formset.empty_form.description.id_for_label }}">{{ formset.empty_form.description.label }}</label>
+                  {{ formset.empty_form.description }}
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" for="{{ formset.empty_form.amount.id_for_label }}">{{ formset.empty_form.amount.label }}</label>
+                  {{ formset.empty_form.amount }}
+                </div>
+              </div>
+              <div class="row g-2 mt-1">
+                <div class="col-md-4 d-flex align-items-center gap-2">
+                  {% if formset.empty_form.DELETE %}
+                    {{ formset.empty_form.DELETE.as_hidden }}
+                  {% endif %}
+                  <button type="button" class="btn btn-outline-danger btn-sm remove-default-adjustment-row">Ta bort rad</button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'payroll:employee_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>{{ submit_label }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const container = document.getElementById("default-adjustment-rows");
+    const template = document.getElementById("default-adjustment-empty-template");
+    const totalFormsInput = document.getElementById("id_defaults-TOTAL_FORMS");
+
+    if (!container || !template || !totalFormsInput) {
+      return;
+    }
+
+    function getField(row, suffix) {
+      return row.querySelector(`[name$="-${suffix}"]`);
+    }
+
+    function attachRowHandlers(row) {
+      const removeBtn = row.querySelector(".remove-default-adjustment-row");
+      const deleteInput = getField(row, "DELETE");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", function () {
+          if (deleteInput) {
+            deleteInput.checked = true;
+          }
+          row.classList.add("d-none");
+        });
+      }
+    }
+
+    function addRow(preset) {
+      const index = parseInt(totalFormsInput.value, 10);
+      const html = template.innerHTML.replace(/__prefix__/g, index);
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html.trim();
+      const row = wrapper.firstElementChild;
+      container.appendChild(row);
+      totalFormsInput.value = index + 1;
+
+      if (preset) {
+        const phase = getField(row, "phase");
+        const direction = getField(row, "direction");
+        const category = getField(row, "category");
+        const description = getField(row, "description");
+        if (phase) phase.value = preset.phase;
+        if (direction) direction.value = preset.direction;
+        if (category) category.value = preset.category;
+        if (description) description.value = preset.description;
+      }
+
+      attachRowHandlers(row);
+    }
+
+    container.querySelectorAll(".default-adjustment-row").forEach(attachRowHandlers);
+
+    const addEmptyButton = document.getElementById("add-empty-default-adjustment");
+    if (addEmptyButton) {
+      addEmptyButton.addEventListener("click", function () {
+        addRow(null);
+      });
+    }
+
+    document.querySelectorAll(".add-default-preset-adjustment").forEach(function (button) {
+      button.addEventListener("click", function () {
+        addRow({
+          phase: button.dataset.phase,
+          direction: button.dataset.direction,
+          category: button.dataset.category,
+          description: button.dataset.description,
+        });
+      });
+    });
+  })();
+</script>
+{% endblock %}

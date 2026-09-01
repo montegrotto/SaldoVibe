@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Händelselogg{% endblock %}
+{% block page_title %}Händelselogg{% endblock %}
+{% block nav_auditlog %}active{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+      <div>
+        <h1 class="h4 mb-1">Händelselogg</h1>
+        <p class="text-muted mb-0">Spårar skapande, ändringar och borttagning av bokföringsrelevanta objekt för {{ company.name }}.</p>
+      </div>
+      <div class="text-muted small">
+        {{ page_obj.paginator.count }} logghändelser
+      </div>
+    </div>
+
+    <form method="get" class="row g-3 align-items-end mb-4">
+      <div class="col-md-3">
+        <label class="form-label">Objekttyp</label>
+        <select name="model" class="form-select">
+          <option value="">Alla</option>
+          {% for choice in model_choices %}
+          <option value="{{ choice.value }}" {% if selected_model == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Händelse</label>
+        <select name="action" class="form-select">
+          <option value="">Alla</option>
+          {% for value, label in action_choices %}
+          <option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Från</label>
+        <input type="date" name="from" value="{{ date_from }}" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Till</label>
+        <input type="date" name="to" value="{{ date_to }}" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Sök</label>
+        <input type="search" name="q" value="{{ search_query }}" class="form-control" placeholder="Objekt, användare eller text" />
+      </div>
+      <div class="col-12 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Filtrera</button>
+        <a href="{% url 'auditlog:report' %}" class="btn btn-outline-secondary">Rensa</a>
+      </div>
+    </form>
+
+    {% if groups %}
+    <div class="accordion" id="audit-log-accordion">
+      {% for group in groups %}
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="audit-heading-{{ group.primary_entry.id }}">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#audit-collapse-{{ group.primary_entry.id }}" aria-expanded="false" aria-controls="audit-collapse-{{ group.primary_entry.id }}">
+            <div class="d-flex flex-wrap align-items-center gap-3 w-100 me-3">
+              <span class="badge {% if group.primary_entry.action == 'create' %}bg-success{% elif group.primary_entry.action == 'update' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ group.primary_entry.get_action_display }}</span>
+              <span class="fw-semibold">{{ group.primary_entry.model_name }}</span>
+              <span>{{ group.parent_object_repr }}</span>
+              <span class="text-muted small">{{ group.latest_entry.actor_display }}</span>
+              <span class="text-muted small ms-auto">{{ group.latest_entry.occurred_at|date:"Y-m-d H:i:s" }}</span>
+            </div>
+          </button>
+        </h2>
+        <div id="audit-collapse-{{ group.primary_entry.id }}" class="accordion-collapse collapse" aria-labelledby="audit-heading-{{ group.primary_entry.id }}" data-bs-parent="#audit-log-accordion">
+          <div class="accordion-body">
+            {% for entry in group.parent_entries %}
+            <div class="mb-3 {% if not forloop.last or group.child_entries %}border-bottom pb-3{% endif %}">
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <span class="badge {% if entry.action == 'create' %}bg-success{% elif entry.action == 'update' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ entry.get_action_display }}</span>
+                <span class="fw-semibold">{{ entry.model_name }}</span>
+                <span>{{ entry.object_repr }}</span>
+                <span class="text-muted small">{{ entry.actor_display }}</span>
+                <span class="text-muted small ms-auto">{{ entry.occurred_at|date:"Y-m-d H:i:s" }}</span>
+              </div>
+              <div class="text-muted small mb-2">Objekt-ID: {{ entry.object_pk }}</div>
+              {% if entry.change_rows %}
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Fält</th>
+                      {% if entry.action == 'create' %}
+                      <th>Värde</th>
+                      {% elif entry.action == 'delete' %}
+                      <th>Tidigare värde</th>
+                      {% else %}
+                      <th>Före</th>
+                      <th>Efter</th>
+                      {% endif %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in entry.change_rows %}
+                    <tr>
+                      <td>{{ row.field_label }}</td>
+                      {% if entry.action == 'create' %}
+                      <td>{{ row.value|default:"-" }}</td>
+                      {% elif entry.action == 'delete' %}
+                      <td class="text-muted">{{ row.value|default:"-" }}</td>
+                      {% else %}
+                      <td class="text-muted">{{ row.before|default:"-" }}</td>
+                      <td>{{ row.after|default:"-" }}</td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted mb-0">Ingen fältdifferens sparad för denna händelse.</p>
+              {% endif %}
+            </div>
+            {% endfor %}
+
+            {% if group.child_entries %}
+            <div class="mt-3">
+              <h3 class="h6 mb-3">Relaterade rader</h3>
+              {% for entry in group.child_entries %}
+              <div class="card border-0 bg-light-subtle mb-3">
+                <div class="card-body py-3">
+                  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <span class="badge {% if entry.action == 'create' %}bg-success{% elif entry.action == 'update' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ entry.get_action_display }}</span>
+                    <span class="fw-semibold">{{ entry.model_name }}</span>
+                    <span>{{ entry.object_repr }}</span>
+                    <span class="text-muted small">{{ entry.actor_display }}</span>
+                    <span class="text-muted small ms-auto">{{ entry.occurred_at|date:"Y-m-d H:i:s" }}</span>
+                  </div>
+                  {% if entry.change_rows %}
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead>
+                        <tr>
+                          <th>Fält</th>
+                          {% if entry.action == 'create' %}
+                          <th>Värde</th>
+                          {% elif entry.action == 'delete' %}
+                          <th>Tidigare värde</th>
+                          {% else %}
+                          <th>Före</th>
+                          <th>Efter</th>
+                          {% endif %}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in entry.change_rows %}
+                        <tr>
+                          <td>{{ row.field_label }}</td>
+                          {% if entry.action == 'create' %}
+                          <td>{{ row.value|default:"-" }}</td>
+                          {% elif entry.action == 'delete' %}
+                          <td class="text-muted">{{ row.value|default:"-" }}</td>
+                          {% else %}
+                          <td class="text-muted">{{ row.before|default:"-" }}</td>
+                          <td>{{ row.after|default:"-" }}</td>
+                          {% endif %}
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  {% else %}
+                  <p class="text-muted mb-0">Ingen fältdifferens sparad för denna händelse.</p>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav aria-label="Händelselogg sidindelning" class="mt-4">
+      <ul class="pagination mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&action={{ selected_action }}&model={{ selected_model }}&q={{ search_query }}&from={{ date_from }}&to={{ date_to }}">Föregående</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Föregående</span></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Sida {{ page_obj.number }} av {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&action={{ selected_action }}&model={{ selected_model }}&q={{ search_query }}&from={{ date_from }}&to={{ date_to }}">Nästa</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Nästa</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      Inga logghändelser matchar det valda urvalet.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

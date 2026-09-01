@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Ingen företagsåtkomst – SaldoVibe{% endblock %}
+{% block page_title %}Ingen företagsåtkomst{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm border-0 text-center">
+      <div class="card-body p-4 p-md-5">
+        <i class="bi bi-person-lock text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3 mb-2">Kontakta administratör</h5>
+        <p class="text-muted mb-4">
+          Ditt konto har ännu inte tillgång till något företag, och du har inte
+          behörighet att skapa ett nytt företag. Kontakta din administratör för
+          att få tillgång.
+        </p>
+        <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-box-arrow-right me-1"></i>Logga ut
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

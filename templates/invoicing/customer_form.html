@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title_text }} - SaldoVibe{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+{% block nav_customers %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-person-vcard me-2"></i>{{ page_title_text }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+          <div class="col-12"><label class="form-label">Namn</label>{{ form.name }}</div>
+          <div class="col-6"><label class="form-label">Org.nr</label>{{ form.org_number }}</div>
+          <div class="col-6"><label class="form-label">Momsnr</label>{{ form.vat_number }}</div>
+          <div class="col-6"><label class="form-label">E-post</label>{{ form.email }}</div>
+          <div class="col-6"><label class="form-label">Telefon</label>{{ form.phone }}</div>
+          <div class="col-12"><label class="form-label">Adress</label>{{ form.address }}</div>
+          <div class="col-4"><label class="form-label">Postnr</label>{{ form.postal_code }}</div>
+          <div class="col-5"><label class="form-label">Ort</label>{{ form.city }}</div>
+          <div class="col-3"><label class="form-label">Land</label>{{ form.country_code }}</div>
+          <div class="col-6"><label class="form-label">Standard betalningsvillkor (dagar)</label>{{ form.default_payment_terms_days }}</div>
+          <div class="col-12 d-flex align-items-center gap-2">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">Aktiv</label></div>
+          <div class="col-12">{% include "partials/form_errors.html" %}</div>
+          {% if customer %}
+          <div class="col-12">
+            <a href="{% url 'invoicing:invoice_create' %}?customer={{ customer.pk }}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-receipt me-1"></i>Ny faktura för kunden
+            </a>
+          </div>
+          {% endif %}
+          <div class="col-12 d-flex justify-content-between mt-2">
+            <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Avbryt</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ submit_label }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

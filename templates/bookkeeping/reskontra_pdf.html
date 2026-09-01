@@ -1,0 +1,111 @@
+{% extends "bookkeeping/pdf_report_base.html" %}
+
+{% block title %}RESKONTRA{% endblock %}
+{% block subtitle %}<span class="label">Per</span> <span class="value">{{ report_date }}</span>{% endblock %}
+
+{% block content %}
+  <table class="facts-list">
+    <tr><td class="label" style="width: 34mm;">Företag</td><td class="value">{{ company.name }}</td></tr>
+    <tr><td class="label">Datum</td><td class="value">{{ report_date }}</td></tr>
+  </table>
+
+  <div class="section-title">KUNDRESKONTRA – OBETALDA KUNDFAKTUROR</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th style="width: 28mm;">FAKTURA</th>
+        <th>KUND</th>
+        <th style="width: 26mm;">FÖRFALLODATUM</th>
+        <th class="num" style="width: 22mm;">DAGAR SEN</th>
+        <th class="num" style="width: 30mm;">ÅTERSTÅENDE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in customer_side.rows %}
+      <tr>
+        <td>{{ row.document.invoice_number|default:"–" }}</td>
+        <td>{{ row.counterparty|default:"–" }}</td>
+        <td>{{ row.due_date|default:"–" }}</td>
+        <td class="num">{% if row.is_overdue %}{{ row.days_overdue }}{% else %}–{% endif %}</td>
+        <td class="num">{{ row.remaining|floatformat:"2g" }} kr</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty">Inga obetalda kundfakturor.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="4">Summa kundreskontra</td><td class="num">{{ customer_side.reskontra_total|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">ÅLDERSANALYS KUNDRESKONTRA</div>
+  <table class="report-table">
+    <thead>
+      <tr>{% for bucket in customer_side.buckets %}<th class="num">{{ bucket.label|upper }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      <tr>{% for bucket in customer_side.buckets %}<td class="num">{{ bucket.total|floatformat:"2g" }} kr</td>{% endfor %}</tr>
+    </tbody>
+  </table>
+
+  <table class="report-table">
+    <tbody>
+      <tr>
+        <td>Bokfört saldo{% if customer_side.ledger_accounts %} ({% for account in customer_side.ledger_accounts %}{{ account.number }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}</td>
+        <td class="num" style="width: 40mm;">{{ customer_side.ledger_total|floatformat:"2g" }} kr</td>
+      </tr>
+      <tr class="subtotal-row">
+        <td>Differens reskontra mot bokfört saldo</td>
+        <td class="num">{{ customer_side.difference|floatformat:"2g" }} kr</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">LEVERANTÖRSRESKONTRA – OBETALDA LEVERANTÖRSFAKTUROR</div>
+  <table class="report-table" repeat="1">
+    <thead>
+      <tr>
+        <th style="width: 28mm;">FAKTURA</th>
+        <th>LEVERANTÖR</th>
+        <th style="width: 26mm;">FÖRFALLODATUM</th>
+        <th class="num" style="width: 22mm;">DAGAR SEN</th>
+        <th class="num" style="width: 30mm;">ÅTERSTÅENDE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in supplier_side.rows %}
+      <tr>
+        <td>{{ row.document.invoice_number|default:"–" }}</td>
+        <td>{{ row.counterparty|default:row.document.supplier_name|default:"–" }}</td>
+        <td>{{ row.due_date|default:"–" }}</td>
+        <td class="num">{% if row.is_overdue %}{{ row.days_overdue }}{% else %}–{% endif %}</td>
+        <td class="num">{{ row.remaining|floatformat:"2g" }} kr</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty">Inga obetalda leverantörsfakturor.</td></tr>
+      {% endfor %}
+      <tr class="subtotal-row"><td colspan="4">Summa leverantörsreskontra</td><td class="num">{{ supplier_side.reskontra_total|floatformat:"2g" }} kr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">ÅLDERSANALYS LEVERANTÖRSRESKONTRA</div>
+  <table class="report-table">
+    <thead>
+      <tr>{% for bucket in supplier_side.buckets %}<th class="num">{{ bucket.label|upper }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      <tr>{% for bucket in supplier_side.buckets %}<td class="num">{{ bucket.total|floatformat:"2g" }} kr</td>{% endfor %}</tr>
+    </tbody>
+  </table>
+
+  <table class="report-table">
+    <tbody>
+      <tr>
+        <td>Bokfört saldo{% if supplier_side.ledger_accounts %} ({% for account in supplier_side.ledger_accounts %}{{ account.number }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}</td>
+        <td class="num" style="width: 40mm;">{{ supplier_side.ledger_total|floatformat:"2g" }} kr</td>
+      </tr>
+      <tr class="subtotal-row">
+        <td>Differens reskontra mot bokfört saldo</td>
+        <td class="num">{{ supplier_side.difference|floatformat:"2g" }} kr</td>
+      </tr>
+    </tbody>
+  </table>
+{% endblock %}

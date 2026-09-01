@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Ny kundfaktura - SaldoVibe{% endblock %}
+{% block page_title %}Ny kundfaktura{% endblock %}
+{% block nav_outgoing_invoices %}active{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'vendor/select2/css/select2.min.css' %}" rel="stylesheet" />
+<style>
+  .select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    height: calc(1.5em + 0.75rem + 2px);
+  }
+
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+  }
+
+  .invoice-line-row .delete-row-btn {
+    cursor: pointer;
+  }
+
+  .invoice-line-row .form-select,
+  .invoice-line-row .form-control {
+    min-width: 0;
+  }
+
+  .invoice-text-row {
+    background-color: var(--bs-secondary-bg, #f8f9fa);
+  }
+
+  .invoice-text-row .form-control {
+    font-style: italic;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'invoicing:invoice_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-list-ul me-1"></i>Till fakturalista
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-12 col-xl-9">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2"></i>Ny kundfaktura</h6>
+      </div>
+      <div class="card-body">
+        <form id="customer-invoice-form" method="post" class="row g-2">
+          {% csrf_token %}
+          {{ line_formset.management_form }}
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+              <label class="form-label mb-0">Kund</label>
+              <a href="{% url 'invoicing:customer_create' %}?return_to={{ picker_return_to|urlencode }}" class="btn btn-link btn-sm p-0 text-decoration-none">
+                <i class="bi bi-plus-circle me-1"></i>Ny kund
+              </a>
+            </div>
+            {{ form.customer }}
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Er referens <span class="text-muted small">(valfritt)</span></label>
+            {{ form.reference }}
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">OCR</label>
+            <input type="text" class="form-control" value="Skapas automatiskt från fakturanummer" disabled>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Fakturadatum</label>
+            {{ form.invoice_date }}
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Förfallodatum</label>
+            {{ form.due_date }}
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Leveransdatum <span class="text-muted small">(endast om det skiljer sig från fakturadatum)</span></label>
+            {{ form.delivery_date }}
+          </div>
+          <div class="col-12 col-md-6 d-flex align-items-end">
+            <div class="form-check">
+              {{ form.reverse_charge }}
+              <label class="form-check-label" for="{{ form.reverse_charge.id_for_label }}">
+                Omvänd betalningsskyldighet (köparen redovisar momsen – momssats ska vara 0%)
+              </label>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Notering <span class="text-muted small">(valfritt)</span></label>
+            {{ form.notes }}
+          </div>
+
+          <div class="col-12 mt-2">
+            <label class="form-label">Fakturarader</label>
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:20%">Artikel</th>
+                    <th>Beskrivning</th>
+                    <th style="width:8%" class="text-end">Antal</th>
+                    <th style="width:8%">Enhet</th>
+                    <th style="width:11%" class="text-end">Á-pris</th>
+                    <th style="width:10%" class="text-end">Moms</th>
+                    <th style="width:11%" class="text-end">Summa</th>
+                    <th style="width:95px"></th>
+                  </tr>
+                </thead>
+                <tbody id="invoice-lines-wrapper">
+                  {% for row in line_formset %}
+                    {% if row.instance.line_type == 'text' %}
+                    <tr class="invoice-line-row invoice-text-row">
+                      <td class="d-none">
+                        {% for hidden in row.hidden_fields %}{{ hidden }}{% endfor %}
+                      </td>
+                      <td colspan="6">{{ row.description }}</td>
+                      <td class="text-center text-nowrap">
+                        <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="d-none">{{ row.sort_order }} {{ row.DELETE }}</div>
+                      </td>
+                    </tr>
+                    {% else %}
+                    <tr class="invoice-line-row">
+                      <td>
+                        {% for hidden in row.hidden_fields %}{{ hidden }}{% endfor %}
+                        {{ row.article }}
+                      </td>
+                      <td>{{ row.description }}</td>
+                      <td>{{ row.quantity }}</td>
+                      <td>{{ row.unit }}</td>
+                      <td>{{ row.unit_price }}</td>
+                      <td class="d-none">{{ row.vat_rate }}</td>
+                      <td class="text-end"><span class="row-vat-amount">0,00</span></td>
+                      <td class="text-end"><span class="row-total-amount">0,00</span></td>
+                      <td class="text-center text-nowrap">
+                        <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                        <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="d-none">{{ row.sort_order }} {{ row.DELETE }}</div>
+                      </td>
+                    </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <template id="invoice-line-row-template">
+              <tr class="invoice-line-row">
+                <td>
+                  {% for hidden in line_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                  {{ line_formset.empty_form.article }}
+                </td>
+                <td>{{ line_formset.empty_form.description }}</td>
+                <td>{{ line_formset.empty_form.quantity }}</td>
+                <td>{{ line_formset.empty_form.unit }}</td>
+                <td>{{ line_formset.empty_form.unit_price }}</td>
+                <td class="d-none">{{ line_formset.empty_form.vat_rate }}</td>
+                <td class="text-end"><span class="row-vat-amount">0,00</span></td>
+                <td class="text-end"><span class="row-total-amount">0,00</span></td>
+                <td class="text-center text-nowrap">
+                  <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                  <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                  <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                  <div class="d-none">{{ line_formset.empty_form.sort_order }} {{ line_formset.empty_form.DELETE }}</div>
+                </td>
+              </tr>
+            </template>
+            <template id="invoice-text-row-template">
+              <tr class="invoice-line-row invoice-text-row">
+                <td class="d-none">
+                  {{ line_formset.empty_form.id }}
+                  <input type="hidden" name="lines-__prefix__-line_type" id="id_lines-__prefix__-line_type" value="text">
+                </td>
+                <td colspan="6">
+                  {{ line_formset.empty_form.description }}
+                </td>
+                <td class="text-center text-nowrap">
+                  <button type="button" class="btn btn-link p-0 move-row-up-btn" title="Flytta upp"><i class="bi bi-arrow-up"></i></button>
+                  <button type="button" class="btn btn-link p-0 move-row-down-btn" title="Flytta ned"><i class="bi bi-arrow-down"></i></button>
+                  <button type="button" class="btn btn-link text-danger p-0 delete-row-btn" title="Ta bort rad">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                  <div class="d-none">{{ line_formset.empty_form.sort_order }} {{ line_formset.empty_form.DELETE }}</div>
+                </td>
+              </tr>
+            </template>
+            <table class="table table-sm mb-0 mt-2">
+              <tfoot>
+                <tr>
+                  <th class="text-end">Summa exkl. moms</th>
+                  <th class="text-end" style="width:130px"><span id="invoice-summary-ex-vat">0,00</span></th>
+                </tr>
+                <tr>
+                  <th class="text-end">Total moms</th>
+                  <th class="text-end"><span id="invoice-summary-vat">0,00</span></th>
+                </tr>
+                <tr>
+                  <th class="text-end">Att betala</th>
+                  <th class="text-end"><span id="invoice-summary-total">0,00</span></th>
+                </tr>
+              </tfoot>
+            </table>
+            <button type="button" id="add-invoice-line" class="btn btn-outline-secondary btn-sm mt-2">
+              <i class="bi bi-plus-circle me-1"></i>Lägg till rad
+            </button>
+            <button type="button" id="add-invoice-text-line" class="btn btn-outline-secondary btn-sm mt-2">
+              <i class="bi bi-text-left me-1"></i>Lägg till textrad
+            </button>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Bilagor</label>
+            <input type="hidden" id="selected-attachment-ids" name="selected_attachment_ids" value="{{ selected_attachment_ids_csv }}">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <a
+                id="open-attachment-picker"
+                href="{% url 'attachments:attachment_picker' %}?return_to={{ picker_return_to|urlencode }}&selected={{ selected_attachment_ids_csv }}"
+                class="btn btn-outline-secondary btn-sm"
+              >
+                <i class="bi bi-paperclip me-1"></i>Välj bilagor
+              </a>
+              <span class="text-muted small">Välj bilagor i separat formulär.</span>
+            </div>
+            <div id="selected-attachments-list" class="list-group list-group-flush border rounded">
+              {% if selected_attachments %}
+                {% for attachment in selected_attachments %}
+                  <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
+                    <div>
+                      <div class="fw-semibold small">{{ attachment.file_name }}</div>
+                      <a
+                        href="#"
+                        class="small text-decoration-none attachment-preview-trigger"
+                        data-thumb-url="{% url 'attachments:attachment_thumbnail' attachment.id %}"
+                        data-file-url="{% url 'attachments:attachment_preview' attachment.id %}"
+                        data-file-name="{{ attachment.file_name }}"
+                      >Förhandsvisa</a>
+                    </div>
+                    <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="list-group-item text-muted small" id="no-selected-attachments">Inga bilagor valda.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-12">{% include "partials/form_errors.html" with formset=line_formset %}</div>
+
+          <div class="col-12">
+            <button type="submit" class="btn btn-outline-primary w-100 mb-2">
+              <i class="bi bi-save me-1"></i>Spara utkast
+            </button>
+            <button type="submit" name="book" value="1" class="btn btn-primary w-100">
+              <i class="bi bi-journal-check me-1"></i>Spara och bokför
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ customer_payment_terms_map|json_script:"customer-payment-terms-map" }}
+{{ article_unit_price_map|json_script:"article-unit-price-map" }}
+{{ article_vat_rate_map|json_script:"article-vat-rate-map" }}
+{{ article_meta_map|json_script:"article-meta-map" }}
+<script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
+<script src="{% static 'js/attachment-picker.js' %}"></script>
+<script src="{% static 'js/form-utils.js' %}"></script>
+<script src="{% static 'js/invoice-lines.js' %}"></script>
+<script>
+  (function () {
+    const { formatAmount, parseAmountValue } = window.SaldoVibe.formUtils;
+
+    const wrapper = document.getElementById('invoice-lines-wrapper');
+    const addBtn = document.getElementById('add-invoice-line');
+    const addTextBtn = document.getElementById('add-invoice-text-line');
+    const rowTemplate = document.getElementById('invoice-line-row-template');
+    const textRowTemplate = document.getElementById('invoice-text-row-template');
+    const totalForms = document.getElementById('id_lines-TOTAL_FORMS');
+    const customerSelect = document.getElementById('id_customer');
+    const invoiceDateInput = document.getElementById('id_invoice_date');
+    const dueDateInput = document.getElementById('id_due_date');
+    const customerPaymentTermsMap = JSON.parse(document.getElementById('customer-payment-terms-map')?.textContent || '{}');
+    const articleUnitPriceMap = JSON.parse(document.getElementById('article-unit-price-map')?.textContent || '{}');
+    const articleVatRateMap = JSON.parse(document.getElementById('article-vat-rate-map')?.textContent || '{}');
+    const articleMetaMap = JSON.parse(document.getElementById('article-meta-map')?.textContent || '{}');
+
+    function toDateValue(dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    }
+
+    function parseDateInput(value) {
+      if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+      }
+      const parsed = new Date(value + 'T00:00:00');
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function prefillDueDateFromPaymentTerms() {
+      if (!customerSelect || !invoiceDateInput || !dueDateInput) {
+        return;
+      }
+
+      const selectedCustomer = String(customerSelect.value || '');
+      const mappedTerms = Number(customerPaymentTermsMap[selectedCustomer]);
+      const paymentTerms = Number.isFinite(mappedTerms) && mappedTerms > 0 ? mappedTerms : 30;
+
+      const invoiceDate = parseDateInput(invoiceDateInput.value);
+      if (!invoiceDate) {
+        return;
+      }
+      const dueDate = new Date(invoiceDate);
+      dueDate.setDate(dueDate.getDate() + paymentTerms);
+      dueDateInput.value = toDateValue(dueDate);
+    }
+    function recalcSummaryTotals() {
+      let totalExVat = 0;
+      let totalVat = 0;
+
+      wrapper.querySelectorAll('.invoice-line-row').forEach(function (row) {
+        const quantity = parseAmountValue(row.querySelector('input[name$="-quantity"]')?.value);
+        const unitPrice = parseAmountValue(row.querySelector('input[name$="-unit_price"]')?.value);
+        const vatRate = parseAmountValue(row.querySelector('input[name$="-vat_rate"]')?.value);
+        const lineExVat = quantity * unitPrice;
+        const lineVat = lineExVat * (vatRate / 100);
+        totalExVat += lineExVat;
+        totalVat += lineVat;
+      });
+
+      const summaryExVatEl = document.getElementById('invoice-summary-ex-vat');
+      const summaryVatEl = document.getElementById('invoice-summary-vat');
+      const summaryTotalEl = document.getElementById('invoice-summary-total');
+      if (summaryExVatEl) {
+        summaryExVatEl.textContent = formatAmount(totalExVat);
+      }
+      if (summaryVatEl) {
+        summaryVatEl.textContent = formatAmount(totalVat);
+      }
+      if (summaryTotalEl) {
+        summaryTotalEl.textContent = formatAmount(totalExVat + totalVat);
+      }
+    }
+    if (!wrapper || !addBtn || !rowTemplate || !totalForms) {
+      return;
+    }
+
+    // recalcSummaryTotals is a hoisted declaration below; the module calls it after
+    // every row change so the ex-VAT/VAT/total footers stay in sync.
+    const {
+      activeRows,
+      appendClonedRow,
+      applyDefaultUnitPriceForRow,
+      initSelect2,
+      moveRow,
+      recalcAllRows,
+      recalcRowTotals,
+      renumberRows,
+      syncDeleteButtons,
+    } = window.SaldoVibe.invoiceLines.create({
+      wrapper: wrapper,
+      totalForms: totalForms,
+      articleUnitPriceMap: articleUnitPriceMap,
+      articleVatRateMap: articleVatRateMap,
+      articleMetaMap: articleMetaMap,
+      onTotalsChanged: recalcSummaryTotals,
+    });
+
+    initSelect2(document.getElementById('customer-invoice-form'));
+    renumberRows();
+    syncDeleteButtons();
+    recalcAllRows();
+    if (dueDateInput && !dueDateInput.value) {
+      prefillDueDateFromPaymentTerms();
+    }
+
+    if (customerSelect) {
+      customerSelect.addEventListener('change', prefillDueDateFromPaymentTerms);
+      if (window.jQuery) {
+        jQuery(customerSelect).on('select2:select', prefillDueDateFromPaymentTerms);
+      }
+    }
+    if (invoiceDateInput) {
+      invoiceDateInput.addEventListener('change', prefillDueDateFromPaymentTerms);
+      invoiceDateInput.addEventListener('input', prefillDueDateFromPaymentTerms);
+    }
+    addBtn.addEventListener('click', function () {
+      const newRow = appendClonedRow(rowTemplate);
+      newRow.querySelectorAll('input, select, textarea').forEach(function (field) {
+        const fieldName = field.name || '';
+        if (field.tagName === 'SELECT') {
+          field.value = '';
+        } else if (field.type === 'checkbox') {
+          field.checked = false;
+        } else if (field.type !== 'hidden' && /-description$|-unit_price$/.test(fieldName)) {
+          field.value = '';
+        }
+      });
+      recalcRowTotals(newRow);
+    });
+
+    if (addTextBtn && textRowTemplate) {
+      addTextBtn.addEventListener('click', function () {
+        const newRow = appendClonedRow(textRowTemplate);
+        const descriptionInput = newRow.querySelector('input[name$="-description"]');
+        if (descriptionInput) {
+          descriptionInput.placeholder = 'Textrad, t.ex. rubrik eller periodinformation';
+          descriptionInput.focus();
+        }
+      });
+    }
+    wrapper.addEventListener('click', function (event) {
+      const moveUpBtn = event.target.closest('.move-row-up-btn');
+      if (moveUpBtn) {
+        moveRow(moveUpBtn.closest('.invoice-line-row'), 'up');
+        return;
+      }
+      const moveDownBtn = event.target.closest('.move-row-down-btn');
+      if (moveDownBtn) {
+        moveRow(moveDownBtn.closest('.invoice-line-row'), 'down');
+        return;
+      }
+      const deleteBtn = event.target.closest('.delete-row-btn');
+      if (!deleteBtn) {
+        return;
+      }
+      if (activeRows().length <= 1) {
+        return;
+      }
+      const row = deleteBtn.closest('.invoice-line-row');
+      if (!row) {
+        return;
+      }
+      const rowSelects = row.querySelectorAll('select');
+      rowSelects.forEach(function (select) {
+        const $select = window.jQuery ? jQuery(select) : null;
+        if ($select && $select.hasClass('select2-hidden-accessible')) {
+          $select.select2('destroy');
+        }
+      });
+      row.remove();
+      renumberRows();
+      initSelect2(wrapper);
+      syncDeleteButtons();
+      recalcAllRows();
+    });
+
+    wrapper.addEventListener('change', function (event) {
+      if (!event.target.matches('select.invoice-article-select')) {
+        return;
+      }
+      applyDefaultUnitPriceForRow(event.target.closest('.invoice-line-row'));
+    });
+
+    wrapper.addEventListener('input', function (event) {
+      if (!event.target.matches('input[name$="-quantity"], input[name$="-unit_price"]')) {
+        return;
+      }
+      recalcRowTotals(event.target.closest('.invoice-line-row'));
+    });
+
+    if (window.jQuery) {
+      jQuery(wrapper).on('select2:select', 'select.invoice-article-select', function () {
+        applyDefaultUnitPriceForRow(this.closest('.invoice-line-row'));
+      });
+    }
+
+    const invoiceForm = document.getElementById('customer-invoice-form');
+
+    if (invoiceForm) {
+      invoiceForm.addEventListener('submit', function (event) {
+        const submitter = event.submitter;
+        if (!submitter || submitter.name !== 'book' || !invoiceDateInput) {
+          return;
+        }
+        const invoiceDate = parseDateInput(invoiceDateInput.value);
+        if (!invoiceDate) {
+          return;
+        }
+        if (toDateValue(invoiceDate) !== toDateValue(new Date())) {
+          const confirmed = confirm(
+            'Fakturadatumet (' + invoiceDateInput.value + ') är inte dagens datum. Är du säker på att du vill bokföra fakturan med detta datum?'
+          );
+          if (!confirmed) {
+            event.preventDefault();
+          }
+        }
+      });
+    }
+
+    SaldoVibe.attachments.initSelectionList();
+    SaldoVibe.attachments.initHoverPreviews();
+    SaldoVibe.attachments.initFormStateRoundtrip({
+      form: invoiceForm,
+      storageKey: 'customer_invoice_form_state_v1',
+      growRows: function (state) {
+        // Endast artikelrader (inte textrader) återskapas automatiskt vid navigering
+        // tillbaka från bilageväljaren - en textrad som fanns innan får läggas till manuellt igen.
+        const desiredRows = Number(state['lines-TOTAL_FORMS'] || 1);
+        const rowsToAdd = Math.max(0, desiredRows - Number(totalForms.value || 1));
+        for (let i = 0; i < rowsToAdd; i += 1) {
+          addBtn.click();
+        }
+      },
+      afterRestore: function () {
+        initSelect2(invoiceForm);
+        renumberRows();
+        recalcAllRows();
+      }
+    });
+  })();
+</script>
+{% endblock %}

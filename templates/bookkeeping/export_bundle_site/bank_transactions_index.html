@@ -1,0 +1,34 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>Banktransaktioner</h3>
+<p class="subinfo">
+    En CSV per bankkälla med bankens egna transaktioner under den exporterade perioden – oavsett
+    om transaktionen har bokförts eller inte
+</p>
+<table>
+    <thead>
+        <tr>
+            <th>Bankkälla</th>
+            <th>Typ</th>
+            <th>Transaktioner</th>
+            <th>Bokförda</th>
+            <th>Ej bokförda</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.bank_account.name }}</td>
+            <td>{{ row.bank_account.get_account_type_display }}</td>
+            <td>{{ row.transaction_count }}</td>
+            <td>{{ row.booked_count }}</td>
+            <td>{{ row.not_booked_count }}</td>
+            <td><a href="{{ row.filename }}" class="button right">Öppna</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">Inga banktransaktioner för den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

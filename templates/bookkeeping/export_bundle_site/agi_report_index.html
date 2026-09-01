@@ -1,0 +1,30 @@
+{% extends "bookkeeping/export_bundle_site/_layout.html" %}
+{% block content %}
+<h3>AGI-underlag</h3>
+<p class="subinfo">
+    En PDF per lönekörning som rapporterats till Skatteverket och betalats ut under den
+    exporterade perioden – ej rapporterade lönekörningar ingår inte
+</p>
+<table>
+    <thead>
+        <tr>
+            <th>Period</th>
+            <th>Utbetalningsdatum</th>
+            <th>Rapporterad</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.payroll_run.period_label|capfirst }}</td>
+            <td>{{ row.payroll_run.payment_date|date:"Y-m-d" }}</td>
+            <td>{{ row.payroll_run.reported_at|date:"Y-m-d H:i" }}</td>
+            <td><a href="{{ row.filename }}" class="button right">Öppna</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Ingen lönekörning rapporterad till Skatteverket under den valda perioden.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Artiklar - SaldoVibe{% endblock %}
+{% block page_title %}Artiklar{% endblock %}
+{% block nav_articles %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{% url 'invoicing:article_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Ny artikel
+  </a>
+</div>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3"><h6 class="mb-0 fw-semibold"><i class="bi bi-card-list me-2"></i>Artikelregister</h6></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light"><tr><th class="ps-3">Artikel</th><th>Pris</th><th>Moms</th><th class="text-end pe-3">Åtgärd</th></tr></thead>
+          <tbody>
+          {% for article in articles %}
+            <tr>
+              <td class="ps-3"><div class="fw-semibold">{{ article.name }}</div><small class="text-muted">{{ article.article_number|default:"" }}</small></td>
+              <td>{{ article.unit_price|floatformat:"2g" }} kr / {{ article.unit }}</td>
+              <td>{{ article.vat_rate|floatformat:"2g" }} %</td>
+              <td class="text-end pe-3">
+                <a href="{% url 'invoicing:article_update' article.pk %}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-pencil-square me-1"></i>Redigera
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted ps-3 py-3">Inga artiklar registrerade.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
