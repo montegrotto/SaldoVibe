@@ -40,7 +40,7 @@ Första användaren skapas i appens eget registreringsflöde
 
 ## Köra i produktion
 
-Skapa en produktionsmiljöfil från exemplet och sätt riktiga värden innan stacken startas:
+Servern behöver bara `docker-compose.prod.yml` och `.env.prod` — ingen utcheckning (nginx-konfigen ligger inline i compose-filen). Skapa miljöfilen från exemplet och sätt riktiga värden innan stacken startas:
 
 ```bash
 cp .env.prod.example .env.prod

@@ -9,10 +9,16 @@ Step-by-step for taking a new release of `main` live on the `docker-compose.prod
    ```bash
    cp .env.prod.example .env.prod
    ```
+   Only `docker-compose.prod.yml` and `.env.prod` are needed on the server — no checkout. Fetch them
+   from a release tag:
+   ```bash
+   curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/v1.0.0/docker-compose.prod.yml
+   curl -fsSL -o .env.prod https://raw.githubusercontent.com/montegrotto/SaldoVibe/v1.0.0/.env.prod.example
+   ```
    At minimum change `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` from `change-me`, and set
    `SALDOVIBE_PUBLIC_URL` to the real public URL (this drives `ALLOWED_HOSTS` and
    `CSRF_TRUSTED_ORIGINS` — see [environment-variables.md](environment-variables.md)).
-2. **TLS is not terminated by the bundled `nginx` service** — `nginx/default.conf` only listens on
+2. **TLS is not terminated by the bundled `nginx` service** — the nginx config inlined in `docker-compose.prod.yml` only listens on
    port 80. Put a TLS-terminating reverse proxy or load balancer in front of it (or add a TLS
    server block) before exposing the stack publicly.
 3. Bring the stack up, either with the published image from Docker Hub or a local build:
