@@ -40,8 +40,8 @@ window.SaldoVibe = window.SaldoVibe || {};
     var idsInput = resolveElement(opts.idsInput, 'selected-attachment-ids');
     var list = resolveElement(opts.list, 'selected-attachments-list');
     var pickerLink = resolveElement(opts.pickerLink, 'open-attachment-picker');
-    // Verifikations- and bankformulären render an attachment viewer panel that
-    // listens for these; the invoice forms show a hover preview instead.
+    // The document-entry forms render an attachment viewer panel that listens
+    // for these.
     var viewerEvents = Boolean(opts.viewerEvents);
 
     function currentSelectedIds() {
@@ -219,67 +219,6 @@ window.SaldoVibe = window.SaldoVibe || {};
     sessionStorage.removeItem(storageKey);
   }
 
-  function previewContent(fileUrl, fileName, thumbUrl) {
-    var lower = String(fileName || '').toLowerCase();
-    if (thumbUrl) {
-      return '<img src="' + thumbUrl + '" alt="Miniatyr" style="max-width:260px;max-height:260px;display:block;">';
-    }
-    if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-      return '<img src="' + fileUrl + '" alt="Förhandsvisning" style="max-width:260px;max-height:260px;display:block;">';
-    }
-    if (lower.endsWith('.pdf')) {
-      return '<div class="small text-muted mb-1">Laddar förhandsvisning…</div>'
-        + '<object data="' + fileUrl + '" type="application/pdf" style="width:260px;height:260px;"></object>';
-    }
-    return '<div class="small text-muted">Ingen förhandsvisning tillgänglig.</div>';
-  }
-
-  /* Hover/focus preview for attachment links on the invoice forms. */
-  function initHoverPreviews(selector) {
-    var triggers = document.querySelectorAll(selector || '.attachment-preview-trigger');
-    if (!triggers.length) {
-      return;
-    }
-
-    var box = document.createElement('div');
-    box.style.position = 'fixed';
-    box.style.zIndex = '1080';
-    box.style.display = 'none';
-    box.style.background = '#fff';
-    box.style.border = '1px solid #ced4da';
-    box.style.borderRadius = '0.375rem';
-    box.style.boxShadow = '0 .5rem 1rem rgba(0,0,0,.15)';
-    box.style.padding = '0.5rem';
-    box.style.pointerEvents = 'none';
-    box.style.maxWidth = '280px';
-    document.body.appendChild(box);
-
-    function show(el) {
-      var fileUrl = el.getAttribute('data-file-url');
-      if (!fileUrl) {
-        return;
-      }
-      var rect = el.getBoundingClientRect();
-      box.innerHTML = previewContent(fileUrl, el.getAttribute('data-file-name'), el.getAttribute('data-thumb-url'));
-      box.style.left = Math.min(rect.right + 12, window.innerWidth - 300) + 'px';
-      box.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 300)) + 'px';
-      box.style.display = 'block';
-    }
-
-    function hide() {
-      box.style.display = 'none';
-      box.innerHTML = '';
-    }
-
-    triggers.forEach(function (el) {
-      el.addEventListener('mouseenter', function () { show(el); });
-      el.addEventListener('focus', function () { show(el); });
-      el.addEventListener('mouseleave', hide);
-      el.addEventListener('blur', hide);
-      el.addEventListener('click', function (event) { event.preventDefault(); });
-    });
-  }
-
   /* Disables the upload submit button and swaps its label for a spinner while the form
    * POSTs - same loading pattern as templates/bookkeeping/sie_import.html. The upload can
    * take several seconds: ReInvGrabber's OCR extraction runs synchronously as part of the
@@ -309,10 +248,8 @@ window.SaldoVibe = window.SaldoVibe || {};
   namespace.attachments = {
     initSelectionList: initSelectionList,
     initFormStateRoundtrip: initFormStateRoundtrip,
-    initHoverPreviews: initHoverPreviews,
     initUploadLoadingState: initUploadLoadingState,
     serializeFormState: serializeFormState,
-    applyFormState: applyFormState,
-    previewContent: previewContent
+    applyFormState: applyFormState
   };
 })(window.SaldoVibe);

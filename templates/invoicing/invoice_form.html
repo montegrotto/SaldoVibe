@@ -42,9 +42,8 @@
   </a>
 </div>
 
-<div class="row">
-  <div class="col-12 col-xl-9">
-    <div class="card shadow-sm border-0">
+<div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
+<div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:1100px;">
       <div class="card-header bg-white py-3">
         <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2"></i>Ny kundfaktura</h6>
       </div>
@@ -237,16 +236,7 @@
               {% if selected_attachments %}
                 {% for attachment in selected_attachments %}
                   <div class="list-group-item d-flex align-items-center justify-content-between gap-2" data-attachment-id="{{ attachment.id }}">
-                    <div>
-                      <div class="fw-semibold small">{{ attachment.file_name }}</div>
-                      <a
-                        href="#"
-                        class="small text-decoration-none attachment-preview-trigger"
-                        data-thumb-url="{% url 'attachments:attachment_thumbnail' attachment.id %}"
-                        data-file-url="{% url 'attachments:attachment_preview' attachment.id %}"
-                        data-file-name="{{ attachment.file_name }}"
-                      >Förhandsvisa</a>
-                    </div>
+                    <div class="fw-semibold small">{{ attachment.file_name }}</div>
                     <button type="button" class="btn btn-link text-danger p-0 remove-selected-attachment" title="Ta bort från val">
                       <i class="bi bi-x-circle"></i>
                     </button>
@@ -270,8 +260,8 @@
           </div>
         </form>
       </div>
-    </div>
-  </div>
+</div>
+{% include "attachments/_attachment_panel.html" with attachments=selected_attachments hide_thumb_nav=True %}
 </div>
 {% endblock %}
 
@@ -509,8 +499,7 @@
       });
     }
 
-    SaldoVibe.attachments.initSelectionList();
-    SaldoVibe.attachments.initHoverPreviews();
+    SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
     SaldoVibe.attachments.initFormStateRoundtrip({
       form: invoiceForm,
       storageKey: 'customer_invoice_form_state_v1',
