@@ -472,6 +472,13 @@ class InvoicingWorkflowTests(CompanyTestCase):
         self.assertEqual(invoice.invoice_number, "2026-0001")
         self.assertEqual(invoice.ocr_code, "202600011")
 
+    def test_invoice_create_shows_selected_attachment_in_viewer_panel(self):
+        response = self.client.get(f"{reverse('invoicing:invoice_create')}?selected_attachments={self.attachment.pk}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="attachmentViewerFrame"')
+        self.assertContains(response, self.attachment.file_name)
+
     def test_invoice_create_page_is_separate_from_invoice_list(self):
         response = self.client.get(reverse("invoicing:invoice_create"))
 

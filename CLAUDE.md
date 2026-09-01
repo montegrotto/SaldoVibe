@@ -134,7 +134,7 @@ static-manifest gotcha (`npm ci` + `collectstatic` before tests), and template r
 Grep before writing anything generic-feeling. Confirmed shared building blocks:
 
 - `static/js/attachment-picker.js` — `SaldoVibe.attachments.initSelectionList`,
-  `initFormStateRoundtrip` (sessionStorage form stash around the picker), `initHoverPreviews`,
+  `initFormStateRoundtrip` (sessionStorage form stash around the picker),
   `initUploadLoadingState` (spinner during upload POST — ReInvGrabber OCR runs synchronously in
   that request, see `attachments/extraction_client.py`). Used by all document-entry forms.
 - `templates/attachments/attachment_picker.html` / `_attachment_panel.html` — picker page +
