@@ -273,6 +273,52 @@ class SIEImportTests(CompanyTestCase):
         self.assertEqual(verifications, [])
         self.assertIn("Ogiltigt datum i SIE: 20261301", diagnostics[0])
 
+    def test_sie_import_rejects_file_whose_rar_0_differs_from_selected_year(self):
+        sie_content = "\n".join(
+            [
+                "#RAR -1 20240101 20241231",
+                "#RAR 0 20250101 20251231",
+                '#VER "A" "1" 20260210 "Fel år"',
+                "{",
+                "#TRANS 1930 -100.00",
+                "#TRANS 2440 100.00",
+                "}",
+            ]
+        )
+        upload = SimpleUploadedFile("wrong-year.se", sie_content.encode("utf-8"), content_type="text/plain")
+
+        response = self.client.post(
+            f"{reverse('bookkeeping:sie_import')}?year={self.year_2026.pk}",
+            {"sie_file": upload},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        message_texts = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("2025-01-01 – 2025-12-31" in t and "2026-01-01 – 2026-12-31" in t for t in message_texts))
+        self.assertFalse(Transaction.objects.filter(accounting_year=self.year_2026).exists())
+
+    def test_sie_import_accepts_file_whose_rar_0_matches_selected_year(self):
+        sie_content = "\n".join(
+            [
+                "#RAR -1 20250101 20251231",
+                "#RAR 0 20260101 20261231",
+                '#VER "A" "1" 20260210 "Rätt år"',
+                "{",
+                "#TRANS 1930 -100.00",
+                "#TRANS 2440 100.00",
+                "}",
+            ]
+        )
+        upload = SimpleUploadedFile("right-year.se", sie_content.encode("utf-8"), content_type="text/plain")
+
+        response = self.client.post(
+            f"{reverse('bookkeeping:sie_import')}?year={self.year_2026.pk}",
+            {"sie_file": upload},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Transaction.objects.filter(accounting_year=self.year_2026).count(), 1)
+
     def test_sie_import_uses_konto_names_for_new_accounts(self):
         sie_content = "\n".join(
             [
