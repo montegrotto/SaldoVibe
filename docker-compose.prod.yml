@@ -15,6 +15,7 @@ services:
       - saldovibe-data:/data
       - static-assets:/app/staticfiles
       - media-assets:/data/media
+      - ./backups:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +42,12 @@ services:
       # uppmärksamhet (samma källor som notisklockan i topbaren).
       ofelia.job-exec.notification-digest.schedule: "0 0 6 * * *"
       ofelia.job-exec.notification-digest.command: "gosu appuser /opt/venv/bin/python /app/manage.py skicka_notisdigest"
+      # Veckovis mediabackup (bilagor/underlag), söndag 04:00, 5 veckors retention.
+      # Hamnar i ./backups på hosten -- synka off-host, se docs/ops/backup-restore.md.
+      ofelia.job-exec.weekly-media-backup.schedule: "0 0 4 * * 0"
+      ofelia.job-exec.weekly-media-backup.command: >-
+        sh -c 'tar czf /backups/media-$$(date +%Y%m%dT%H%M%S).tar.gz -C /data/media .
+        && find /backups -name "media-*.tar.gz" -mtime +35 -delete'
 
   scheduler:
     image: mcuadros/ofelia:0.3.22
@@ -57,6 +64,16 @@ services:
       - .env.prod
     volumes:
       - saldovibe-postgres:/var/lib/postgresql/data
+      - ./backups:/backups
+    labels:
+      ofelia.enabled: "true"
+      # Nattlig databasdump kl 02:30 (ofelias cron har sekundfält först), 14 dagars retention.
+      # $$ så att containern (inte Compose) expanderar variabler och $(date ...).
+      ofelia.job-exec.nightly-pg-backup.schedule: "0 30 2 * * *"
+      ofelia.job-exec.nightly-pg-backup.command: >-
+        sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" --format=custom
+        -f /backups/db-$$(date +%Y%m%dT%H%M%S).dump
+        && find /backups -name "db-*.dump" -mtime +14 -delete'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U saldovibe -d saldovibe"]
       interval: 5s
