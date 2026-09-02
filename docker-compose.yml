@@ -1,31 +1,53 @@
-name: saldovibe-standalone
-
 services:
   web:
-    # Published image from Docker Hub (amd64 + arm64). To run from a local build instead,
-    # use docker-compose.prod.yml or `docker build -t montegrotto/saldovibe .` first.
+    # `docker compose pull` fetches the published image; `docker compose up --build` builds it
+    # from this checkout under the same name instead. See docs/ops/deploy-checklist.md.
     image: montegrotto/saldovibe:${SALDOVIBE_VERSION:-latest}
-    ports:
-      - "8000:8000"
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
       DJANGO_DEBUG: "0"
+      COMPLIANCE_EVIDENCE_DIR: /data/compliance-evidence/restore-tests
     volumes:
       - saldovibe-data:/data
+      - static-assets:/app/staticfiles
+      - media-assets:/data/media
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
     restart: unless-stopped
     labels:
       ofelia.enabled: "true"
-      # Fetches email attachments every 15 minutes (ofelia's cron format leads with a
-      # seconds field). docker exec bypasses the entrypoint and lands as root, so drop
-      # to appuser explicitly -- otherwise imported attachments under /data/media end up
-      # root-owned and the web process can no longer manage them.
+      # Runs the compliance restore dry-run + audit-chain verification at 03:00 on the 1st of
+      # every month, evidence written under docs/compliance/evidence/restore-runbook.md's
+      # retention policy. See docs/compliance/restore-runbook.md.
+      ofelia.job-exec.monthly-restore-dry-run.schedule: "0 0 3 1 * *"
+      ofelia.job-exec.monthly-restore-dry-run.command: "/usr/local/bin/monthly-restore-dry-run.sh"
+      # Fetches email attachments for every company with e-posthämtning enabled, every
+      # 15 minutes (ofelia's cron format leads with a seconds field). Failures for one
+      # company are reported without stopping the others; the command exits non-zero so
+      # a persistently broken mailbox shows up in the scheduler log.
+      # docker exec bypasses the entrypoint, so it lands as root -- drop to appuser
+      # explicitly, otherwise imported attachments under /data/media end up root-owned
+      # and the web process can no longer manage them.
       ofelia.job-exec.email-attachments.schedule: "0 */15 * * * *"
       ofelia.job-exec.email-attachments.command: "gosu appuser /opt/venv/bin/python /app/manage.py hamta_epostbilagor"
       # Daglig notisdigest kl 06:00 per företag; skickas bara när något behöver
       # uppmärksamhet (samma källor som notisklockan i topbaren).
       ofelia.job-exec.notification-digest.schedule: "0 0 6 * * *"
       ofelia.job-exec.notification-digest.command: "gosu appuser /opt/venv/bin/python /app/manage.py skicka_notisdigest"
+      # Veckovis mediabackup (bilagor/underlag), söndag 04:00, 5 veckors retention.
+      # Hamnar i ./backups på hosten -- synka off-host, se docs/ops/backup-restore.md.
+      ofelia.job-exec.weekly-media-backup.schedule: "0 0 4 * * 0"
+      ofelia.job-exec.weekly-media-backup.command: >-
+        sh -c 'tar czf /backups/media-$$(date +%Y%m%dT%H%M%S).tar.gz -C /data/media .
+        && find /backups -name "media-*.tar.gz" -mtime +35 -delete'
 
   scheduler:
     image: mcuadros/ofelia:0.3.22
@@ -36,5 +58,91 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
+  db:
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    volumes:
+      - saldovibe-postgres:/var/lib/postgresql/data
+      - ./backups:/backups
+    labels:
+      ofelia.enabled: "true"
+      # Nattlig databasdump kl 02:30 (ofelias cron har sekundfält först), 14 dagars retention.
+      # $$ så att containern (inte Compose) expanderar variabler och $(date ...).
+      ofelia.job-exec.nightly-pg-backup.schedule: "0 30 2 * * *"
+      ofelia.job-exec.nightly-pg-backup.command: >-
+        sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" --format=custom
+        -f /backups/db-$$(date +%Y%m%dT%H%M%S).dump
+        && find /backups -name "db-*.dump" -mtime +14 -delete'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saldovibe -d saldovibe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - web
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/conf.d/default.conf
+    volumes:
+      - static-assets:/static:ro
+      - media-assets:/media:ro
+    restart: unless-stopped
+
 volumes:
   saldovibe-data:
+  saldovibe-postgres:
+  static-assets:
+  media-assets:
+
+# Inline so that a deployment needs nothing but this file and .env (Compose >= 2.23.1).
+# nginx variables are written as $$name because Compose interpolates $name itself.
+configs:
+  nginx_conf:
+    content: |
+      upstream saldovibe_web {
+          server web:8000;
+      }
+
+      server {
+          listen 80;
+          server_name _;
+
+          client_max_body_size 50m;
+
+          location /static/ {
+              alias /static/;
+              access_log off;
+              expires 30d;
+              add_header Cache-Control "public, max-age=2592000";
+          }
+
+          # Bilagor (räkenskapsinformation) får bara nås via Djangos inloggade, företagsskyddade vyer.
+          location ~ ^/media/transaction_attachment {
+              return 404;
+          }
+
+          location /media/ {
+              alias /media/;
+              access_log off;
+              expires 7d;
+              add_header Cache-Control "public, max-age=604800";
+          }
+
+          location / {
+              proxy_pass http://saldovibe_web;
+              proxy_http_version 1.1;
+              proxy_set_header Host $$http_host;
+              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Host $$http_host;
+              proxy_set_header X-Real-IP $$remote_addr;
+              proxy_redirect off;
+          }
+      }

@@ -75,7 +75,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # postgresql-client-17 is the Debian trixie default and matches the postgres:17-alpine server
-# in docker-compose.prod.yml. Keep the two majors in step when bumping either: the client that
+# in docker-compose.yml. Keep the two majors in step when bumping either: the client that
 # pg_dump/pg_restore emit for is newer than the server it talks to as soon as they diverge, and
 # the restore dry-run then fails with an unrecognized-configuration-parameter error (that is how
 # a v17 client against the previous v16 server broke, on transaction_timeout).

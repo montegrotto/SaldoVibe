@@ -7,9 +7,9 @@ via a single console handler (`saldovibe/settings.py`, `LOGGING`), which is the 
 container: let the container runtime/host collect it.
 
 ```bash
-docker compose -f docker-compose.prod.yml logs -f web
-docker compose -f docker-compose.prod.yml logs -f db
-docker compose -f docker-compose.prod.yml logs -f nginx
+docker compose logs -f web
+docker compose logs -f db
+docker compose logs -f nginx
 ```
 
 Gunicorn (the `web` process) is started with `--access-logfile - --error-logfile -`

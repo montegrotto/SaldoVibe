@@ -1,6 +1,6 @@
 # SaldoVibe
 
-SaldoVibe är en Django-baserad bokföringsapp för svenska företag (svenskt gränssnitt, BAS-kontoplan, SIE-import/export, efterlevnad av Bokföringslagen och Skatteverkets krav). Repot innehåller både en produktionslik Docker-uppsättning och en lättviktig utvecklingscontainer.
+SaldoVibe är en Django-baserad bokföringsapp för svenska företag (svenskt gränssnitt, BAS-kontoplan, SIE-import/export, efterlevnad av Bokföringslagen och Skatteverkets krav). Repot innehåller en komplett Docker-uppsättning för drift; utveckling sker direkt mot en lokal virtualenv.
 
 Appen är utvecklad för att uppfylla mina egna behov av bokföring, inte för att konkurrera med kommersiella tjänster. Det präglar designen:
 
@@ -17,41 +17,29 @@ Testningen är inte komplett — appen används i verklig bokföring, men räkna
 
 Buggar rapporteras som [issues på GitHub](https://github.com/montegrotto/SaldoVibe/issues). Beskriv gärna vilket flöde du var i, vad du förväntade dig och vad som hände i stället. Sårbarheter rapporteras privat enligt [SECURITY.md](SECURITY.md).
 
-## Snabbstart med Docker Hub
-
-Färdigbyggda imager (amd64 och arm64) publiceras på Docker Hub som
-[`montegrotto/saldovibe`](https://hub.docker.com/r/montegrotto/saldovibe). Den fristående
-compose-filen kör imagen med sqlite på en volym, utan Postgres eller nginx:
-
-```bash
-cp .env.example .env     # sätt SALDOVIBE_PUBLIC_URL till adressen du kommer att surfa till
-docker compose up -d     # hämtar montegrotto/saldovibe:latest, migrerar databasen, lyssnar på :8000
-```
-
-Första användaren skapas i appens eget registreringsflöde
-([användarhandboken, kapitel 1](docs/user-guide/01-komma-igang.md)). Pinna en version med
-`SALDOVIBE_VERSION=1.0.0` i `.env`. För Postgres och nginx, se "Köra i produktion" nedan.
-
-## Containerstruktur
-
-- `Dockerfile` bygger produktionsimagen med Python, Node.js, WhiteNoise och Gunicorn.
-- `docker-compose.prod.yml` kör appen med PostgreSQL och nginx.
-- `Dockerfile.dev` och `docker-compose.dev.yml` kör en lokal utvecklingscontainer mot sqlite.
-
 ## Köra i produktion
 
-Servern behöver bara `docker-compose.prod.yml` och `.env.prod` — ingen utcheckning (nginx-konfigen ligger inline i compose-filen). Skapa miljöfilen från exemplet och sätt riktiga värden innan stacken startas:
+Färdigbyggda imager (amd64 och arm64) publiceras på Docker Hub som
+[`montegrotto/saldovibe`](https://hub.docker.com/r/montegrotto/saldovibe).
+`Dockerfile` bygger produktionsimagen med Python, Node.js, WhiteNoise och Gunicorn;
+`docker-compose.yml` kör appen med PostgreSQL och nginx.
+
+Servern behöver bara `docker-compose.yml` och `.env` — ingen utcheckning (nginx-konfigen ligger inline i compose-filen). Skapa miljöfilen från exemplet och sätt riktiga värden innan stacken startas:
 
 ```bash
-cp .env.prod.example .env.prod
+cp .env.example .env
 ```
 
 Starta produktionsstacken med den publicerade imagen, eller bygg den själv:
 
 ```bash
-docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml up --build -d   # bygger imagen lokalt från repot
+docker compose pull && docker compose up -d
+docker compose up --build -d   # bygger imagen lokalt från repot
 ```
+
+Första användaren skapas i appens eget registreringsflöde
+([användarhandboken, kapitel 1](docs/user-guide/01-komma-igang.md)). Pinna en version med
+`SALDOVIBE_VERSION=1.0.0` i `.env`.
 
 Detta startar fyra tjänster:
 
@@ -60,23 +48,18 @@ Detta startar fyra tjänster:
 - `nginx` som publik ingång för `/`, `/static/` och `/media/`
 - `scheduler` — [ofelia](https://github.com/mcuadros/ofelia), som kör den månatliga återställnings-testkörningen och e-postbilagehämtningen var 15:e minut som cron-jobb inuti `web`
 
-Alla inloggningsuppgifter ligger i `.env.prod`, inte i compose-filen. Exempelvärdena är platshållare endast för lokalt bruk — byt ut dem innan du driftsätter någonstans på riktigt.
+Alla inloggningsuppgifter ligger i `.env`, inte i compose-filen. Exempelvärdena är platshållare endast för lokalt bruk — byt ut dem innan du driftsätter någonstans på riktigt.
 
 ## Köra i utveckling
 
-Skapa en utvecklingsmiljöfil från exemplet:
+Utveckling sker utan Docker, direkt mot sqlite:
 
 ```bash
-cp .env.dev.example .env.dev
+python3.13 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.lock
+cp .env.example .env     # avkommentera DJANGO_DEBUG=1
+python manage.py runserver
 ```
-
-Bygg och starta utvecklingsstacken:
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Detta monterar repot in i containern, använder sqlite och startar Django med `runserver` för snabb iteration.
 
 ## Utvecklingskontroller
 
@@ -123,14 +106,10 @@ Använd `git push --no-verify` för att hoppa över testkörningen i nödfall.
 
 ## Miljövariabler
 
-Varje compose-fil läser sina variabler via `env_file`, så inget utom fasta flaggor i stil med
-`DJANGO_DEBUG` ligger inline i YAML-filen:
-
-- `docker-compose.yml` (fristående körning av produktionsimagen utan Postgres/nginx) läser `.env` — kopiera den från `.env.example`.
-- `docker-compose.dev.yml` läser `.env.dev` — kopiera den från `.env.dev.example`.
-- `docker-compose.prod.yml` läser `.env.prod` — kopiera den från `.env.prod.example`.
-
-Checka bara in `*.example`-filerna; håll de riktiga `.env`, `.env.dev` och `.env.prod` ospårade.
+All konfiguration bor i `.env` (kopiera från `.env.example`) — compose-filen läser den via
+`env_file`, en bar `manage.py runserver` via python-dotenv, så inget utom fasta flaggor i stil med
+`DJANGO_DEBUG` ligger inline i YAML-filen. Checka bara in `.env.example`; håll den riktiga `.env`
+ospårad.
 
 `ALLOWED_HOSTS` och `CSRF_TRUSTED_ORIGINS` sätts inte direkt — sätt i stället `SALDOVIBE_PUBLIC_URL`
 (t.ex. `http://localhost:8000`) så härleder Django båda från den. Använd de explicita variablerna
@@ -138,14 +117,10 @@ Checka bara in `*.example`-filerna; håll de riktiga `.env`, `.env.dev` och `.en
 [docs/ops/environment-variables.md](docs/ops/environment-variables.md) för den fullständiga, samlade
 referensen över varje variabel appen läser (Django/nätverk, databas, Skatteverkets API).
 
-Varje compose-fil deklarerar också sitt eget Compose-projektnamn (`name:`: `saldovibe-standalone`,
-`saldovibe-dev`; `docker-compose.prod.yml` behåller den implicita standarden) så att deras nätverk och
-volymer aldrig krockar om du kör fler än en av stackarna på samma värd.
-
 ## Noteringar
 
 - Produktionsimagen serverar statiska filer med WhiteNoise inuti Django, medan nginx serverar de delade static- och media-monteringarna framför appen.
-- Datavolymen är separat från imagen, så sqlite och uppladdningar överlever omstarter.
+- Datavolymerna är separata från imagen, så databasen och uppladdningar överlever omstarter.
 
 ## Drift
 

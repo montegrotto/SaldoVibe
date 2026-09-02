@@ -24,7 +24,7 @@ def _record_fetch_error(company, error):
 class Command(BaseCommand):
     help = (
         "Hämtar e-postbilagor för alla aktiva företag som har e-posthämtning påslagen. "
-        "Avsedd att köras schemalagt (ofelia i docker-compose.prod.yml, eller cron). "
+        "Avsedd att köras schemalagt (ofelia i docker-compose.yml, eller cron). "
         "Ett företag som misslyckas stoppar inte de övriga."
     )
 

@@ -1,30 +1,31 @@
 # Deploy checklist (production)
 
-Step-by-step for taking a new release of `main` live on the `docker-compose.prod.yml` stack
+Step-by-step for taking a new release of `main` live on the `docker-compose.yml` stack
 (`web` + PostgreSQL `db` + `nginx`).
 
 ## First-time setup
 
 1. Copy the env template and fill in real values:
    ```bash
-   cp .env.prod.example .env.prod
+   cp .env.example .env
    ```
-   Only `docker-compose.prod.yml` and `.env.prod` are needed on the server — no checkout. Fetch them
+   Only `docker-compose.yml` and `.env` are needed on the server — no checkout. Fetch them
    from `main` (matches the `latest` image; substitute a `vX.Y.Z` tag to pin a release):
    ```bash
-   curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/docker-compose.prod.yml
-   curl -fsSL -o .env.prod https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/.env.prod.example
+   curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/docker-compose.yml
+   curl -fsSL -o .env https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/.env.example
    ```
-   At minimum change `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` from `change-me`, and set
+   Uncomment the whole "Produktion" section in the file. At minimum change
+   `DJANGO_SECRET_KEY` and `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` from `change-me`, and set
    `SALDOVIBE_PUBLIC_URL` to the real public URL (this drives `ALLOWED_HOSTS` and
    `CSRF_TRUSTED_ORIGINS` — see [environment-variables.md](environment-variables.md)).
-2. **TLS is not terminated by the bundled `nginx` service** — the nginx config inlined in `docker-compose.prod.yml` only listens on
+2. **TLS is not terminated by the bundled `nginx` service** — the nginx config inlined in `docker-compose.yml` only listens on
    port 80. Put a TLS-terminating reverse proxy or load balancer in front of it (or add a TLS
    server block) before exposing the stack publicly.
 3. Bring the stack up, either with the published image from Docker Hub or a local build:
    ```bash
-   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
-   docker compose -f docker-compose.prod.yml up --build -d   # build from this checkout instead
+   docker compose pull && docker compose up -d
+   docker compose up --build -d   # build from this checkout instead
    ```
    Pin a release with `SALDOVIBE_VERSION=1.2.3` in the root `.env` (see `.env.example`).
    The `web` container runs `manage.py migrate --noinput` automatically on start (see
@@ -44,12 +45,12 @@ Step-by-step for taking a new release of `main` live on the `docker-compose.prod
    ```
 3. Pull (or rebuild) and restart the `web` image — `migrate` runs at container start:
    ```bash
-   docker compose -f docker-compose.prod.yml pull web && docker compose -f docker-compose.prod.yml up -d web
-   docker compose -f docker-compose.prod.yml up --build -d web   # local build instead
+   docker compose pull web && docker compose up -d web
+   docker compose up --build -d web   # local build instead
    ```
 4. Watch the `web` logs during startup for migration errors or crash loops:
    ```bash
-   docker compose -f docker-compose.prod.yml logs -f web
+   docker compose logs -f web
    ```
 5. Smoke-test the release:
    - Log in.
@@ -71,8 +72,8 @@ check before cutting traffic over.
 ## After deploy
 
 - Confirm scheduled jobs still run: the ofelia backup jobs and the `docs/compliance/` restore
-  dry-run (`docker compose -f docker-compose.prod.yml logs scheduler`, see
+  dry-run (`docker compose logs scheduler`, see
   [backup-restore.md](backup-restore.md) and `docs/compliance/restore-runbook.md`), plus the
-  host's off-host backup sync, especially if anything in `.env.prod` changed.
+  host's off-host backup sync, especially if anything in `.env` changed.
 - Update `docs/compliance/quarterly-review-checklist.md` tracking if this release touched
   anything on that checklist (period locking, exports, audit logging).

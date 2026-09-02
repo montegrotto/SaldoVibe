@@ -21,8 +21,8 @@ the file, not the template). With `DEBUG=True` the manifest is bypassed entirely
   `collectstatic` or every template-rendering test fails.
 - `STATIC_ROOT` defaults to `$DATA_DIR/staticfiles` (gitignored) — fresh checkouts have no manifest.
 - Without `node_modules`, `collectstatic` exits 0 but silently writes zero `vendor/` entries —
-  `npm ci` must come first. CI and the prod `Dockerfile` do `npm ci` + `collectstatic` before the
-  suite; `Dockerfile.dev` needs neither (`DJANGO_DEBUG=1`).
+  `npm ci` must come first. CI and the `Dockerfile` do `npm ci` + `collectstatic` before the
+  suite.
 
 ### Template rendering rules
 

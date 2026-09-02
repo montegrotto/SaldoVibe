@@ -57,7 +57,7 @@ two diverge, and sqlite is the forgiving one. `DATABASE_ENGINE` switches it; the
 ```bash
 docker run -d --name saldovibe-pgtest \
   -e POSTGRES_DB=saldovibe -e POSTGRES_USER=saldovibe -e POSTGRES_PASSWORD=testpass \
-  -p 55432:5432 postgres:17-alpine        # 17 matches docker-compose.prod.yml
+  -p 55432:5432 postgres:17-alpine        # 17 matches docker-compose.yml
 
 # Wait on a real query, NOT pg_isready — see gotcha below.
 until docker exec saldovibe-pgtest psql -U saldovibe -d saldovibe -c "select 1" >/dev/null 2>&1; do sleep 1; done

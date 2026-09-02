@@ -1,6 +1,6 @@
 # Production backup & restore
 
-This covers **infrastructure-level** backup/restore for the `docker-compose.prod.yml` stack
+This covers **infrastructure-level** backup/restore for the `docker-compose.yml` stack
 (PostgreSQL + media/static volumes). It is separate from
 [`docs/compliance/restore-runbook.md`](../compliance/restore-runbook.md), which only exercises the
 **sqlite** dev/desktop database as an audit-evidence dry-run (`compliance_restore_dry_run`
@@ -14,11 +14,11 @@ path and does not work against PostgreSQL at all.
 | PostgreSQL database | `saldovibe-postgres` volume (via the `db` service) | All accounting data, users, companies |
 | Uploaded media (attachments, invoices, company logos) | `media-assets` volume, mounted at `/data/media` in `web` | Underlag/bilagor referenced by bokförda poster |
 | Static assets | `static-assets` volume | Regeneratable via `collectstatic` — not critical to back up |
-| `.env.prod` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config. **Not covered by the ofelia jobs** (the containers only see it as env vars) — the off-host sync below must include it |
+| `.env` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config. **Not covered by the ofelia jobs** (the containers only see it as env vars) — the off-host sync below must include it |
 
 ## Scheduled backups (built into the stack)
 
-The `scheduler` (ofelia) service in `docker-compose.prod.yml` runs the backups automatically —
+The `scheduler` (ofelia) service in `docker-compose.yml` runs the backups automatically —
 no host cron needed for taking them:
 
 | Job | Where | Schedule | Retention |
@@ -28,30 +28,30 @@ no host cron needed for taking them:
 
 Both write to `./backups/` next to the compose file (bind-mounted as `/backups` in `db` and
 `web`): `db-<timestamp>.dump` (`pg_dump --format=custom`, works with `pg_restore` and supports
-selective/parallel restore) and `media-<timestamp>.tar.gz`. Credentials come from `.env.prod`
+selective/parallel restore) and `media-<timestamp>.tar.gz`. Credentials come from `.env`
 (`POSTGRES_USER` / `POSTGRES_DB`, see [environment-variables.md](environment-variables.md)).
 
 Ofelia logs every run — check that the jobs actually fire after a deploy:
 
 ```bash
-docker compose -f docker-compose.prod.yml logs scheduler
+docker compose logs scheduler
 ```
 
 **Syncing off the host is still your job.** A backup that only lives on the same disk as the
-database is not a backup. One host cron line with e.g. `rclone` covers it, including `.env.prod`
+database is not a backup. One host cron line with e.g. `rclone` covers it, including `.env`
 (which the ofelia jobs cannot reach):
 
 ```cron
-0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env.prod remote:saldovibe-backups/env/
+0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env remote:saldovibe-backups/env/
 ```
 
-`.env.prod` contains plaintext secrets — point `remote:` at an encrypted remote (rclone's
+`.env` contains plaintext secrets — point `remote:` at an encrypted remote (rclone's
 `crypt` type wrapping the storage remote) or at minimum a bucket only you can read.
 
 For a manual on-demand dump (e.g. right before a risky migration):
 
 ```bash
-docker compose -f docker-compose.prod.yml exec -T db \
+docker compose exec -T db \
   sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
   > backups/db-$(date +%Y%m%dT%H%M%S).dump
 ```
@@ -60,11 +60,11 @@ docker compose -f docker-compose.prod.yml exec -T db \
 
 1. Stop the `web` service so nothing writes during restore (`db` can stay up):
    ```bash
-   docker compose -f docker-compose.prod.yml stop web
+   docker compose stop web
    ```
 2. Restore into a fresh or emptied database:
    ```bash
-   docker compose -f docker-compose.prod.yml exec -T db \
+   docker compose exec -T db \
      pg_restore -U saldovibe -d saldovibe --clean --if-exists \
      < backups/db-<timestamp>.dump
    ```
@@ -72,7 +72,7 @@ docker compose -f docker-compose.prod.yml exec -T db \
    [upgrades-migrations.md](upgrades-migrations.md)), which is a no-op if the restored dump is
    already at the current migration state:
    ```bash
-   docker compose -f docker-compose.prod.yml start web
+   docker compose start web
    ```
 
 ## Restoring media
