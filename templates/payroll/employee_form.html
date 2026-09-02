@@ -164,7 +164,8 @@
       if (removeBtn) {
         removeBtn.addEventListener("click", function () {
           if (deleteInput) {
-            deleteInput.checked = true;
+            // Hidden input, inte checkbox – "checked" skickas aldrig med i POST.
+            deleteInput.value = "on";
           }
           row.classList.add("d-none");
         });
