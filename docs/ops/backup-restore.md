@@ -14,7 +14,7 @@ path and does not work against PostgreSQL at all.
 | PostgreSQL database | `saldovibe-postgres` volume (via the `db` service) | All accounting data, users, companies |
 | Uploaded media (attachments, invoices, company logos) | `media-assets` volume, mounted at `/data/media` in `web` | Underlag/bilagor referenced by bokförda poster |
 | Static assets | `static-assets` volume | Regeneratable via `collectstatic` — not critical to back up |
-| `.env.prod` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config |
+| `.env.prod` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config. **Not covered by the ofelia jobs** (the containers only see it as env vars) — the off-host sync below must include it |
 
 ## Scheduled backups (built into the stack)
 
@@ -38,11 +38,15 @@ docker compose -f docker-compose.prod.yml logs scheduler
 ```
 
 **Syncing off the host is still your job.** A backup that only lives on the same disk as the
-database is not a backup. One host cron line with e.g. `rclone` covers it:
+database is not a backup. One host cron line with e.g. `rclone` covers it, including `.env.prod`
+(which the ofelia jobs cannot reach):
 
 ```cron
-0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups
+0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env.prod remote:saldovibe-backups/env/
 ```
+
+`.env.prod` contains plaintext secrets — point `remote:` at an encrypted remote (rclone's
+`crypt` type wrapping the storage remote) or at minimum a bucket only you can read.
 
 For a manual on-demand dump (e.g. right before a risky migration):
 
