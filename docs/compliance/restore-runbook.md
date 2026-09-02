@@ -12,7 +12,7 @@ Validera att SaldoVibes bokföringsdata kan återställas och läsas konsistent.
 
 ## Automatiskt schema (produktion)
 
-`docker-compose.prod.yml` kör en dedikerad `scheduler`-tjänst (Ofelia) som exekverar
+`docker-compose.yml` kör en dedikerad `scheduler`-tjänst (Ofelia) som exekverar
 `/usr/local/bin/monthly-restore-dry-run.sh` inuti den körande `web`-containern kl. 03:00 den
 1:a varje månad (`ofelia.job-exec.monthly-restore-dry-run.*`-labels på `web`-tjänsten).
 Evidens skrivs till `/data/compliance-evidence/restore-tests`, som ligger på den persisterade
@@ -20,8 +20,8 @@ volymen `saldovibe-data` och därmed överlever att containern återskapas/deplo
 manuellt steg krävs i normaldrift; proceduren nedan är för lokal verifiering eller om det
 schemalagda jobbet behöver köras om manuellt.
 
-Bekräfta att schemat är registrerat: `docker compose -f docker-compose.prod.yml logs scheduler`.
-Trigga på begäran: `docker compose -f docker-compose.prod.yml exec web /usr/local/bin/monthly-restore-dry-run.sh`.
+Bekräfta att schemat är registrerat: `docker compose logs scheduler`.
+Trigga på begäran: `docker compose exec web /usr/local/bin/monthly-restore-dry-run.sh`.
 
 ## Manuell/lokal procedur
 

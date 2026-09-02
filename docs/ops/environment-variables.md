@@ -5,11 +5,12 @@ source of truth — the root `README.md` links here instead of duplicating the l
 
 Values are read in `saldovibe/settings.py` unless noted otherwise.
 
-Docker Compose sets these via each stack's `env_file` (see root `README.md`). Outside Docker,
-`manage.py` also auto-loads the root `.env` via `python-dotenv` (without overriding variables
-already present in the environment), so a bare `python manage.py runserver` picks up the same
-file as the standalone `docker-compose.yml` profile — except where that profile hardcodes a
-variable itself (e.g. `DJANGO_DEBUG: "0"`), which always wins for that stack regardless of `.env`.
+Docker Compose sets these via `env_file: .env` in `docker-compose.yml` (and reads the same file
+for `${...}` interpolation in the YAML, e.g. `NGINX_HTTP_PORT`). Outside Docker, `manage.py`
+auto-loads the root `.env` via `python-dotenv` (without overriding variables already present in
+the environment), so a bare `python manage.py runserver` picks up the same file — except where
+the compose file hardcodes a variable itself (e.g. `DJANGO_DEBUG: "0"`), which always wins inside
+the stack regardless of `.env`.
 
 ## Core Django / networking
 
@@ -46,9 +47,9 @@ Boolean-style flags accept `1`, `true`, `True`, `yes`, or `on`; anything else is
 | `DATABASE_HOST` | `localhost` | Postgres host (`db` in the Docker Compose network). |
 | `DATABASE_PORT` | `5432` | Postgres port. |
 
-The `db` service in `docker-compose.prod.yml` additionally reads `POSTGRES_DB`, `POSTGRES_USER`,
+The `db` service in `docker-compose.yml` additionally reads `POSTGRES_DB`, `POSTGRES_USER`,
 `POSTGRES_PASSWORD` (standard `postgres` image init variables) — keep these in sync with the
-`DATABASE_*` values above, since both come from the same `.env.prod` file.
+`DATABASE_*` values above, since both come from the same `.env` file.
 
 ## Container entrypoint
 
@@ -94,7 +95,7 @@ production).
 Runs in-process (see `attachments/extraction_client.py` and the `reinvgrabber-extraction`
 dependency in `requirements.txt`, sourced from https://github.com/montegrotto/ReInvGrabber) — no
 separate service or URL to configure. Needs the Tesseract OCR binary + Swedish language data on
-`PATH`; already installed in both Dockerfiles.
+`PATH`; already installed in the Dockerfile.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -106,13 +107,6 @@ silent fallback tax calculation, by design.
 
 ## Where these are set in practice
 
-- **Standalone Docker (no Postgres/nginx)**: `.env` (git-ignored, loaded via `env_file` in
-  `docker-compose.yml`) — copy `.env.example` and fill in real values.
-- **Local dev container**: `.env.dev` (git-ignored, loaded via `env_file` in
-  `docker-compose.dev.yml`) — copy `.env.dev.example` (sqlite, debug on).
-- **Production**: `.env.prod` (git-ignored, loaded via `env_file` in `docker-compose.prod.yml`) —
-  copy `.env.prod.example` and fill in real values, see [deploy-checklist.md](deploy-checklist.md).
-
-Each compose file sets its own Compose project name (`saldovibe-standalone`, `saldovibe-dev`;
-`docker-compose.prod.yml` keeps the implicit directory-derived name) so their volumes and networks
-never collide if multiple stacks run on the same host at once.
+Everything lives in the root `.env` (git-ignored) — copy `.env.example`. For local dev the
+defaults give sqlite + debug off (uncomment `DJANGO_DEBUG=1`); for production uncomment and fill
+in the "Produktion" section, see [deploy-checklist.md](deploy-checklist.md).

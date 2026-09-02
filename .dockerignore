@@ -19,8 +19,6 @@ yarn-error.log
 .DS_Store.env
 .env.*
 !.env.example
-!.env.dev.example
-!.env.prod.example
 docs
 export_bundles
 *.sqlite3

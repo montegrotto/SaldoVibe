@@ -45,18 +45,16 @@ python manage.py collectstatic --noinput
   (`git push --no-verify` skips once).
 - **Dependencies are locked.** Changed `requirements*.txt`? Use the `update-dependencies` skill to
   regenerate the `.lock` files; CI fails on drift.
-- **Python 3.13 everywhere** (venv, both Dockerfiles, CI) — keep in sync. Never 3.14:
+- **Python 3.13 everywhere** (venv, Dockerfile, CI) — keep in sync. Never 3.14:
   `rfc3161ng` (audit timestamping) and `xhtml2pdf` (PDF reports) don't support it, both are
   compliance-critical. 3.13 outlives Django 5.2 LTS, so no reason to move.
 
 ### Docker
 
-- `docker-compose.dev.yml` + `Dockerfile.dev`: sqlite, `runserver`, repo mounted.
-- `docker-compose.prod.yml` + `Dockerfile`: Postgres + nginx + Gunicorn + WhiteNoise.
-- `docker-compose.yml`: standalone prod image, no Postgres/nginx.
-
-Each loads its own `env_file` (`.env`, `.env.dev`, `.env.prod` — copy from `.example`). Variable
-reference: `docs/ops/environment-variables.md`.
+One stack: `docker-compose.yml` + `Dockerfile` — Postgres + nginx + Gunicorn + WhiteNoise +
+ofelia scheduler. It reads `.env` (copy from `.env.example`; same file feeds compose
+interpolation, container env, and a bare `manage.py runserver` via python-dotenv). Local dev runs
+without Docker. Variable reference: `docs/ops/environment-variables.md`.
 
 ## Lint & Test Gate
 

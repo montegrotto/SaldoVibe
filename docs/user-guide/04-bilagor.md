@@ -36,17 +36,16 @@ vid nästa hämtning.
 ### När hämtningen körs
 
 Hämtningen är schemalagd och körs **var 15:e minut** för alla aktiva företag som har
-e-posthämtning påslagen. Den sköts av `scheduler`-tjänsten (ofelia), som finns i både
-`docker-compose.prod.yml` och `docker-compose.yml`. Ett företag som misslyckas stoppar inte de
+e-posthämtning påslagen. Den sköts av `scheduler`-tjänsten (ofelia) i
+`docker-compose.yml`. Ett företag som misslyckas stoppar inte de
 övriga, och kommandot avslutas med felkod så att en trasig brevlåda syns i schemaläggarloggen:
 
 ```bash
 docker compose logs scheduler
 ```
 
-**`docker-compose.dev.yml` har ingen scheduler** — i utvecklingsmiljön kör du kommandot manuellt.
-
-Du kan också köra det manuellt:
+I utvecklingsmiljön (bar `manage.py runserver`) finns ingen scheduler — där, eller för en
+engångskörning, kör du kommandot manuellt:
 
 ```bash
 python manage.py hamta_epostbilagor              # alla företag

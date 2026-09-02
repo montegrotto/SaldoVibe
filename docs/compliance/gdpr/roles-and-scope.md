@@ -11,7 +11,7 @@ rådgivning.
 
 | Driftsmodell | Personuppgiftsansvarig | Personuppgiftsbiträde | SaldoVibes roll |
 |---|---|---|---|
-| Självhostad (kunden kör `docker-compose.prod.yml` eller standalone-imagen på egen infrastruktur) | Kundföretaget, för sina anställda, kunder, leverantörer och applikationsanvändare | Ingen som SaldoVibe tillför | Endast mjukvaruleverantör — ingen åtkomst till personuppgifter, ingen GDPR-roll |
+| Självhostad (kunden kör `docker-compose.yml` eller standalone-imagen på egen infrastruktur) | Kundföretaget, för sina anställda, kunder, leverantörer och applikationsanvändare | Ingen som SaldoVibe tillför | Endast mjukvaruleverantör — ingen åtkomst till personuppgifter, ingen GDPR-roll |
 | Hostad drift (SaldoVibe/operatören driver instansen åt ett kundföretag) | Kundföretaget | Operatören (SaldoVibe-som-tjänst) | Biträde enligt art. 28 — ett personuppgiftsbiträdesavtal (PUB-avtal) krävs före driftstart |
 
 Anmärkningar:

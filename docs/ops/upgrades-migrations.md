@@ -14,26 +14,26 @@ This means **every restart of the `web` container applies any pending migrations
 including during a routine deploy (see [deploy-checklist.md](deploy-checklist.md)). There is no
 separate "run migrations" step you need to remember for normal releases.
 
-Set `SALDOVIBE_RUN_MIGRATIONS=0` in `.env.prod` if you ever want to decouple migration application
+Set `SALDOVIBE_RUN_MIGRATIONS=0` in `.env` if you ever want to decouple migration application
 from container start (e.g. running `migrate` manually in a maintenance window before starting the
 new `web` image).
 
 ## Running migrations manually
 
 ```bash
-docker compose -f docker-compose.prod.yml exec web python manage.py migrate
+docker compose exec web python manage.py migrate
 ```
 
 To preview what a deploy would change without applying it:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec web python manage.py migrate --plan
+docker compose exec web python manage.py migrate --plan
 ```
 
 To check that no model changes are missing a migration file (useful in CI or before merging):
 
 ```bash
-docker compose -f docker-compose.prod.yml exec web python manage.py makemigrations --check --dry-run
+docker compose exec web python manage.py makemigrations --check --dry-run
 ```
 
 ## Before a migration that touches accounting tables
@@ -58,7 +58,7 @@ Django migrations can be reversed if the migration defines a working `reverse` o
 auto-generated schema migrations do; hand-written data migrations may not):
 
 ```bash
-docker compose -f docker-compose.prod.yml exec web python manage.py migrate <app_label> <previous_migration_name>
+docker compose exec web python manage.py migrate <app_label> <previous_migration_name>
 ```
 
 Caveats:
