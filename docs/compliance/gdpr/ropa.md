@@ -139,6 +139,7 @@ hela registret.
 | accounts.customuser (ej auditspårad) | A1 | e-post, namn |
 | bookkeeping.company | A8 / A6 / A10 | brevlådeuppgifter (krypterade i vila enligt G-009 — planerat), företagets kontaktuppgifter |
 | bookkeeping.sentemail (ej auditspårad) | A10 | mottagarens e-postadress, ämnesrad |
+| bookkeeping.companymembership | A1 | koppling användare–företag, roll |
 | bookkeeping.account | A8 | inga |
 | bookkeeping.accountingyear | A8 | inga |
 | bookkeeping.transaction | A8 | i förbigående (verifikationstext) |

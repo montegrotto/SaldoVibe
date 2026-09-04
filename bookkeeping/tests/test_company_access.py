@@ -7,7 +7,15 @@ from banking.models import BankAccount
 from bookkeeping.bas_accounts import load_bas_2026_accounts
 from bookkeeping.company_scope import SESSION_COMPANY_KEY
 from bookkeeping.compliance_policy import is_action_allowed
-from bookkeeping.models import Account, AccountClass, AccountingYear, Company, JournalEntry, Transaction
+from bookkeeping.models import (
+    Account,
+    AccountClass,
+    AccountingYear,
+    Company,
+    CompanyMembership,
+    JournalEntry,
+    Transaction,
+)
 from fixed_assets.models import FixedAssetType
 from saldovibe.testing import create_account, create_company, create_user, set_active_company
 
@@ -502,3 +510,61 @@ class CompanyAccessTests(TestCase):
         self.assertRedirects(response, reverse("bookkeeping:company_list"))
         company.refresh_from_db()
         self.assertEqual(company.email_fetch_oauth_client_secret, "existing-oauth-secret")
+
+
+class CompanyMembershipTests(TestCase):
+    def setUp(self):
+        self.owner = create_user("owner@example.com")
+        self.viewer = create_user("revisor@example.com")
+        self.company = create_company("Medlemsbolaget AB", users=[self.owner])
+        CompanyMembership.objects.create(company=self.company, user=self.viewer, role=CompanyMembership.Role.VIEWER)
+        self.members_url = reverse("bookkeeping:company_members", args=[self.company.pk])
+
+    def test_users_add_defaults_to_editor(self):
+        membership = CompanyMembership.objects.get(company=self.company, user=self.owner)
+        self.assertEqual(membership.role, CompanyMembership.Role.EDITOR)
+
+    def test_viewer_can_read_but_not_post(self):
+        self.client.force_login(self.viewer)
+        set_active_company(self.client, self.company)
+        self.assertEqual(self.client.get(reverse("bookkeeping:transaction_list")).status_code, 200)
+        self.assertContains(self.client.get(reverse("bookkeeping:dashboard")), "Läsbehörighet")
+
+        response = self.client.post(reverse("bookkeeping:transaction_add"), {})
+        self.assertRedirects(response, reverse("bookkeeping:dashboard"))
+        # Läsrollen får inte heller ändra företaget eller dess användare.
+        self.assertRedirects(self.client.get(self.members_url), reverse("bookkeeping:company_list"))
+        response = self.client.get(reverse("bookkeeping:company_update", args=[self.company.pk]))
+        self.assertRedirects(response, reverse("bookkeeping:company_list"))
+
+    def test_editor_adds_and_removes_member(self):
+        newcomer = create_user("ny@example.com")
+        self.client.force_login(self.owner)
+
+        response = self.client.post(self.members_url, {"email": "NY@example.com", "role": "viewer"})
+        self.assertRedirects(response, self.members_url)
+        self.assertEqual(
+            CompanyMembership.objects.get(company=self.company, user=newcomer).role, CompanyMembership.Role.VIEWER
+        )
+
+        remove_url = reverse("bookkeeping:company_member_remove", args=[self.company.pk, newcomer.pk])
+        self.assertRedirects(self.client.post(remove_url), self.members_url)
+        self.assertFalse(self.company.users.filter(pk=newcomer.pk).exists())
+
+    def test_unknown_or_duplicate_email_is_rejected(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.members_url, {"email": "okand@example.com", "role": "editor"})
+        self.assertContains(response, "registrera sig först")
+        response = self.client.post(self.members_url, {"email": "revisor@example.com", "role": "editor"})
+        self.assertContains(response, "redan kopplad")
+
+    def test_cannot_remove_self(self):
+        self.client.force_login(self.owner)
+        remove_url = reverse("bookkeeping:company_member_remove", args=[self.company.pk, self.owner.pk])
+        self.client.post(remove_url)
+        self.assertTrue(self.company.users.filter(pk=self.owner.pk).exists())
+
+    def test_outsider_cannot_manage_members(self):
+        outsider = create_user("annan@example.com")
+        self.client.force_login(outsider)
+        self.assertRedirects(self.client.get(self.members_url), reverse("bookkeeping:company_list"))

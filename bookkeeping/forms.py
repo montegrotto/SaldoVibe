@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.db import transaction as db_transaction
 from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory, modelformset_factory
@@ -15,6 +16,7 @@ from .models import (
     AccountingYear,
     BudgetLine,
     Company,
+    CompanyMembership,
     JournalEntry,
     PeriodLock,
     Transaction,
@@ -869,3 +871,33 @@ class BudgetForm(forms.Form):
                             month=month,
                             defaults={"amount": amount},
                         )
+
+
+class CompanyMemberForm(forms.Form):
+    email = forms.EmailField(
+        label="E-postadress",
+        help_text="Personen måste först ha registrerat ett konto i SaldoVibe.",
+        widget=forms.EmailInput(attrs={"class": "form-control"}),
+    )
+    role = forms.ChoiceField(
+        label="Roll",
+        choices=CompanyMembership.Role.choices,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, company, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+
+    def clean(self):
+        cleaned = super().clean()
+        email = cleaned.get("email")
+        if not email:
+            return cleaned
+        user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
+        if user is None:
+            raise forms.ValidationError("Ingen användare med den e-postadressen. Be personen registrera sig först.")
+        if self.company.users.filter(pk=user.pk).exists():
+            raise forms.ValidationError("Användaren är redan kopplad till företaget.")
+        cleaned["user"] = user
+        return cleaned

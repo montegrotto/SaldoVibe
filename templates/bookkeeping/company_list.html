@@ -47,6 +47,9 @@
                 {% endif %}
               </td>
               <td class="text-end pe-3">
+                <a href="{% url 'bookkeeping:company_members' company.pk %}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-people me-1"></i>Användare
+                </a>
                 <a href="{% url 'bookkeeping:company_update' company.pk %}" class="btn btn-outline-secondary btn-sm">
                   <i class="bi bi-pencil-square me-1"></i>Redigera
                 </a>

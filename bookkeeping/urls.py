@@ -24,6 +24,12 @@ urlpatterns = [
     path("foretag/valj/", views.select_company, name="select_company"),
     path("foretag/<int:pk>/uppdatera/", views.company_update, name="company_update"),
     path("foretag/<int:pk>/ta-bort/", views.company_delete, name="company_delete"),
+    path("foretag/<int:pk>/anvandare/", views.company_members, name="company_members"),
+    path(
+        "foretag/<int:pk>/anvandare/<int:user_id>/ta-bort/",
+        views.company_member_remove,
+        name="company_member_remove",
+    ),
     path("foretag/byt/", views.switch_company, name="switch_company"),
     path("rakenskapsar/", views.accounting_year_list, name="accounting_year_list"),
     path("rakenskapsar/ny/", views.accounting_year_create, name="accounting_year_create"),

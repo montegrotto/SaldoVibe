@@ -11,7 +11,7 @@ from invoicing.models import get_due_alert_state_for_company as get_recurring_in
 from payroll.models import PayrollRun
 from supplier_invoices.models import SupplierInvoice
 
-from .company_scope import get_active_company, get_user_companies
+from .company_scope import get_active_company, get_user_companies, is_read_only_member
 from .models import ExportJob
 from .notifications import (
     get_failed_job_state,
@@ -125,6 +125,7 @@ def active_company(request):
     if not request.user.is_authenticated:
         return {
             "active_company": None,
+            "active_company_readonly": False,
             "available_companies": [],
             "fixed_assets_due_count": 0,
             "supplier_invoices_due_soon_count": 0,
@@ -165,6 +166,7 @@ def active_company(request):
 
     return {
         "active_company": company,
+        "active_company_readonly": company is not None and is_read_only_member(request.user, company),
         "available_companies": companies,
         "fixed_assets_due_count": due_count,
         "supplier_invoices_due_soon_count": supplier_due_soon_count,

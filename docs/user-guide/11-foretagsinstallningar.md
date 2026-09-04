@@ -18,8 +18,22 @@
   e-post, se nedan.
 - **Aktivt/inaktivt** företag.
 
-Endast användare kopplade till företaget (eller superuser) kan redigera det – annars avvisas
-begäran med "Du har inte behörighet att redigera detta företag."
+Endast användare kopplade till företaget med full behörighet (eller superuser) kan redigera det –
+annars avvisas begäran med "Du har inte behörighet att redigera detta företag."
+
+## Användare och läsbehörighet
+
+Under **Företag → Användare** ser du vilka som har tillgång till företaget och kan lägga till
+fler. Personen måste först ha registrerat ett eget konto i SaldoVibe; ange sedan e-postadressen
+och välj roll:
+
+- **Full behörighet** – kan bokföra, fakturera och ändra företagets inställningar.
+- **Endast läsa** – ser alla sidor, rapporter och verifikationer men kan inte ändra något.
+  Passar revisor eller redovisningskonsult som bara ska granska. Användaren ser en gul
+  **Läsbehörighet**-markering i menyn, och varje försök att spara avvisas.
+
+Du kan ta bort andra användare, men inte dig själv – på så vis finns det alltid minst en
+användare med full behörighet kvar. Alla ändringar i användarlistan hamnar i auditloggen.
 
 ## Utgående e-post
 
