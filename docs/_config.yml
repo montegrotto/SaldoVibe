@@ -11,3 +11,9 @@ exclude:
   - agent-execution-prompt.md
   - feature-roadmap.md
   - system-replication-spec.md
+# Minima listar annars varje sida i sidhuvudet; tomt värde faller tillbaka på "alla".
+header_pages:
+  - index.md
+# Sidtiteln tas från första rubriken – ta bort den ur brödtexten så den inte visas dubbelt.
+titles_from_headings:
+  strip_title: true
