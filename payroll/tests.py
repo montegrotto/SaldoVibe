@@ -10,7 +10,7 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.utils import timezone
 
-from bookkeeping.models import Transaction
+from bookkeeping.models import SentEmail, Transaction
 from saldovibe.testing import CompanyTestCase, create_accounts, create_user
 
 from .models import (
@@ -1048,3 +1048,61 @@ class PayrollRegressionTests(CompanyTestCase):
         PayrollReportEvidence.objects.create(payroll_run=self.payroll_run, payload_json="{}", payload_hash="0" * 64)
         with self.assertRaises(ProtectedError):
             self.payroll_run.delete()
+
+
+class SalaryReportEmailTests(CompanyTestCase):
+    user_email = "lon-epost@example.com"
+    company_name = "Lönemejl AB"
+    company_fields = {
+        "email_send_provider": "smtp",
+        "email_send_from": "lon@lonemejl.se",
+        "email_send_smtp_host": "smtp.example.com",
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.employee = Employee.objects.create(
+            company=self.company,
+            first_name="Anna",
+            last_name="Andersson",
+            personal_identity_number="199001011234",
+            email="anna@example.com",
+            monthly_salary=Decimal("40000.00"),
+            tax_table_number=32,
+            tax_table_column=1,
+        )
+        self.payroll_run = PayrollRun.objects.create(
+            company=self.company, period_year=2026, period_month=6, payment_date=timezone.now().date()
+        )
+        self.record = SalaryRecord.objects.create(
+            payroll_run=self.payroll_run,
+            employee=self.employee,
+            gross_salary=Decimal("40000.00"),
+            tax_table_number=32,
+            tax_table_column=1,
+        )
+        self.url = reverse("payroll:salary_report_email", args=[self.payroll_run.pk, self.record.pk])
+
+    def test_sends_pdf_and_logs_sent_email(self):
+        with patch("django.core.mail.message.EmailMessage.send", return_value=1) as send:
+            response = self.client.post(self.url, follow=True)
+        self.assertContains(response, "Lönespecifikationen skickades till anna@example.com")
+        self.assertEqual(send.call_count, 1)
+        sent = SentEmail.objects.get()
+        self.assertEqual(sent.purpose, SentEmail.Purpose.SALARY)
+        self.assertEqual(sent.status, SentEmail.Status.SENT)
+        self.assertEqual(sent.recipient, "anna@example.com")
+
+    def test_employee_without_email_is_rejected(self):
+        self.employee.email = ""
+        self.employee.save()
+        response = self.client.post(self.url, follow=True)
+        self.assertContains(response, "saknar e-postadress")
+        self.assertFalse(SentEmail.objects.exists())
+
+    def test_button_only_when_employee_has_email(self):
+        detail_url = reverse("payroll:payroll_run_detail", args=[self.payroll_run.pk])
+        self.assertContains(self.client.get(detail_url), self.url)
+        self.employee.email = ""
+        self.employee.save()
+        self.assertNotContains(self.client.get(detail_url), self.url)

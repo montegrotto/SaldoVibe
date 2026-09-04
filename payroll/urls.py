@@ -32,6 +32,11 @@ urlpatterns = [
         name="salary_report_print",
     ),
     path(
+        "lon/lonekorningar/<int:payroll_run_id>/lonespec/<int:salary_record_id>/skicka-epost/",
+        views.salary_report_email,
+        name="salary_report_email",
+    ),
+    path(
         "lon/lonekorningar/<int:payroll_run_id>/lonepost/<int:salary_record_id>/redigera/",
         views.salary_record_update,
         name="salary_record_update",

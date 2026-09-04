@@ -14,7 +14,9 @@ from django.views.decorators.http import require_POST
 
 from bookkeeping.company_scope import require_company
 from bookkeeping.compliance_policy import require_compliance_action
-from bookkeeping.pdf import company_logo_size, render_pdf_response
+from bookkeeping.models import SentEmail
+from bookkeeping.outgoing_mail import company_email_configured, send_company_email
+from bookkeeping.pdf import PdfRenderError, company_logo_size, render_pdf_bytes, render_pdf_response
 
 from .forms import (
     EmployeeDefaultAdjustmentFormSet,
@@ -363,6 +365,51 @@ def salary_report_print(request, company, payroll_run_id, salary_record_id):
         f"lonespecifikation-{salary_record.pk}.pdf",
         disposition="inline",
     )
+
+
+@login_required
+@require_company
+@require_POST
+def salary_report_email(request, company, payroll_run_id, salary_record_id):
+    """Skicka lönespecifikationen som PDF till den anställdes e-post via företagets utgående konto."""
+    salary_record = get_object_or_404(
+        SalaryRecord.objects.select_related("payroll_run", "employee", "payroll_run__company")
+        .prefetch_related("adjustments")
+        .filter(payroll_run__company=company, payroll_run_id=payroll_run_id),
+        pk=salary_record_id,
+    )
+    employee = salary_record.employee
+    run = salary_record.payroll_run
+    if not employee.email:
+        messages.error(request, f"{employee} saknar e-postadress.")
+    elif not company_email_configured(company):
+        messages.error(request, "Utgående e-post är inte konfigurerad för företaget.")
+    else:
+        try:
+            pdf = render_pdf_bytes("payroll/salary_report_print.html", salary_report_pdf_context(salary_record))
+        except PdfRenderError as exc:
+            messages.error(request, str(exc))
+            return redirect("payroll:payroll_run_detail", payroll_run_id=run.pk)
+        period = f"{run.period_year}-{run.period_month:02d}"
+        body = (
+            f"Hej {employee.first_name}!\n\n"
+            f"Här kommer din lönespecifikation för {period} från {company.name}, bifogad som PDF.\n\n"
+            f"Vänliga hälsningar\n{company.name}"
+        )
+        result = send_company_email(
+            company,
+            purpose=SentEmail.Purpose.SALARY,
+            to=[employee.email],
+            subject=f"Lönespecifikation {period} från {company.name}",
+            body=body,
+            attachments=[(f"lonespecifikation-{period}.pdf", "application/pdf", pdf)],
+            user=request.user,
+        )
+        if result.status == SentEmail.Status.SENT:
+            messages.success(request, f"Lönespecifikationen skickades till {employee.email}.")
+        else:
+            messages.error(request, f"Kunde inte skicka lönespecifikationen: {result.error}")
+    return redirect("payroll:payroll_run_detail", payroll_run_id=run.pk)
 
 
 @login_required

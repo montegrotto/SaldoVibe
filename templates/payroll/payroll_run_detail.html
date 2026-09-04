@@ -140,6 +140,12 @@
             <a class="btn btn-sm btn-outline-primary" href="{% url 'payroll:salary_record_update' payroll_run.pk record.pk %}">Redigera</a>
             {% endif %}
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'payroll:salary_report_print' payroll_run.pk record.pk %}" target="_blank">Lönespec</a>
+            {% if record.employee.email %}
+            <form method="post" action="{% url 'payroll:salary_report_email' payroll_run.pk record.pk %}" class="d-inline" onsubmit="return confirm('Skicka lönespecifikationen till {{ record.employee.email|escapejs }}?');">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-secondary" type="submit" title="Skicka lönespec till {{ record.employee.email }}"><i class="bi bi-envelope"></i></button>
+            </form>
+            {% endif %}
             {% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
             <form method="post" action="{% url 'payroll:payroll_run_remove_employee' payroll_run.pk record.pk %}" class="d-inline">
               {% csrf_token %}

@@ -11,6 +11,7 @@ Gå till **Personal → Anställda** för att skapa en anställd. Nödvändiga u
   `månadslön × sysselsättningsgrad / 100`.
 - **Skattetabell** (1–40) och **kolumn** (1–6) som styr preliminärskatteberäkningen.
 - Anställningsdatum (valfritt) och om personen är aktiv.
+- **E-post** (valfritt) – dit lönespecifikationen kan skickas, se nedan.
 
 Du kan även lägga upp **standardjusteringar** per anställd (t.ex. återkommande tillägg/avdrag) som
 automatiskt kopieras in på varje ny lönekörning för den personen.
@@ -29,6 +30,15 @@ automatiskt kopieras in på varje ny lönekörning för den personen.
 Öppna lönekörningen och redigera en lönepost för att justera bruttolön, lägga till tillägg/avdrag
 (före eller efter skatt, skattepliktiga eller ej) eller ändra skattetabell/kolumn för just den
 utbetalningen.
+
+## Lönespecifikation – skriv ut eller skicka via e-post
+
+På lönekörningens sida finns knappen **Lönespec** per lönepost som öppnar lönespecifikationen som
+PDF. Har den anställde en e-postadress visas även en kuvertknapp: den skickar samma PDF till
+adressen via företagets utgående e-postkonto (se
+[11. Företagsinställningar](11-foretagsinstallningar.md#utgående-e-post)). Är utgående e-post
+inte konfigurerad får du ett felmeddelande. Varje utskick loggas som skickad e-post med typen
+*Lönespecifikation*.
 
 ## Avsluta lönekörningen
 
