@@ -24,6 +24,7 @@ TRACKED_MODELS = {
             "email_notify_smtp_password",
         },
     },
+    "bookkeeping.companymembership": {"name": "Företagsanvändare", "company_path": "company"},
     "bookkeeping.account": {"name": "Konto", "company_path": "company"},
     "bookkeeping.accountingyear": {"name": "Räkenskapsår", "company_path": "company"},
     "bookkeeping.transaction": {"name": "Verifikation", "company_path": "accounting_year.company"},

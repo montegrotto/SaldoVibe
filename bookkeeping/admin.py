@@ -5,6 +5,7 @@ from .models import (
     AccountingYear,
     BudgetLine,
     Company,
+    CompanyMembership,
     JournalEntry,
     PeriodLock,
     Transaction,
@@ -15,11 +16,17 @@ from .models import (
 )
 
 
+class CompanyMembershipInline(admin.TabularInline):
+    model = CompanyMembership
+    extra = 0
+    autocomplete_fields = ("user",)
+
+
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
     list_display = ("name", "org_number", "company_icon", "vat_reporting_period", "is_active")
     search_fields = ("name", "org_number")
-    filter_horizontal = ("users",)
+    inlines = (CompanyMembershipInline,)
 
 
 @admin.register(Account)

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Användare – {{ company.name }} - SaldoVibe{% endblock %}
+{% block page_title %}Användare – {{ company.name }}{% endblock %}
+{% block nav_companies %}active{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th class="ps-3">Namn</th><th>E-post</th><th>Roll</th><th class="text-end pe-3"></th></tr>
+          </thead>
+          <tbody>
+            {% for membership in memberships %}
+            <tr>
+              <td class="ps-3">{{ membership.user.get_full_name }}</td>
+              <td>{{ membership.user.email }}</td>
+              <td>{{ membership.get_role_display }}</td>
+              <td class="text-end pe-3">
+                {% if membership.user_id != request.user.pk %}
+                <form method="post" action="{% url 'bookkeeping:company_member_remove' company.pk membership.user_id %}" class="mb-0" onsubmit="return confirm('Ta bort {{ membership.user.email|escapejs }} från företaget?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-danger btn-sm">Ta bort</button>
+                </form>
+                {% else %}
+                <span class="text-muted small">Du</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <a href="{% url 'bookkeeping:company_list' %}" class="btn btn-outline-secondary mt-3">Tillbaka</a>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h6 class="card-title">Lägg till användare</h6>
+        <form method="post">
+          {% csrf_token %}
+          {% include "partials/form_errors.html" %}
+          {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary">Lägg till</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

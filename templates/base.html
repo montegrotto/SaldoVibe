@@ -275,9 +275,13 @@
         <span>{{ active_company.name }}</span>
       </div>
       {% endif %}
+      {% if active_company_readonly %}
+      <div class="px-3 pb-2"><span class="badge text-bg-warning" title="Du kan se allt men inte ändra något i det här företaget.">Läsbehörighet</span></div>
+      {% else %}
       <a class="side-cta" href="{% url 'bookkeeping:transaction_add' %}">
         <i class="bi bi-plus-lg" aria-hidden="true"></i>Ny verifikation
       </a>
+      {% endif %}
     </div>
 
     <div class="side-scroll">

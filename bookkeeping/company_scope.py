@@ -3,7 +3,7 @@ import functools
 from django.contrib import messages
 from django.shortcuts import redirect
 
-from .models import Company
+from .models import Company, CompanyMembership
 
 SESSION_COMPANY_KEY = "active_company_id"
 _DEFAULT_ERROR_MESSAGE = "Du har inte tillgång till något företag ännu. Kontakta administratör."
@@ -105,6 +105,9 @@ def require_company(
             )
             if company is None:
                 return redirect_missing_company(request)
+            if request.method == "POST" and is_read_only_member(request.user, company):
+                messages.error(request, "Du har bara läsbehörighet i det här företaget.")
+                return redirect("bookkeeping:dashboard")
             return view_func(request, company, *args, **kwargs)
 
         return wrapper
@@ -122,3 +125,16 @@ def can_access_company(user, company):
     if user.is_superuser:
         return True
     return company.users.filter(pk=user.pk).exists()
+
+
+def is_read_only_member(user, company):
+    if user.is_superuser:
+        return False
+    return CompanyMembership.objects.filter(company=company, user=user, role=CompanyMembership.Role.VIEWER).exists()
+
+
+def can_edit_company(user, company):
+    """Medlem med full behörighet (eller superuser) – får ändra företaget och dess användare."""
+    if user.is_superuser:
+        return True
+    return CompanyMembership.objects.filter(company=company, user=user, role=CompanyMembership.Role.EDITOR).exists()

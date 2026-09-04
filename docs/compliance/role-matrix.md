@@ -6,6 +6,11 @@
 - `finance_admin`: stänger perioder, kör exporter, hanterar compliance-flöden
 - `system_admin`: infrastruktur och nödåtkomst
 
+Utöver compliance-rollerna har varje företagsmedlemskap (`bookkeeping.CompanyMembership`) en
+roll: **full behörighet** (standard) eller **endast läsa** (t.ex. revisor). Läsrollen ser allt i
+företaget men varje POST spärras centralt i `company_scope.require_company`; företagets
+inställningar och användarlista kräver full behörighet (`can_edit_company`).
+
 ## Känsliga åtgärder
 
 | Åtgärdsnyckel | Beskrivning | Lägsta roll |

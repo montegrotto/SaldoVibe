@@ -18,16 +18,19 @@ from ..bas_accounts import BasAccountLoadError, seed_bas_2026_accounts_for_compa
 from ..company_scope import (
     SESSION_COMPANY_KEY,
     can_create_company,
+    can_edit_company,
     get_user_companies,
     set_active_company,
 )
 from ..compliance_policy import require_compliance_action
 from ..forms import (
     CompanyForm,
+    CompanyMemberForm,
 )
 from ..models import (
     AccountingYear,
     Company,
+    CompanyMembership,
     JournalEntry,
     Transaction,
     VerificationTemplate,
@@ -168,7 +171,7 @@ def company_create(request):
 @login_required
 def company_update(request, pk):
     company = get_object_or_404(Company, pk=pk)
-    if not request.user.is_superuser and not company.users.filter(pk=request.user.pk).exists():
+    if not can_edit_company(request.user, company):
         logger.warning(
             "Unauthorized company update attempt",
             extra={"company_id": company.id, "user_id": request.user.id},
@@ -250,7 +253,7 @@ def company_update(request, pk):
 @require_compliance_action("company.delete")
 def company_delete(request, pk):
     company = get_object_or_404(Company, pk=pk)
-    if not request.user.is_superuser and not company.users.filter(pk=request.user.pk).exists():
+    if not can_edit_company(request.user, company):
         logger.warning(
             "Unauthorized company delete attempt",
             extra={"company_id": company.id, "user_id": request.user.id},
@@ -334,3 +337,57 @@ def switch_company(request):
     logger.info("Active company switched", extra={"company_id": company.id, "user_id": request.user.id})
     messages.success(request, f"Aktivt företag: {company.name}")
     return redirect("bookkeeping:dashboard")
+
+
+@login_required
+def company_members(request, pk):
+    company = get_object_or_404(Company, pk=pk)
+    if not can_edit_company(request.user, company):
+        messages.error(request, "Du har inte behörighet att hantera användare för detta företag.")
+        return redirect("bookkeeping:company_list")
+
+    if request.method == "POST":
+        form = CompanyMemberForm(request.POST, company=company)
+        if form.is_valid():
+            # Direkt create (inte company.users.add) så att auditloggen ser raden.
+            membership = CompanyMembership.objects.create(
+                company=company, user=form.cleaned_data["user"], role=form.cleaned_data["role"]
+            )
+            logger.info(
+                "Company member added",
+                extra={"company_id": company.id, "user_id": request.user.id, "member_id": membership.user_id},
+            )
+            messages.success(
+                request, f"{membership.user.email} har lagts till med rollen {membership.get_role_display().lower()}."
+            )
+            return redirect("bookkeeping:company_members", pk=pk)
+    else:
+        form = CompanyMemberForm(company=company)
+
+    memberships = company.memberships.select_related("user").order_by("user__email")
+    return render(
+        request,
+        "bookkeeping/company_members.html",
+        {"company": company, "form": form, "memberships": memberships},
+    )
+
+
+@login_required
+@require_POST
+def company_member_remove(request, pk, user_id):
+    company = get_object_or_404(Company, pk=pk)
+    if not can_edit_company(request.user, company):
+        messages.error(request, "Du har inte behörighet att hantera användare för detta företag.")
+        return redirect("bookkeeping:company_list")
+    if user_id == request.user.pk:
+        # Garanterar att minst en användare med full behörighet alltid finns kvar.
+        messages.error(request, "Du kan inte ta bort dig själv från företaget.")
+        return redirect("bookkeeping:company_members", pk=pk)
+
+    membership = get_object_or_404(CompanyMembership, company=company, user_id=user_id)
+    membership.delete()
+    logger.info(
+        "Company member removed", extra={"company_id": company.id, "user_id": request.user.id, "member_id": user_id}
+    )
+    messages.success(request, f"{membership.user.email} har tagits bort från företaget.")
+    return redirect("bookkeeping:company_members", pk=pk)

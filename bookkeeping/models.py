@@ -139,6 +139,7 @@ class Company(models.Model):
     is_active = models.BooleanField("Aktiv", default=True)
     users = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
+        through="CompanyMembership",
         related_name="companies",
         verbose_name="Användare",
         blank=True,
@@ -152,6 +153,33 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CompanyMembership(models.Model):
+    """Kopplar en användare till ett företag. Läsrollen (revisor) får se allt men
+    spärras från varje POST i `company_scope.require_company`."""
+
+    class Role(models.TextChoices):
+        EDITOR = "editor", "Full behörighet"
+        VIEWER = "viewer", "Endast läsa"
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_column="customuser_id",
+        related_name="company_memberships",
+    )
+    role = models.CharField("Roll", max_length=10, choices=Role.choices, default=Role.EDITOR)
+
+    class Meta:
+        db_table = "bookkeeping_company_users"
+        unique_together = [("company", "user")]
+        verbose_name = "Företagsanvändare"
+        verbose_name_plural = "Företagsanvändare"
+
+    def __str__(self):
+        return f"{self.user} – {self.company} ({self.get_role_display()})"
 
 
 class SentEmail(models.Model):
