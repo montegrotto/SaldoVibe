@@ -17,45 +17,41 @@ uppdateras i samma ändring.
 - ~~Årsavslut/bokslutsflöde~~ — `bookkeeping:year_end_close`, per
   `docs/compliance/aarsavslut/bokslutsflode-design.md`.
 
-## 1. Årsavslut/bokslutsflöde
+## Genomgång 2026-09-04
 
-Det största funktionella hålet. Guidad avslutning av ett räkenskapsår:
+Punkterna 1–3 från förra genomgången är klara (se ovan). Ny inventering av vad som saknas, i
+prioritetsordning.
 
-- **Designdokument klart och alla öppna frågor beslutade (2026-08-16)** —
-  `docs/compliance/aarsavslut/bokslutsflode-design.md`. Bolagsform blir ett nytt
-  `TextChoices`-fält på `Company`; helårslåsningen körs *efter* bokslutsverifikationen (sista
-  steget); år stängs i kronologisk ordning. Redo för implementation.
-- Kontroll att perioderna fram till årets sista är låsta (`PeriodLock`) och att balansräkningen
-  går ihop (`balance_difference == annual_result`, verifierad formel i designdokumentet).
-- Två bokslutsverifikationer: S1 (8999 → 2099, årets sista dag) och S2 (2099 → 2091, nästa års
-  första dag) för AB; enskild firma använder 2019/2010-serien på samma sätt. Detaljer i
-  designdokumentet.
-- Tydlig IB-överföring till nästa år. Obs: IB beräknas redan dynamiskt (`sie.py`,
-  huvudboken) — det som saknas är själva omföringsverifikationen och guiden.
-- Byggstenar: `AccountingYear`, `period_lock_lock_year`, huvudboken för verifiering.
-  Gata bakom `finance_admin` i `compliance_policy.ACTION_ROLE_MATRIX`.
+### Små, hög nytta — byggs nu, en PR per punkt
 
-## 2. Periodiseringar
+- **Glömt lösenord** — `accounts` har bara login/logout/register; Djangos inbyggda
+  `PasswordResetView` + befintlig utgående e-post.
+- **Bjud in användare till företag + läsroll** — användare kopplas bara vid skapandet
+  (`company_create`); ingen vy för att lägga till kollega/revisor. Rollmatrisen saknar en ren
+  läsroll (revisorsåtkomst).
+- **Global sök** — sökfält i sidhuvudet som slår på verifikationstext, belopp, fakturanummer
+  och motpart.
+- **Lönespec via e-post** — utskriften (`salary_report_print`) och utskicksinfrastrukturen
+  (`outgoing_mail`) finns, ihopkopplingen saknas.
 
-Boka en kostnad/intäkt över flera månader (försäkring, hyra) i ett svep:
+### Medelstora — reella hål i domänen
 
-- Formulär: belopp, konto, motkonto 17xx/29xx, antal månader, startmånad → skapar N
-  verifikationer på en gång. Ingen bakgrundskörning — allt skapas direkt, precis som
-  `recurring_invoice_generate`.
-- Byggstenar: verifikationsmallarna (`verification_templates.py`) visar mönstret
-  "generera verifikationer"; periodlåsen måste kontrolleras per verifikationsdatum.
-- Enkel v1: ingen automatisk upplösning/reversering, bara skapandet.
+- **Semesterhantering i lön** — inga semesterdagar/semesterskuld i `payroll`. Semesterskulden
+  ska bokföras vid bokslut, så bokslutsflödet är ofullständigt utan den.
+- **SRU för enskild firma** — `Company` har bolagsformen men `sru_lookup` täcker bara INK2.
+  NE-bilagan saknas.
+- **Kontantmetoden (bokslutsmetoden) för moms** — bara faktureringsmetoden finns.
+- **Tvåfaktorsinloggning** — TOTP går med stdlib `hmac`, inget nytt beroende.
 
-## 3. Enkel resultatbudget
+### Stora — bara vid faktisk efterfrågan
 
-Belopp per konto och månad, som jämförelsekolumn i resultatrapporten:
+- **Årsredovisning K2** — naturligt steg efter bokslutet, men mycket mall och regelverk.
+- **Kostnadsställe/projekt** — ingen dimension i modellerna eller SIE-exporten (`#DIM`/`#OBJEKT`).
+- **Valutahantering** — kundfakturan har valutafält men ingen kursdifferens vid betalning.
 
-- En modell (konto, år, månad, belopp) + ett redigeringsformulär per räkenskapsår.
-- Extra kolumn (budget + differens) i `build_income_statement_context` och ev. på dashboarden.
-- Inga prognosmotorer — likviditetsprognosen visar att ambitionsnivån "enkel och användbar"
-  räcker.
+Attestflöde, lager och API: inga skäl i målgruppen, inte planerade.
 
-## 4. Offerter
+## Offerter
 
 Skapa offert från samma artiklar/kunder som fakturor, med "gör om till faktura"-knapp:
 
