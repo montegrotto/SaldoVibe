@@ -1,0 +1,13 @@
+# GitHub Pages (Jekyll) – publiceras från main:/docs. Ingen lokal byggkedja behövs.
+title: SaldoVibe
+description: Självhostad bokföring för svenska företag – BAS, SIE, moms, löner/AGI, hash-kedjad revisionslogg (Django)
+lang: sv
+theme: minima
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+# Interna arbetsdokument som inte hör hemma på webbplatsen.
+exclude:
+  - agent-execution-prompt.md
+  - feature-roadmap.md
+  - system-replication-spec.md
