@@ -10,6 +10,13 @@ SaldoVibe använder e-postadress som inloggnings-id, inte användarnamn.
 
 Nästa gång loggar du in via **Logga in** med e-post och lösenord.
 
+### Glömt lösenord
+
+Klicka **Glömt lösenord?** på inloggningssidan och ange din e-postadress. Du får ett mejl med en
+länk som gäller i tre dygn; via den väljer du ett nytt lösenord. Mejlet skickas från systemets
+utgående e-postkonto (`EMAIL_*`-inställningarna) – är det inte konfigurerat hamnar mejlet i
+serverloggen, och en administratör får sätta lösenordet via adminpanelen i stället.
+
 ## Skapa ditt första företag
 
 Innan du kan bokföra något behöver du ett företag. Ett konto kan ha flera företag och du växlar

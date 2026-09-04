@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model, password_validation
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 
 User = get_user_model()
 
@@ -55,3 +55,20 @@ class RegisterForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class StyledPasswordResetForm(PasswordResetForm):
+    email = forms.EmailField(
+        label="E-postadress",
+        max_length=254,
+        widget=forms.EmailInput(attrs={"class": "form-control", "autocomplete": "email", "autofocus": True}),
+    )
+
+
+class StyledSetPasswordForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Nytt lösenord"
+        self.fields["new_password2"].label = "Bekräfta nytt lösenord"
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-control"
