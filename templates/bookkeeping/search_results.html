@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Sök – SaldoVibe{% endblock %}
+{% block page_title %}Sök{% endblock %}
+
+{% block content %}
+{% if not q %}
+<p class="text-muted">Skriv något i sökfältet i sidhuvudet: verifikationstext, belopp, verifikationsnummer (t.ex. A12), fakturanummer, OCR, kund eller leverantör.</p>
+{% elif not has_hits %}
+<p class="text-muted">Inga träffar för <strong>{{ q }}</strong>.</p>
+{% else %}
+<p class="text-muted small">Träffar för <strong>{{ q }}</strong> – högst {{ limit }} per grupp, förfina sökningen om listan är full.</p>
+<div class="row g-3">
+  {% if results.transactions %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Verifikationer</div>
+      <div class="list-group list-group-flush">
+        {% for txn in results.transactions %}
+        <a class="list-group-item list-group-item-action" href="{% url 'bookkeeping:transaction_detail' txn.pk %}">
+          <span class="text-muted small">{{ txn.date }}{% if txn.voucher_number %} · {{ txn.voucher_series }}{{ txn.voucher_number }}{% endif %}</span>
+          <div>{{ txn.description }}</div>
+        </a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+  {% if results.invoices %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Kundfakturor</div>
+      <div class="list-group list-group-flush">
+        {% for invoice in results.invoices %}
+        <a class="list-group-item list-group-item-action" href="{% url 'invoicing:invoice_detail' invoice.pk %}">
+          <span class="text-muted small">{{ invoice.invoice_date }} · {{ invoice.invoice_number|default:"utkast" }}</span>
+          <div>{{ invoice.customer.name }}</div>
+        </a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+  {% if results.supplier_invoices %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Leverantörsfakturor</div>
+      <div class="list-group list-group-flush">
+        {% for invoice in results.supplier_invoices %}
+        <a class="list-group-item list-group-item-action" href="{% url 'supplier_invoices:invoice_detail' invoice.pk %}">
+          <span class="text-muted small">{{ invoice.invoice_date }} · {{ invoice.invoice_number|default:"-" }} · {{ invoice.total_amount|floatformat:"2g" }} kr</span>
+          <div>{{ invoice.supplier_name }}</div>
+        </a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+  {% if results.expenses %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Utlägg</div>
+      <div class="list-group list-group-flush">
+        {% for claim in results.expenses %}
+        <a class="list-group-item list-group-item-action" href="{% url 'expenses:expense_detail' claim.pk %}">
+          <span class="text-muted small">{{ claim.expense_date }} · {{ claim.total_amount|floatformat:"2g" }} kr</span>
+          <div>{{ claim.description }}</div>
+        </a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+  {% if results.customers %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Kunder</div>
+      <div class="list-group list-group-flush">
+        {% for customer in results.customers %}
+        <a class="list-group-item list-group-item-action" href="{% url 'invoicing:customer_update' customer.pk %}">{{ customer.name }}<span class="text-muted small ms-2">{{ customer.org_number }}</span></a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+  {% if results.suppliers %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Leverantörer</div>
+      <div class="list-group list-group-flush">
+        {% for supplier in results.suppliers %}
+        <a class="list-group-item list-group-item-action" href="{% url 'supplier_invoices:supplier_update' supplier.pk %}">{{ supplier.name }}</a>
+        {% endfor %}
+      </div></div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
