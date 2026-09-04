@@ -74,6 +74,7 @@ class Employee(models.Model):
     address = models.CharField("Adress", max_length=255, blank=True)
     postal_code = models.CharField("Postnummer", max_length=20, blank=True)
     city = models.CharField("Ort", max_length=100, blank=True)
+    email = models.EmailField("E-post", blank=True, help_text="Lönespecifikationen kan skickas hit.")
     monthly_salary = models.DecimalField("Månadslön", max_digits=12, decimal_places=2)
     employment_rate = models.DecimalField(
         "Sysselsättningsgrad (%)", max_digits=5, decimal_places=2, default=Decimal("100.00")

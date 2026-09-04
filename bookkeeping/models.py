@@ -161,6 +161,7 @@ class SentEmail(models.Model):
         INVOICE = "invoice", "Faktura"
         REMINDER = "reminder", "Betalningspåminnelse"
         DIGEST = "digest", "Daglig notissammanfattning"
+        SALARY = "salary", "Lönespecifikation"
 
     class Status(models.TextChoices):
         SENT = "sent", "Skickad"

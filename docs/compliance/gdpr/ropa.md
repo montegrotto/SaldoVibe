@@ -161,7 +161,7 @@ hela registret.
 | supplier_invoices.supplierinvoicepayment | A4 | inga |
 | expenses.expenseclaim | A4 | referens till den anställde, kvittodata |
 | expenses.expenseclaimpayment | A4 | inga |
-| payroll.employee | A2 | namn, personnummer (krypterat), adress, lönevillkor |
+| payroll.employee | A2 | namn, personnummer (krypterat), adress, e-post, lönevillkor |
 | payroll.payrollrun | A2 | inga direkt |
 | payroll.salaryrecord | A2 | lönebelopp per anställd |
 | payroll.salaryadjustment | A2 | justeringsbeskrivningar per anställd |

@@ -36,6 +36,7 @@ class EmployeeForm(forms.ModelForm):
             "address",
             "postal_code",
             "city",
+            "email",
             "monthly_salary",
             "employment_rate",
             "tax_table_number",
@@ -46,6 +47,7 @@ class EmployeeForm(forms.ModelForm):
         widgets = {
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
             "personal_identity_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "ÅÅÅÅMMDDNNNN"}),
             "address": forms.TextInput(attrs={"class": "form-control"}),
             "postal_code": forms.TextInput(attrs={"class": "form-control"}),
