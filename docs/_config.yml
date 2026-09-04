@@ -17,3 +17,5 @@ header_pages:
 # Sidtiteln tas från första rubriken – ta bort den ur brödtexten så den inte visas dubbelt.
 titles_from_headings:
   strip_title: true
+# Search Console-verifiering (jekyll-seo-tag skriver ut meta-taggen).
+google_site_verification: 6UkHJJ7uCFizG8IQ9zrFCoH0yaRzBGysRo6PT5wN6nM
