@@ -38,6 +38,14 @@ ett felmeddelande – prova då igen eller kontrollera att BAS-dataunderlaget i 
 Använd **Företag**-väljaren i den övre raden (syns bara om du har fler än ett företag). Allt du gör i
 appen – verifikationer, fakturor, rapporter – gäller alltid det just då aktiva företaget.
 
+## Sök
+
+Sökfältet i sidhuvudet slår på hela det aktiva företaget på en gång: verifikationstext,
+verifikationsnummer (t.ex. `A12`), fakturanummer, OCR, kund- och leverantörsnamn samt utlägg.
+Är söksträngen ett belopp (`1234,50`) visas verifikationsrader, leverantörsfakturor och utlägg
+med exakt det beloppet. Träffarna grupperas per typ, högst 20 per grupp – förfina sökningen om
+en lista är full.
+
 ## Kontoplan
 
 Under **Inställningar → Kontoplan** ser du alla konton som seedades från BAS 2026. Du kan:

@@ -449,10 +449,15 @@
         <i class="bi bi-list" aria-hidden="true"></i>
       </button>
       <h6 class="mb-0 text-muted text-truncate">{% block page_title %}{% endblock %}</h6>
+      {% if active_company %}
+      <form method="get" action="{% url 'bookkeeping:search' %}" class="ms-auto" role="search">
+        <input type="search" name="q" value="{{ request.GET.q|default:'' }}" class="form-control form-control-sm" placeholder="Sök verifikation, belopp, faktura…" aria-label="Sök" style="min-width: 16rem;">
+      </form>
+      {% endif %}
       {% if request.user.is_authenticated %}
       <div
         id="topbar-alert-container"
-        class="dropdown ms-auto me-3{% if not topbar_alert_has_any %} d-none{% endif %}"
+        class="dropdown me-3{% if not active_company %} ms-auto{% endif %}{% if not topbar_alert_has_any %} d-none{% endif %}"
         data-poll-url="{% url 'bookkeeping:topbar_alert_status' %}"
         data-token="{{ topbar_alert_count }}:{{ topbar_alert_has_alert }}"
       >

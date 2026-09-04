@@ -57,6 +57,7 @@ from .period_locks import (
     period_lock_relock,
     period_lock_reopen,
 )
+from .search import search
 from .sru import (
     sru_download,
     sru_preflight_report_download,
@@ -111,6 +112,7 @@ __all__ = [
     "company_create",
     "company_delete",
     "company_list",
+    "search",
     "company_update",
     "compliance_dashboard",
     "dashboard",

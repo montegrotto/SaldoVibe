@@ -7,6 +7,7 @@ app_name = "bookkeeping"
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("topbar/status/", views.topbar_alert_status, name="topbar_alert_status"),
+    path("sok/", views.search, name="search"),
     path(
         "likviditetsprognos/konton/",
         views.liquidity_forecast_accounts,
