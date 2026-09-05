@@ -1,5 +1,7 @@
 # SaldoVibe
 
+**Webbplats och användarhandbok: [www.saldovibe.se](http://www.saldovibe.se/)**
+
 SaldoVibe är en Django-baserad bokföringsapp för svenska företag (svenskt gränssnitt, BAS-kontoplan, SIE-import/export, efterlevnad av Bokföringslagen och Skatteverkets krav). Repot innehåller en komplett Docker-uppsättning för drift; utveckling sker direkt mot en lokal virtualenv.
 
 Appen är utvecklad för att uppfylla mina egna behov av bokföring, inte för att konkurrera med kommersiella tjänster. Det präglar designen:
