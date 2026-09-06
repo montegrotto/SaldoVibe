@@ -1,5 +1,7 @@
 # GitHub Pages (Jekyll) – publiceras från main:/docs. Ingen lokal byggkedja behövs.
 title: SaldoVibe
+# Sajten serveras via Cloudflare med HTTPS; utan detta bygger GitHub sitemap med http://.
+url: https://www.saldovibe.se
 description: Självhostad bokföring för svenska företag – BAS, SIE, moms, löner/AGI, hash-kedjad revisionslogg (Django)
 lang: sv
 theme: minima
