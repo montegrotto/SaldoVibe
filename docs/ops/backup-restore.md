@@ -26,6 +26,10 @@ no host cron needed for taking them:
 | `nightly-pg-backup` | `db` labels | 02:30 every night | 14 days |
 | `weekly-media-backup` | `web` labels | Sunday 04:00 | 35 days |
 
+Schedules and the timestamps in the file names are Swedish local time (`TZ=Europe/Stockholm` on
+`web`, `db` and `scheduler` in the compose file), so a host cron that syncs them off-host can be
+timed against the same clock.
+
 Both write to `./backups/` next to the compose file (bind-mounted as `/backups` in `db` and
 `web`): `db-<timestamp>.dump` (`pg_dump --format=custom`, works with `pg_restore` and supports
 selective/parallel restore) and `media-<timestamp>.tar.gz`. Credentials come from `.env`
@@ -42,7 +46,7 @@ database is not a backup. One host cron line with e.g. `rclone` covers it, inclu
 (which the ofelia jobs cannot reach):
 
 ```cron
-0 5 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env remote:saldovibe-backups/env/
+0 7 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env remote:saldovibe-backups/env/
 ```
 
 `.env` contains plaintext secrets — point `remote:` at an encrypted remote (rclone's
