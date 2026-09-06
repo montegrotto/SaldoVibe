@@ -10,6 +10,7 @@ services:
       - .env
     environment:
       DJANGO_DEBUG: "0"
+      TZ: Europe/Stockholm
       COMPLIANCE_EVIDENCE_DIR: /data/compliance-evidence/restore-tests
     volumes:
       - saldovibe-data:/data
@@ -52,6 +53,10 @@ services:
   scheduler:
     image: mcuadros/ofelia:0.3.22
     command: daemon --docker
+    # Ofelias scheman och $(date) i backupnamnen följer TZ; samma zon i web, db och här
+    # så att "söndag 04:00" betyder svensk tid och inte UTC.
+    environment:
+      TZ: Europe/Stockholm
     depends_on:
       - web
     volumes:
@@ -62,6 +67,8 @@ services:
     image: postgres:17-alpine
     env_file:
       - .env
+    environment:
+      TZ: Europe/Stockholm
     volumes:
       - saldovibe-postgres:/var/lib/postgresql/data
       - ./backups:/backups
