@@ -285,10 +285,6 @@
     </div>
 
     <div class="side-scroll">
-      <a class="nav-link mt-2 {% block nav_dashboard %}{% endblock %}" href="{% url 'bookkeeping:dashboard' %}">
-        <i class="bi bi-speedometer2" aria-hidden="true"></i>Översikt
-      </a>
-
       <div class="nav-group">
         <button class="nav-sect" type="button" aria-expanded="true">Bokföring{% if fixed_assets_due_count %}<span class="count">{{ fixed_assets_due_count }}</span>{% endif %}<i class="bi bi-chevron-down" aria-hidden="true"></i></button>
         <div class="nav-group-items">
