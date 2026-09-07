@@ -1,0 +1,12 @@
+{%- comment -%}
+Kopia av Minimas head.html (Pages kör minima 2.5, som saknar custom-head.html) plus favicon.
+{%- endcomment -%}
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {%- seo -%}
+  <link rel="stylesheet" href="{{ "/assets/main.css" | relative_url }}">
+  <link rel="icon" type="image/svg+xml" href="{{ "/assets/saldovibe-mark.svg" | relative_url }}">
+  {%- feed_meta -%}
+</head>
