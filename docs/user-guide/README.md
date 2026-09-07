@@ -1,4 +1,5 @@
 ---
+permalink: /user-guide/
 description: "Användarhandbok för SaldoVibe: kom igång, bokför löpande, hantera fakturor, bank, lön, moms, anläggningstillgångar och rapporter – kapitel för kapitel."
 ---
 
