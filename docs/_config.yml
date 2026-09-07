@@ -2,7 +2,7 @@
 title: SaldoVibe
 # Sajten serveras via Cloudflare med HTTPS; utan detta bygger GitHub sitemap med http://.
 url: https://www.saldovibe.se
-description: Bokföring med öppen källkod, självhostad, för svenska företag – BAS, SIE, moms, löner/AGI, hash-kedjad revisionslogg (Django)
+description: Bokföringsprogram med öppen källkod för svenska företag – självhostat och gratis: BAS-kontoplan, SIE, moms, fakturering, löner med AGI, hash-kedjad revisionslogg.
 lang: sv
 theme: minima
 plugins:

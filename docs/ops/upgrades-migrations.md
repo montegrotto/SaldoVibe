@@ -1,3 +1,7 @@
+---
+description: "How SaldoVibe runs database migrations on upgrade, and how to roll back."
+---
+
 # Upgrades & migrations
 
 ## How migrations run today

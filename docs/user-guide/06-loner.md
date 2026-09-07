@@ -1,3 +1,7 @@
+---
+description: "Anställda, lönekörning och arbetsgivardeklaration på individnivå (AGI) till Skatteverket i SaldoVibe, inklusive evidens för inlämningen."
+---
+
 # 6. Löner
 
 ## Lägg upp anställda

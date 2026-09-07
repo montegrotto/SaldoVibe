@@ -1,3 +1,7 @@
+---
+description: "Verifikationer, mallar och korrigeringar i SaldoVibe samt SIE-import och SIE-export för att byta från eller lämna underlag till ett annat bokföringsprogram."
+---
+
 # 2. Löpande bokföring
 
 Förutsättning: minst ett [räkenskapsår](01-komma-igang.md#räkenskapsår) måste finnas för det

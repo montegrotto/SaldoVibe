@@ -1,3 +1,7 @@
+---
+description: "Reference for every environment variable the SaldoVibe Docker stack reads."
+---
+
 # Environment variables
 
 Consolidated reference for every environment variable the running app reads. This is the single

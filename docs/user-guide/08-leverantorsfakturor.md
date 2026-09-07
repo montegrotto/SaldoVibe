@@ -1,3 +1,7 @@
+---
+description: "Leverantörer, registrering av leverantörsfakturor med OCR-förslag, betalning och QR-kod i SaldoVibe."
+---
+
 # 8. Leverantörsfakturor
 
 ## Leverantörer

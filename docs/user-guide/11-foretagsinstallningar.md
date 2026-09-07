@@ -1,3 +1,7 @@
+---
+description: "Företagsuppgifter, användarroller (inklusive läsroll för revisor) och borttagning av företag i SaldoVibe."
+---
+
 # 11. Företagsinställningar
 
 ## Redigera företagsuppgifter

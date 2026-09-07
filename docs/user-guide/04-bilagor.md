@@ -1,3 +1,7 @@
+---
+description: "Bilagor och underlag i SaldoVibe: uppladdning, e-postimport, mjuk radering och legal hold enligt Bokföringslagens arkiveringskrav."
+---
+
 # 4. Bilagor
 
 Bilagor (underlag) hanteras samlat under **Bokföring → Bilagor**, och kan även bifogas

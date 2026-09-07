@@ -1,3 +1,7 @@
+---
+description: "Så visar, exporterar och stänger du momsperioder i SaldoVibe – underlaget till momsdeklarationen hos Skatteverket."
+---
+
 # 3. Momsrapport
 
 Momsrapportering styrs per företag av inställningen **Momsperiod** (`Inställningar → Företag`).

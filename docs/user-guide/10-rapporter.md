@@ -1,3 +1,7 @@
+---
+description: "Balansräkning, resultaträkning, huvudbok, SRU-underlag, bokslut, händelselogg och compliance-översikt i SaldoVibe."
+---
+
 # 10. Rapporter
 
 ## Balansräkning och resultaträkning

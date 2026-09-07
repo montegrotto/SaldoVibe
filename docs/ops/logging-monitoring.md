@@ -1,3 +1,7 @@
+---
+description: "Where SaldoVibe logs go and what to monitor in production."
+---
+
 # Logging & monitoring
 
 ## Where logs go

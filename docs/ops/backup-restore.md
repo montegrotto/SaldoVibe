@@ -1,3 +1,7 @@
+---
+description: "Backup and restore of the SaldoVibe production stack: PostgreSQL and media volumes."
+---
+
 # Production backup & restore
 
 This covers **infrastructure-level** backup/restore for the `docker-compose.yml` stack
