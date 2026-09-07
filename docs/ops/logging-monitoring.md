@@ -1,14 +1,14 @@
 ---
-description: "Where SaldoVibe logs go and what to monitor in production."
+description: "Var SaldoVibes loggar hamnar och vad som bör övervakas i produktion."
 ---
 
-# Logging & monitoring
+# Loggning & övervakning
 
-## Where logs go
+## Var loggarna hamnar
 
-There is no file-based or external log shipping configured — everything logs to **stdout/stderr**
-via a single console handler (`saldovibe/settings.py`, `LOGGING`), which is the right shape for a
-container: let the container runtime/host collect it.
+Ingen filbaserad eller extern loggleverans är konfigurerad — allt loggas till **stdout/stderr**
+via en enda console-handler (`saldovibe/settings.py`, `LOGGING`), vilket är rätt form för en
+container: låt container-runtimen/hosten samla in det.
 
 ```bash
 docker compose logs -f web
@@ -16,55 +16,57 @@ docker compose logs -f db
 docker compose logs -f nginx
 ```
 
-Gunicorn (the `web` process) is started with `--access-logfile - --error-logfile -`
-(`Dockerfile` CMD), so HTTP access logs and error logs both land in the same stream as Django's
-own logging.
+Gunicorn (`web`-processen) startas med `--access-logfile - --error-logfile -` (CMD i
+`Dockerfile`), så både HTTP-accessloggar och felloggar hamnar i samma ström som Djangos egen
+loggning.
 
-## Log levels and loggers
+## Loggnivåer och loggers
 
-| Logger | Level | Notes |
+| Logger | Nivå | Kommentar |
 |---|---|---|
-| root / `django` | `INFO` | Framework-level messages. |
-| `django.request` | `WARNING` | 4xx/5xx request errors — this is what surfaces broken views. |
-| `attachments` | `INFO` | Attachment upload/delete/thumbnail events. |
-| `attachments.email_import` | `DEBUG` in dev, `INFO` in prod | Email-fetch import runs (Gmail/Outlook) — see [user guide, chapter 4](../user-guide/04-bilagor.md). |
-| `bookkeeping` | `INFO` | Company/account/transaction lifecycle events (creation, deletion attempts, SIE import results). |
+| root / `django` | `INFO` | Meddelanden på ramverksnivå. |
+| `django.request` | `WARNING` | 4xx/5xx-fel på requests — det är här trasiga vyer syns. |
+| `attachments` | `INFO` | Uppladdning/radering/miniatyrer av bilagor. |
+| `attachments.email_import` | `DEBUG` i dev, `INFO` i prod | Importkörningar från e-post (Gmail/Outlook) — se [användarhandboken, kapitel 4](../user-guide/04-bilagor.md). |
+| `bookkeeping` | `INFO` | Livscykelhändelser för företag/konton/transaktioner (skapande, raderingsförsök, SIE-importresultat). |
 
-Most application views also call `messages.error/success/...` for user-facing feedback *and*
-`logger.info`/`logger.warning`/`logger.exception` for the same event — so the container logs are a
-reasonable audit trail of "what happened and to which company/user" even without a dedicated log
-aggregator. Structured fields are passed via the `extra={...}` kwarg (company_id, user_id, and
-action-specific detail), which is compatible with most log processors that can parse structured
-`extra` fields (e.g. via `python-json-logger`) if you add one later.
+De flesta vyer i appen anropar både `messages.error/success/...` för återkoppling till användaren
+*och* `logger.info`/`logger.warning`/`logger.exception` för samma händelse — så containerloggarna
+är ett rimligt spår av "vad som hände och för vilket företag/vilken användare" även utan en
+dedikerad loggaggregator. Strukturerade fält skickas via `extra={...}` (company_id, user_id och
+åtgärdsspecifik detalj), vilket fungerar med de flesta loggprocessorer som kan tolka strukturerade
+`extra`-fält (t.ex. via `python-json-logger`) om du lägger till en senare.
 
-## What to actually watch in production
+## Vad som faktiskt bör bevakas i produktion
 
-Since there's no dashboard/alerting shipped with the app itself, treat these as the manual (or
-lightly scripted) checks worth doing periodically, beyond generic container health:
+Eftersom appen inte levereras med någon dashboard eller larmning bör de här ses som manuella
+(eller lätt skriptade) kontroller värda att göra regelbundet, utöver generell containerhälsa:
 
-- **`django.request` WARNING/ERROR entries** — recurring 500s on the same view is the first sign
-  something is broken for users.
-- **Repeated "perioden är låst" / "inte i balans" messages** in `bookkeeping` logs — could mean a
-  user is stuck on a real workflow problem, not just a validation nag.
-- **`attachments.email_import` failures** — a broken IMAP/OAuth credential silently stops pulling
-  bilagor in; nothing else will surface this except the log line and the in-app warning message
-  shown once at config time.
-- **Skatteverket API errors during payroll finish** — since tax lookup failures hard-block
-  finishing a payroll run (see [environment-variables.md](environment-variables.md)), a spike here
-  means payroll is stuck company-wide until the API or credentials are fixed.
+- **WARNING/ERROR-poster från `django.request`** — återkommande 500 på samma vy är det första
+  tecknet på att något är trasigt för användarna.
+- **Upprepade meddelanden "perioden är låst" / "inte i balans"** i `bookkeeping`-loggarna — kan
+  betyda att en användare har fastnat i ett verkligt arbetsflödesproblem, inte bara en
+  valideringsvarning.
+- **Fel från `attachments.email_import`** — en trasig IMAP/OAuth-inloggning slutar tyst att hämta
+  in bilagor; ingenting annat visar det utom loggraden och varningen i appen som visas en gång vid
+  konfigurationen.
+- **Skatteverket-API-fel vid avslut av lönekörning** — eftersom misslyckade skatteuppslag blockerar
+  avslutet av en lönekörning (se [environment-variables.md](environment-variables.md)) betyder en
+  topp här att lönerna står stilla för hela företaget tills API:et eller inloggningen är fixad.
 
-For the compliance-specific signals (voucher numbering gaps, late postings, orphaned attachments,
-audit hash-chain mismatches), use the in-app **Compliance-översikt**
-([user guide, chapter 10](../user-guide/10-rapporter.md)) rather than grepping logs — it's built
-for exactly this.
+För de compliance-specifika signalerna (luckor i verifikationsnumreringen, sena bokningar,
+föräldralösa bilagor, avvikelser i revisionsloggens hashkedja) använder du **Compliance-översikten**
+i appen ([användarhandboken, kapitel 10](../user-guide/10-rapporter.md)) i stället för att greppa
+loggar — den är byggd för exakt det.
 
-## No external monitoring is wired up
+## Ingen extern övervakning är kopplad
 
-There is currently no APM, uptime check, or metrics exporter in the stack. If/when that becomes
-worth adding, the natural integration points are:
+Det finns för närvarande ingen APM, upptidskontroll eller metrics-exporter i stacken. Om/när det
+blir värt att lägga till är de naturliga integrationspunkterna:
 
-- A `django.request` log-based alert (already structured enough to threshold on).
-- An HTTP health check against `/` for uptime monitoring (nginx already proxies `/` straight to
-  `web`; there's no dedicated `/healthz` endpoint today).
-- Postgres's own `pg_isready`, already used as the Compose healthcheck for `db` — reuse that check
-  for external uptime monitoring too instead of inventing a new one.
+- Ett loggbaserat larm på `django.request` (redan tillräckligt strukturerat för att sätta
+  tröskelvärden på).
+- En HTTP-hälsokontroll mot `/` för upptidsövervakning (nginx proxar redan `/` rakt till `web`;
+  det finns ingen dedikerad `/healthz`-endpoint i dag).
+- Postgres egna `pg_isready`, som redan används som Compose-healthcheck för `db` — återanvänd den
+  kontrollen för extern upptidsövervakning också i stället för att hitta på en ny.

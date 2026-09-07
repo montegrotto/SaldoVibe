@@ -1,62 +1,62 @@
 ---
-description: "Backup and restore of the SaldoVibe production stack: PostgreSQL and media volumes."
+description: "Backup och återställning av SaldoVibes produktionsstack: PostgreSQL- och mediavolymer."
 ---
 
-# Production backup & restore
+# Backup & återställning i produktion
 
-This covers **infrastructure-level** backup/restore for the `docker-compose.yml` stack
-(PostgreSQL + media/static volumes). It is separate from
-[`docs/compliance/restore-runbook.md`](../compliance/restore-runbook.md), which only exercises the
-**sqlite** dev/desktop database as an audit-evidence dry-run (`compliance_restore_dry_run`
-management command) — that command reads `settings.DATABASES['default']['NAME']` as a sqlite file
-path and does not work against PostgreSQL at all.
+Det här handlar om backup/återställning på **infrastrukturnivå** för `docker-compose.yml`-stacken
+(PostgreSQL + media-/static-volymer). Det är skilt från
+[`docs/compliance/restore-runbook.md`](../compliance/restore-runbook.md), som bara övar på
+**sqlite**-databasen för dev/desktop som en torrkörning för revisionsbevis (management-kommandot
+`compliance_restore_dry_run`) — det kommandot läser `settings.DATABASES['default']['NAME']` som en
+sqlite-filsökväg och fungerar inte alls mot PostgreSQL.
 
-## What needs to be backed up
+## Vad som behöver säkerhetskopieras
 
-| Data | Where it lives in the prod stack | Loss impact |
+| Data | Var det ligger i prod-stacken | Konsekvens vid förlust |
 |---|---|---|
-| PostgreSQL database | `saldovibe-postgres` volume (via the `db` service) | All accounting data, users, companies |
-| Uploaded media (attachments, invoices, company logos) | `media-assets` volume, mounted at `/data/media` in `web` | Underlag/bilagor referenced by bokförda poster |
-| Static assets | `static-assets` volume | Regeneratable via `collectstatic` — not critical to back up |
-| `.env` | Git-ignored file on the host | Without it you cannot recreate the stack's secrets/config. **Not covered by the ofelia jobs** (the containers only see it as env vars) — the off-host sync below must include it |
+| PostgreSQL-databasen | Volymen `saldovibe-postgres` (via tjänsten `db`) | All bokföringsdata, användare, företag |
+| Uppladdad media (bilagor, fakturor, företagsloggor) | Volymen `media-assets`, monterad på `/data/media` i `web` | Underlag/bilagor som bokförda poster hänvisar till |
+| Statiska filer | Volymen `static-assets` | Kan återskapas med `collectstatic` — inte kritiskt att backa upp |
+| `.env` | Git-ignorerad fil på hosten | Utan den kan stackens secrets/konfiguration inte återskapas. **Täcks inte av ofelia-jobben** (containrarna ser den bara som miljövariabler) — off-host-synken nedan måste ta med den |
 
-## Scheduled backups (built into the stack)
+## Schemalagda backuper (inbyggda i stacken)
 
-The `scheduler` (ofelia) service in `docker-compose.yml` runs the backups automatically —
-no host cron needed for taking them:
+Tjänsten `scheduler` (ofelia) i `docker-compose.yml` kör backuperna automatiskt — ingen cron på
+hosten behövs för att ta dem:
 
-| Job | Where | Schedule | Retention |
+| Jobb | Var | Schema | Sparas |
 |---|---|---|---|
-| `nightly-pg-backup` | `db` labels | 02:30 every night | 14 days |
-| `weekly-media-backup` | `web` labels | Sunday 04:00 | 35 days |
+| `nightly-pg-backup` | labels på `db` | 02:30 varje natt | 14 dagar |
+| `weekly-media-backup` | labels på `web` | Söndag 04:00 | 35 dagar |
 
-Schedules and the timestamps in the file names are Swedish local time (`TZ=Europe/Stockholm` on
-`web`, `db` and `scheduler` in the compose file), so a host cron that syncs them off-host can be
-timed against the same clock.
+Scheman och tidsstämplarna i filnamnen är svensk lokal tid (`TZ=Europe/Stockholm` på `web`, `db`
+och `scheduler` i compose-filen), så en host-cron som synkar dem off-host kan tidsättas mot samma
+klocka.
 
-Both write to `./backups/` next to the compose file (bind-mounted as `/backups` in `db` and
-`web`): `db-<timestamp>.dump` (`pg_dump --format=custom`, works with `pg_restore` and supports
-selective/parallel restore) and `media-<timestamp>.tar.gz`. Credentials come from `.env`
-(`POSTGRES_USER` / `POSTGRES_DB`, see [environment-variables.md](environment-variables.md)).
+Båda skriver till `./backups/` bredvid compose-filen (bind-monterad som `/backups` i `db` och
+`web`): `db-<tidsstämpel>.dump` (`pg_dump --format=custom`, fungerar med `pg_restore` och stödjer
+selektiv/parallell återställning) och `media-<tidsstämpel>.tar.gz`. Inloggningsuppgifterna kommer
+från `.env` (`POSTGRES_USER` / `POSTGRES_DB`, se [environment-variables.md](environment-variables.md)).
 
-Ofelia logs every run — check that the jobs actually fire after a deploy:
+Ofelia loggar varje körning — kontrollera att jobben verkligen går efter en deploy:
 
 ```bash
 docker compose logs scheduler
 ```
 
-**Syncing off the host is still your job.** A backup that only lives on the same disk as the
-database is not a backup. One host cron line with e.g. `rclone` covers it, including `.env`
-(which the ofelia jobs cannot reach):
+**Att synka bort från hosten är fortfarande ditt jobb.** En backup som bara ligger på samma disk
+som databasen är ingen backup. En cron-rad på hosten med t.ex. `rclone` räcker, inklusive `.env`
+(som ofelia-jobben inte kommer åt):
 
 ```cron
 0 7 * * * rclone sync /path/to/saldovibe/backups remote:saldovibe-backups/backups && rclone copy /path/to/saldovibe/.env remote:saldovibe-backups/env/
 ```
 
-`.env` contains plaintext secrets — point `remote:` at an encrypted remote (rclone's
-`crypt` type wrapping the storage remote) or at minimum a bucket only you can read.
+`.env` innehåller secrets i klartext — peka `remote:` mot en krypterad remote (rclones `crypt`-typ
+som omsluter lagringsremoten) eller åtminstone en bucket som bara du kan läsa.
 
-For a manual on-demand dump (e.g. right before a risky migration):
+För en manuell dump på begäran (t.ex. precis före en riskabel migration):
 
 ```bash
 docker compose exec -T db \
@@ -64,49 +64,49 @@ docker compose exec -T db \
   > backups/db-$(date +%Y%m%dT%H%M%S).dump
 ```
 
-## Restoring PostgreSQL
+## Återställa PostgreSQL
 
-1. Stop the `web` service so nothing writes during restore (`db` can stay up):
+1. Stoppa tjänsten `web` så att ingenting skriver under återställningen (`db` kan vara uppe):
    ```bash
    docker compose stop web
    ```
-2. Restore into a fresh or emptied database:
+2. Återställ till en ny eller tömd databas:
    ```bash
    docker compose exec -T db \
      pg_restore -U saldovibe -d saldovibe --clean --if-exists \
-     < backups/db-<timestamp>.dump
+     < backups/db-<tidsstämpel>.dump
    ```
-3. Start `web` again — the entrypoint runs `migrate --noinput` automatically (see
-   [upgrades-migrations.md](upgrades-migrations.md)), which is a no-op if the restored dump is
-   already at the current migration state:
+3. Starta `web` igen — entrypointen kör `migrate --noinput` automatiskt (se
+   [upgrades-migrations.md](upgrades-migrations.md)), vilket inte gör något om den återställda
+   dumpen redan ligger på aktuellt migrationsläge:
    ```bash
    docker compose start web
    ```
 
-## Restoring media
+## Återställa media
 
 ```bash
 docker run --rm \
   -v saldovibe_media-assets:/media \
   -v "$(pwd)/backups":/backup \
-  alpine sh -c "rm -rf /media/* && tar xzf /backup/media-<timestamp>.tar.gz -C /media"
+  alpine sh -c "rm -rf /media/* && tar xzf /backup/media-<tidsstämpel>.tar.gz -C /media"
 ```
 
-## Verifying a restore actually worked
+## Verifiera att återställningen faktiskt fungerade
 
-After restoring into a **staging** copy of the stack (never verify destructively against
-production):
+Efter återställning till en **staging**-kopia av stacken (verifiera aldrig destruktivt mot
+produktion):
 
-- Log in and confirm a known company/transaction from before the backup is present.
-- Open a known attachment/invoice PDF and confirm the file itself opens (not just the DB row).
-- Run `python manage.py verify_audit_chain` against the restored database to confirm the audit
-  hash chain is intact (see [logging-monitoring.md](logging-monitoring.md) and
+- Logga in och bekräfta att ett känt företag/en känd transaktion från före backupen finns.
+- Öppna en känd bilaga/faktura-PDF och bekräfta att själva filen öppnas (inte bara DB-raden).
+- Kör `python manage.py verify_audit_chain` mot den återställda databasen för att bekräfta att
+  revisionsloggens hashkedja är intakt (se [logging-monitoring.md](logging-monitoring.md) och
   `docs/compliance/`).
 
-## Recommended cadence
+## Rekommenderad rytm
 
-- **Nightly**: PostgreSQL dump (automated, see above).
-- **Weekly**: media backup (automated, see above).
-- **Quarterly**: full restore-to-staging test, not just "the backup file exists" — an untested
-  backup is not a backup. Pair this with the existing
+- **Varje natt**: PostgreSQL-dump (automatiskt, se ovan).
+- **Varje vecka**: mediabackup (automatiskt, se ovan).
+- **Varje kvartal**: fullständigt återställningstest till staging, inte bara "backupfilen finns" —
+  en otestad backup är ingen backup. Kombinera med den befintliga
   `docs/compliance/quarterly-review-checklist.md`.

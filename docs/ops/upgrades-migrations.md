@@ -1,12 +1,12 @@
 ---
-description: "How SaldoVibe runs database migrations on upgrade, and how to roll back."
+description: "Hur SaldoVibe kör databasmigrationer vid uppgradering, och hur man rullar tillbaka."
 ---
 
-# Upgrades & migrations
+# Uppgraderingar & migrationer
 
-## How migrations run today
+## Hur migrationer körs i dag
 
-`scripts/docker-entrypoint.sh` runs on every `web` container start:
+`scripts/docker-entrypoint.sh` körs vid varje start av `web`-containern:
 
 ```sh
 if [ "${SALDOVIBE_RUN_MIGRATIONS:-1}" = "1" ]; then
@@ -14,74 +14,76 @@ if [ "${SALDOVIBE_RUN_MIGRATIONS:-1}" = "1" ]; then
 fi
 ```
 
-This means **every restart of the `web` container applies any pending migrations automatically**,
-including during a routine deploy (see [deploy-checklist.md](deploy-checklist.md)). There is no
-separate "run migrations" step you need to remember for normal releases.
+Det betyder att **varje omstart av `web`-containern automatiskt tillämpar väntande migrationer**,
+även under en rutindeploy (se [deploy-checklist.md](deploy-checklist.md)). Det finns inget separat
+"kör migrationer"-steg att komma ihåg för vanliga releaser.
 
-Set `SALDOVIBE_RUN_MIGRATIONS=0` in `.env` if you ever want to decouple migration application
-from container start (e.g. running `migrate` manually in a maintenance window before starting the
-new `web` image).
+Sätt `SALDOVIBE_RUN_MIGRATIONS=0` i `.env` om du någon gång vill frikoppla migrationerna från
+containerstarten (t.ex. köra `migrate` manuellt i ett servicefönster innan den nya `web`-imagen
+startas).
 
-## Running migrations manually
+## Köra migrationer manuellt
 
 ```bash
 docker compose exec web python manage.py migrate
 ```
 
-To preview what a deploy would change without applying it:
+För att förhandsgranska vad en deploy skulle ändra utan att tillämpa det:
 
 ```bash
 docker compose exec web python manage.py migrate --plan
 ```
 
-To check that no model changes are missing a migration file (useful in CI or before merging):
+För att kontrollera att inga modelländringar saknar migrationsfil (användbart i CI eller före
+merge):
 
 ```bash
 docker compose exec web python manage.py makemigrations --check --dry-run
 ```
 
-## Before a migration that touches accounting tables
+## Före en migration som rör bokföringstabeller
 
-Migrations affecting `bookkeeping`, `banking`, `payroll`, `vat`, `invoicing`,
-`supplier_invoices`, `fixed_assets`, or `auditlog` models carry more risk than a typical Django app
-because of the compliance constraints already enforced in the app layer (balanced journal entries,
-voucher numbering, period locks, audit hash chain — see `docs/compliance/` and
-`docs/system-replication-spec.md` section 5). Before deploying such a migration:
+Migrationer som påverkar modeller i `bookkeeping`, `banking`, `payroll`, `vat`, `invoicing`,
+`supplier_invoices`, `fixed_assets` eller `auditlog` innebär större risk än i en typisk Django-app
+på grund av de compliance-krav som redan upprätthålls i applikationslagret (balanserade
+verifikationer, verifikationsnumrering, periodlås, revisionsloggens hashkedja — se
+`docs/compliance/` och `docs/system-replication-spec.md` avsnitt 5). Innan en sådan migration
+driftsätts:
 
-1. Take a fresh PostgreSQL backup (see [backup-restore.md](backup-restore.md)).
-2. Read the migration file, not just the model diff — Django's auto-generated migrations can pick
-   surprising defaults for new non-nullable fields on tables that already have rows.
-3. If the migration changes anything in the audit-logged models, run
-   `python manage.py verify_audit_chain` **after** deploying to confirm the hash chain wasn't
-   disturbed (e.g. by a data migration touching audited fields directly instead of through the
-   normal model/signal path).
+1. Ta en färsk PostgreSQL-backup (se [backup-restore.md](backup-restore.md)).
+2. Läs migrationsfilen, inte bara modell-diffen — Djangos autogenererade migrationer kan välja
+   överraskande standardvärden för nya icke-nullbara fält på tabeller som redan har rader.
+3. Om migrationen ändrar något i de revisionsloggade modellerna: kör
+   `python manage.py verify_audit_chain` **efter** deployen för att bekräfta att hashkedjan inte
+   rubbats (t.ex. av en datamigration som rör loggade fält direkt i stället för via den vanliga
+   modell-/signalvägen).
 
-## Rolling back
+## Rulla tillbaka
 
-Django migrations can be reversed if the migration defines a working `reverse` operation (most
-auto-generated schema migrations do; hand-written data migrations may not):
+Django-migrationer kan backas om migrationen har en fungerande `reverse`-operation (de flesta
+autogenererade schemamigrationer har det; handskrivna datamigrationer kanske inte):
 
 ```bash
-docker compose exec web python manage.py migrate <app_label> <previous_migration_name>
+docker compose exec web python manage.py migrate <app_label> <föregående_migrationsnamn>
 ```
 
-Caveats:
+Fallgropar:
 
-- Rolling back the **schema** does not undo **data** changes a migration may have made (e.g. a
-  data migration that backfilled a new field). Check the migration file for a `RunPython` step
-  before assuming a rollback is clean.
-- If in doubt, prefer restoring the pre-deploy PostgreSQL backup over trying to reverse-migrate a
-  production database — see [backup-restore.md](backup-restore.md).
-- Roll back the `web` container image alongside the schema — running new code against an old
-  schema (or vice versa) is the more common source of breakage than the migration itself.
+- Att backa **schemat** ångrar inte **dataändringar** en migration kan ha gjort (t.ex. en
+  datamigration som fyllt i ett nytt fält). Leta efter ett `RunPython`-steg i migrationsfilen
+  innan du antar att en rollback är ren.
+- Vid tveksamhet: återställ hellre PostgreSQL-backupen från före deployen än att försöka
+  bakåtmigrera en produktionsdatabas — se [backup-restore.md](backup-restore.md).
+- Rulla tillbaka `web`-containerns image tillsammans med schemat — att köra ny kod mot ett gammalt
+  schema (eller tvärtom) är en vanligare felkälla än själva migrationen.
 
-## Related management commands
+## Relaterade management-kommandon
 
-| Command | Purpose |
+| Kommando | Syfte |
 |---|---|
-| `manage.py migrate` | Apply/roll back schema migrations. |
-| `manage.py makemigrations --check --dry-run` | Verify no model changes are missing migrations. |
-| `manage.py verify_audit_chain` | Confirm the audit hash chain is intact after a deploy/migration. |
-| `manage.py reseal_audit_chain` | Recompute `prev_hash`/`entry_hash` (dry-run by default, `--apply` to persist) — only for deliberate, understood repairs, not routine use. |
-| `manage.py load_bas_accounts` | (Re)load the BAS chart-of-accounts fixture used when seeding new companies. |
-| `manage.py populate_sru_codes` | Backfill SRU codes onto existing accounts. |
+| `manage.py migrate` | Tillämpa/backa schemamigrationer. |
+| `manage.py makemigrations --check --dry-run` | Verifiera att inga modelländringar saknar migration. |
+| `manage.py verify_audit_chain` | Bekräfta att revisionsloggens hashkedja är intakt efter deploy/migration. |
+| `manage.py reseal_audit_chain` | Räkna om `prev_hash`/`entry_hash` (torrkörning som standard, `--apply` för att spara) — bara för avsiktliga, förstådda reparationer, inte rutinbruk. |
+| `manage.py load_bas_accounts` | Ladda (om) BAS-kontoplansfixturen som används när nya företag skapas. |
+| `manage.py populate_sru_codes` | Fyll i SRU-koder på befintliga konton. |

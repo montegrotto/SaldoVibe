@@ -1,83 +1,85 @@
 ---
-description: "Step-by-step checklist for deploying a new SaldoVibe release to the Docker Compose stack."
+description: "Steg-för-steg-checklista för att driftsätta en ny SaldoVibe-release i Docker Compose-stacken."
 ---
 
-# Deploy checklist (production)
+# Deploy-checklista (produktion)
 
-Step-by-step for taking a new release of `main` live on the `docker-compose.yml` stack
+Steg för steg för att ta en ny release av `main` i drift på `docker-compose.yml`-stacken
 (`web` + PostgreSQL `db` + `nginx`).
 
-## First-time setup
+## Första installationen
 
-1. Copy the env template and fill in real values:
+1. Kopiera env-mallen och fyll i riktiga värden:
    ```bash
    cp .env.example .env
    ```
-   Only `docker-compose.yml` and `.env` are needed on the server — no checkout. Fetch them
-   from `main` (matches the `latest` image; substitute a `vX.Y.Z` tag to pin a release):
+   Bara `docker-compose.yml` och `.env` behövs på servern — ingen utcheckning. Hämta dem från
+   `main` (matchar `latest`-imagen; byt till en `vX.Y.Z`-tagg för att låsa en release):
    ```bash
    curl -fsSLO https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/docker-compose.yml
    curl -fsSL -o .env https://raw.githubusercontent.com/montegrotto/SaldoVibe/main/.env.example
    ```
-   Uncomment the whole "Produktion" section in the file. At minimum change
-   `DJANGO_SECRET_KEY` and `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` from `change-me`, and set
-   `SALDOVIBE_PUBLIC_URL` to the real public URL (this drives `ALLOWED_HOSTS` and
-   `CSRF_TRUSTED_ORIGINS` — see [environment-variables.md](environment-variables.md)).
-2. **TLS is not terminated by the bundled `nginx` service** — the nginx config inlined in `docker-compose.yml` only listens on
-   port 80. Put a TLS-terminating reverse proxy or load balancer in front of it (or add a TLS
-   server block) before exposing the stack publicly.
-3. Bring the stack up, either with the published image from Docker Hub or a local build:
+   Avkommentera hela avsnittet "Produktion" i filen. Ändra minst `DJANGO_SECRET_KEY` och
+   `DATABASE_PASSWORD` / `POSTGRES_PASSWORD` från `change-me`, och sätt `SALDOVIBE_PUBLIC_URL`
+   till den riktiga publika adressen (den styr `ALLOWED_HOSTS` och `CSRF_TRUSTED_ORIGINS` — se
+   [environment-variables.md](environment-variables.md)).
+2. **TLS termineras inte av den medföljande `nginx`-tjänsten** — nginx-konfigurationen som ligger
+   inline i `docker-compose.yml` lyssnar bara på port 80. Sätt en TLS-terminerande reverse proxy
+   eller lastbalanserare framför (eller lägg till ett TLS-serverblock) innan stacken exponeras
+   publikt.
+3. Starta stacken, antingen med den publicerade imagen från Docker Hub eller ett lokalt bygge:
    ```bash
    docker compose pull && docker compose up -d
-   docker compose up --build -d   # build from this checkout instead
+   docker compose up --build -d   # bygg från den här utcheckningen i stället
    ```
-   Pin a release with `SALDOVIBE_VERSION=1.2.3` in the root `.env` (see `.env.example`).
-   The `web` container runs `manage.py migrate --noinput` automatically on start (see
-   [upgrades-migrations.md](upgrades-migrations.md)), so the schema is created on first boot.
-4. Create an admin/first user through the app's own registration flow
-   ([user guide, chapter 1](../user-guide/01-komma-igang.md)) — there is no separate Django
-   superuser bootstrap step required for normal use.
+   Lås en release med `SALDOVIBE_VERSION=1.2.3` i rotens `.env` (se `.env.example`).
+   Containern `web` kör `manage.py migrate --noinput` automatiskt vid start (se
+   [upgrades-migrations.md](upgrades-migrations.md)), så schemat skapas vid första uppstarten.
+4. Skapa en admin/första användare via appens eget registreringsflöde
+   ([användarhandboken, kapitel 1](../user-guide/01-komma-igang.md)) — inget separat steg för att
+   skapa en Django-superuser behövs för normal användning.
 
-## Routine release (code already merged to `main`)
+## Rutinrelease (koden redan mergad till `main`)
 
-1. **Back up first.** Take a PostgreSQL dump before deploying — see
-   [backup-restore.md](backup-restore.md). A bad migration is much cheaper to recover from with a
-   fresh dump than without one.
-2. On the server, pull the new code:
+1. **Ta backup först.** Ta en PostgreSQL-dump före deployen — se
+   [backup-restore.md](backup-restore.md). En dålig migration är mycket billigare att återhämta
+   sig från med en färsk dump än utan.
+2. Hämta den nya koden på servern:
    ```bash
    git pull origin main
    ```
-3. Pull (or rebuild) and restart the `web` image — `migrate` runs at container start:
+3. Hämta (eller bygg om) och starta om `web`-imagen — `migrate` körs vid containerstart:
    ```bash
    docker compose pull web && docker compose up -d web
-   docker compose up --build -d web   # local build instead
+   docker compose up --build -d web   # lokalt bygge i stället
    ```
-4. Watch the `web` logs during startup for migration errors or crash loops:
+4. Följ `web`-loggarna under uppstarten efter migrationsfel eller krashloopar:
    ```bash
    docker compose logs -f web
    ```
-5. Smoke-test the release:
-   - Log in.
-   - Open the dashboard for an existing company.
-   - Create (or view) a verifikation to confirm DB writes work.
-   - Check `/static/` assets load (no missing CSS/JS — a sign `collectstatic` didn't run).
-6. If something is badly wrong, roll back to the previous image/tag and restore the pre-deploy
-   backup if the migration already ran destructively (see
-   [upgrades-migrations.md](upgrades-migrations.md) for rollback caveats).
+5. Röktesta releasen:
+   - Logga in.
+   - Öppna översikten för ett befintligt företag.
+   - Skapa (eller visa) en verifikation för att bekräfta att DB-skrivningar fungerar.
+   - Kontrollera att `/static/`-filer laddas (ingen saknad CSS/JS — ett tecken på att
+     `collectstatic` inte kördes).
+6. Om något är riktigt fel: rulla tillbaka till föregående image/tagg och återställ backupen från
+   före deployen om migrationen redan hunnit köra destruktivt (se
+   [upgrades-migrations.md](upgrades-migrations.md) för fallgropar vid rollback).
 
-## Zero-downtime note
+## Om driftavbrott
 
-This stack does **not** currently support rolling/zero-downtime deploys — `docker compose up
---build -d web` recreates the single `web` container, causing a brief outage while it restarts.
-For a single-tenant/small-scale accounting app this is usually acceptable; if it stops being
-acceptable, that's a signal to introduce multiple `web` replicas behind `nginx` with a health
-check before cutting traffic over.
+Stacken stödjer för närvarande **inte** rullande deploy utan avbrott — `docker compose up
+--build -d web` återskapar den enda `web`-containern, vilket ger ett kort avbrott medan den
+startar om. För ett bokföringsprogram för ett företag/liten skala är det oftast acceptabelt; om
+det slutar vara det är det en signal att införa flera `web`-repliker bakom `nginx` med en
+hälsokontroll innan trafiken flyttas över.
 
-## After deploy
+## Efter deploy
 
-- Confirm scheduled jobs still run: the ofelia backup jobs and the `docs/compliance/` restore
-  dry-run (`docker compose logs scheduler`, see
-  [backup-restore.md](backup-restore.md) and `docs/compliance/restore-runbook.md`), plus the
-  host's off-host backup sync, especially if anything in `.env` changed.
-- Update `docs/compliance/quarterly-review-checklist.md` tracking if this release touched
-  anything on that checklist (period locking, exports, audit logging).
+- Bekräfta att de schemalagda jobben fortfarande körs: ofelias backupjobb och
+  återställnings-torrkörningen från `docs/compliance/` (`docker compose logs scheduler`, se
+  [backup-restore.md](backup-restore.md) och `docs/compliance/restore-runbook.md`), plus hostens
+  off-host-backupsynk, särskilt om något i `.env` ändrades.
+- Uppdatera uppföljningen i `docs/compliance/quarterly-review-checklist.md` om releasen rörde
+  något på den checklistan (periodlåsning, exporter, revisionslogg).
