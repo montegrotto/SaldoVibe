@@ -1191,7 +1191,7 @@ class VacationTests(CompanyTestCase):
         url = reverse("bookkeeping:year_end_close", kwargs={"pk": self.year.pk})
         response = self.client.get(url)
         self.assertContains(response, "2. Semesterlöneskuld")
-        self.assertContains(response, "37 725,00")
+        self.assertContains(response, "37\xa0725,00")
 
         response = self.client.post(url, {"action": "book_vacation_liability"})
         self.assertRedirects(response, url)

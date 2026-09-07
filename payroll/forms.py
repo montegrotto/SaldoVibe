@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from django import forms
 from django.forms import inlineformset_factory
@@ -20,6 +21,10 @@ class EmployeeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         normalize_decimal_fields(self)
+        self.fields["vacation_days_balance"].required = False
+
+    def clean_vacation_days_balance(self):
+        return self.cleaned_data.get("vacation_days_balance") or Decimal("0.00")
 
     def clean_personal_identity_number(self):
         value = self.cleaned_data["personal_identity_number"].replace("-", "").replace(" ", "")
@@ -119,6 +124,10 @@ class SalaryRecordAdjustmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         normalize_decimal_fields(self)
+        self.fields["vacation_days_taken"].required = False
+
+    def clean_vacation_days_taken(self):
+        return self.cleaned_data.get("vacation_days_taken") or Decimal("0.00")
 
     class Meta:
         model = SalaryRecord
