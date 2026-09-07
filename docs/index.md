@@ -1,4 +1,5 @@
 ---
+layout: page
 title: Bokföringsprogram med öppen källkod för svenska företag
 description: "SaldoVibe är ett gratis, självhostat bokföringsprogram med öppen källkod för svenska aktiebolag och enskilda firmor – BAS-kontoplan, SIE, moms, fakturering, löner med AGI."
 ---
