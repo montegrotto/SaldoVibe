@@ -1,4 +1,4 @@
-# SaldoVibe – Drift
+# Drift
 
 Operativ dokumentation för att köra och underhålla SaldoVibe i produktion (Docker Compose-stacken:
 `web` + PostgreSQL `db` + `nginx`). Grundläggande container-layout och miljöuppsättning finns redan
