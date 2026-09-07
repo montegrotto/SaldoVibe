@@ -8,8 +8,9 @@ theme: minima
 plugins:
   - jekyll-sitemap
   - jekyll-seo-tag
-# Interna arbetsdokument som inte hör hemma på webbplatsen.
+# Interna arbetsdokument som inte hör hemma på webbplatsen (compliance/ läses i repot).
 exclude:
+  - compliance
   - agent-execution-prompt.md
   - feature-roadmap.md
   - system-replication-spec.md
