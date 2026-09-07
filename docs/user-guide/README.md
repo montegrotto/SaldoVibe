@@ -1,4 +1,4 @@
-# SaldoVibe – Användarhandbok
+# Användarhandbok
 
 Den här handboken förklarar hur man använder SaldoVibe som slutanvändare: hur man kommer igång,
 bokför löpande, hanterar fakturor, bank, lön, moms och rapporter. Den beskriver inte drift/installation
