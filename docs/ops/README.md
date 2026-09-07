@@ -1,4 +1,5 @@
 ---
+permalink: /ops/
 description: "Driftdokumentation för SaldoVibe: installation med Docker Compose, miljövariabler, backup och restore, deploy, uppgraderingar och loggning."
 ---
 
