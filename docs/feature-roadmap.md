@@ -36,8 +36,8 @@ prioritetsordning.
 
 ### Medelstora — reella hål i domänen
 
-- **Semesterhantering i lön** — inga semesterdagar/semesterskuld i `payroll`. Semesterskulden
-  ska bokföras vid bokslut, så bokslutsflödet är ofullständigt utan den.
+- ~~Semesterhantering i lön~~ — semesterdagar på anställd/lönepost med semestertillägg
+  (sammalöneregeln) och semesterlöneskuld som eget steg i bokslutsflödet (`payroll/vacation.py`).
 - **SRU för enskild firma** — `Company` har bolagsformen men `sru_lookup` täcker bara INK2.
   NE-bilagan saknas.
 - **Kontantmetoden (bokslutsmetoden) för moms** — bara faktureringsmetoden finns.
