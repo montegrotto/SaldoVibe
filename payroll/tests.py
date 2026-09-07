@@ -1106,3 +1106,19 @@ class SalaryReportEmailTests(CompanyTestCase):
         self.employee.email = ""
         self.employee.save()
         self.assertNotContains(self.client.get(detail_url), self.url)
+
+
+class PayrollRunAccountingYearTests(CompanyTestCase):
+    user_email = "run-year@example.com"
+    user_fields = {"is_staff": True}
+    company_name = "Run Year AB"
+    company_org_number = "556677-5566"
+
+    def test_create_is_blocked_when_no_accounting_year_covers_payment_date(self):
+        response = self.client.post(
+            reverse("payroll:payroll_run_create"),
+            {"period": "2027-01", "payment_date": "2027-01-25", "generate_salary_records": ""},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Inget räkenskapsår täcker utbetalningsdatumet", str(response.context["form"].errors))
+        self.assertFalse(PayrollRun.objects.filter(company=self.company).exists())
