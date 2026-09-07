@@ -1,3 +1,7 @@
+---
+description: "Tillgångstyper, registrering och avskrivning av anläggningstillgångar i SaldoVibe."
+---
+
 # 9. Anläggningstillgångar
 
 ## Tillgångstyper

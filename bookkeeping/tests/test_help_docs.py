@@ -22,6 +22,10 @@ class HelpDocsRenderingTests(TestCase):
         loaded_slugs = {chapter.slug for chapter in load_help_chapters()}
         self.assertEqual(expected_slugs, loaded_slugs)
 
+    def test_front_matter_is_not_rendered(self):
+        for chapter in load_help_chapters():
+            self.assertNotIn("description:", chapter.content)
+
     def test_internal_md_links_are_rewritten_to_app_urls(self):
         chapter = next(c for c in load_help_chapters() if c.slug == "01-komma-igang")
         self.assertIn('href="/hjalp/02-lopande-bokforing/"', chapter.content)

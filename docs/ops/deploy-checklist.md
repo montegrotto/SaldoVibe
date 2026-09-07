@@ -1,3 +1,7 @@
+---
+description: "Step-by-step checklist for deploying a new SaldoVibe release to the Docker Compose stack."
+---
+
 # Deploy checklist (production)
 
 Step-by-step for taking a new release of `main` live on the `docker-compose.yml` stack

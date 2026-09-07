@@ -1,3 +1,7 @@
+---
+description: "Driftdokumentation för SaldoVibe: installation med Docker Compose, miljövariabler, backup och restore, deploy, uppgraderingar och loggning."
+---
+
 # Drift
 
 Operativ dokumentation för att köra och underhålla SaldoVibe i produktion (Docker Compose-stacken:

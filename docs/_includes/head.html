@@ -9,4 +9,24 @@ Kopia av Minimas head.html (Pages kör minima 2.5, som saknar custom-head.html) 
   <link rel="stylesheet" href="{{ "/assets/main.css" | relative_url }}">
   <link rel="icon" type="image/svg+xml" href="{{ "/assets/saldovibe-mark.svg" | relative_url }}">
   {%- feed_meta -%}
+  {%- if page.url == "/" %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SaldoVibe",
+    "url": "{{ site.url }}/",
+    "description": {{ page.description | jsonify }},
+    "applicationCategory": "BusinessApplication",
+    "applicationSubCategory": "Bokföringsprogram",
+    "operatingSystem": "Linux, Docker",
+    "inLanguage": "sv",
+    "isAccessibleForFree": true,
+    "license": "https://github.com/montegrotto/SaldoVibe/blob/main/LICENSE",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "SEK"},
+    "sameAs": ["https://github.com/montegrotto/SaldoVibe", "https://hub.docker.com/r/montegrotto/saldovibe"],
+    "softwareHelp": {"@type": "CreativeWork", "url": "{{ site.url }}/user-guide/"}
+  }
+  </script>
+  {%- endif %}
 </head>

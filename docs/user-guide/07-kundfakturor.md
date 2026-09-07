@@ -1,3 +1,7 @@
+---
+description: "Kunder, artiklar, fakturering, påminnelser, kreditfakturor och Peppol e-faktura i SaldoVibe – från utskick till betald kundfaktura."
+---
+
 # 7. Kundfakturor
 
 ## Kunder och artiklar

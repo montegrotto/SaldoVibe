@@ -1,3 +1,7 @@
+---
+description: "Bankkällor, import av kontoutdrag och snabbbokföring av bank- och skattekontohändelser i SaldoVibe."
+---
+
 # 5. Bank & skattekonto
 
 ## Lägg upp en bankkälla

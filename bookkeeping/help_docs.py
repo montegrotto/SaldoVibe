@@ -21,7 +21,8 @@ _CHAPTER_FILENAME_RE = re.compile(r"^\d{2}-.+\.md$")
 _TITLE_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 _MD_LINK_RE = re.compile(r'href="(\d{2}-[a-z0-9-]+)\.md(#[^"]*)?"')
 
-_MARKDOWN_EXTENSIONS = ["extra", "sane_lists", "toc"]
+# "meta" sväljer YAML-front-matter (description för webbplatsens meta-taggar) i stället för att rendera den.
+_MARKDOWN_EXTENSIONS = ["extra", "sane_lists", "toc", "meta"]
 _MARKDOWN_EXTENSION_CONFIGS = {"toc": {"slugify": slugify_unicode}}
 
 

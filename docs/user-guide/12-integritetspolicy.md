@@ -1,3 +1,7 @@
+---
+description: "Integritetspolicy för SaldoVibe: vilka personuppgifter som lagras om dig som användare, vilka kakor som används och dina rättigheter enligt GDPR."
+---
+
 # Integritetspolicy
 
 Det här kapitlet beskriver vilka personuppgifter SaldoVibe behandlar om **dig som användare**,

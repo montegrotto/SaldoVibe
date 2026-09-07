@@ -1,3 +1,7 @@
+---
+description: "Registrera konto, skapa företag, välj BAS-kontoplan och lägg upp räkenskapsår i SaldoVibe – de första stegen innan du börjar bokföra."
+---
+
 # 1. Komma igång
 
 ## Registrera konto och logga in
