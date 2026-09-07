@@ -9,6 +9,7 @@ from bookkeeping.models import (
     Transaction,
     VerificationTemplate,
     VerificationTemplateEntry,
+    VoucherSeriesRule,
 )
 from bookkeeping.verification_template_catalog import (
     compute_template_amounts,
@@ -206,3 +207,25 @@ class TemplateLibraryViewTests(CompanyTestCase):
 
         self.assertFalse(VerificationTemplate.objects.filter(company=self.company).exists())
         self.assertTrue(VerificationTemplate.objects.filter(company=other_company, slug=self.slug).exists())
+
+
+class VoucherSeriesSettingsAccessTests(CompanyTestCase):
+    user_email = "series-plain@example.com"
+    company_name = "Seriebolag AB"
+    company_org_number = "556677-7799"
+
+    def test_plain_user_is_blocked_from_voucher_series_settings(self):
+        response = self.client.get(reverse("bookkeeping:voucher_series_settings"))
+
+        self.assertRedirects(response, reverse("bookkeeping:dashboard"))
+        self.assertFalse(VoucherSeriesRule.objects.filter(company=self.company).exists())
+
+    def test_staff_user_can_open_voucher_series_settings(self):
+        staff = create_user("series-staff@example.com", is_staff=True)
+        self.company.users.add(staff)
+        self.client.force_login(staff)
+        set_active_company(self.client, self.company)
+
+        response = self.client.get(reverse("bookkeeping:voucher_series_settings"))
+
+        self.assertEqual(response.status_code, 200)
