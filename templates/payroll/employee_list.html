@@ -24,6 +24,7 @@
               <th>Personnummer</th>
               <th class="text-end">Månadslön</th>
               <th class="text-end">Skattetabell</th>
+              <th class="text-end">Semesterdagar</th>
               <th>Status</th>
               <th class="text-end pe-3">Åtgärd</th>
             </tr>
@@ -35,6 +36,7 @@
               <td>{{ employee.masked_personal_identity_number }}</td>
               <td class="text-end">{{ employee.monthly_salary|floatformat:"2g" }} kr</td>
               <td class="text-end">{{ employee.tax_table_number }} / {{ employee.get_tax_table_column_display }}</td>
+              <td class="text-end">{{ employee.vacation_days_balance|floatformat:"-2g" }}</td>
               <td>
                 {% if employee.is_active %}
                   <span class="badge text-bg-success">Aktiv</span>
@@ -49,7 +51,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-center text-muted py-4">Inga anställda ännu.</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-4">Inga anställda ännu.</td></tr>
             {% endfor %}
           </tbody>
         </table>

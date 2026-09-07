@@ -28,6 +28,16 @@ from ..year_end import (
 from ._base import company_required
 
 
+def _vacation_status(company, year):
+    """Semesterlöneskuld-steget visas bara för företag med anställda."""
+    from payroll.models import Employee
+    from payroll.vacation import vacation_liability_status
+
+    if not Employee.objects.filter(company=company).exists():
+        return None
+    return vacation_liability_status(company, year)
+
+
 def _next_year_after(company, year):
     return AccountingYear.objects.filter(company=company, start_date__gt=year.end_date).order_by("start_date").first()
 
@@ -55,6 +65,22 @@ def year_end_close(request, company, pk):
                 next_start, next_end = _suggested_next_dates(year)
                 AccountingYear.objects.create(company=company, start_date=next_start, end_date=next_end)
                 messages.success(request, f"Räkenskapsåret {next_end.year} har skapats.")
+        elif action == "book_vacation_liability":
+            from payroll.vacation import book_vacation_liability
+
+            if year_end_voucher(year) is not None:
+                messages.error(request, "Året är redan avslutat – semesterlöneskulden kan inte ändras här.")
+            else:
+                try:
+                    txn = book_vacation_liability(company, request.user, year)
+                except ValidationError as exc:
+                    for message in exc.messages:
+                        messages.error(request, message)
+                else:
+                    if txn is None:
+                        messages.info(request, "Semesterlöneskulden stämmer redan – inget att bokföra.")
+                    else:
+                        messages.success(request, f"Semesterlöneskulden har bokförts ({txn.reference}).")
         elif action == "create_vouchers":
             errors = precheck_errors(company, year, next_year)
             if errors:
@@ -121,6 +147,7 @@ def year_end_close(request, company, pk):
             "result_account_number": "2099" if is_ab else "2019",
             "equity_account_number": "2091" if is_ab else "2010",
             "opening_balances": opening_balances,
+            "vacation": _vacation_status(company, year),
             "year_locked": year_lock_status(year) == "locked",
         },
     )

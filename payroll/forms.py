@@ -42,6 +42,7 @@ class EmployeeForm(forms.ModelForm):
             "tax_table_number",
             "tax_table_column",
             "start_date",
+            "vacation_days_balance",
             "is_active",
         )
         widgets = {
@@ -59,6 +60,7 @@ class EmployeeForm(forms.ModelForm):
             "tax_table_number": forms.NumberInput(attrs={"class": "form-control", "min": "1", "max": "40"}),
             "tax_table_column": forms.Select(attrs={"class": "form-select"}),
             "start_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "vacation_days_balance": forms.NumberInput(attrs={"class": "form-control", "step": "0.5"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -122,13 +124,19 @@ class SalaryRecordAdjustmentForm(forms.ModelForm):
         model = SalaryRecord
         fields = (
             "gross_salary",
+            "vacation_days_taken",
             "tax_table_number",
             "tax_table_column",
         )
         widgets = {
             "gross_salary": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0"}),
+            "vacation_days_taken": forms.NumberInput(attrs={"class": "form-control", "step": "0.5", "min": "0"}),
             "tax_table_number": forms.NumberInput(attrs={"class": "form-control", "min": "1", "max": "40"}),
             "tax_table_column": forms.Select(attrs={"class": "form-select"}),
+        }
+        help_texts = {
+            "vacation_days_taken": "Semestertillägg (0,43 % av månadslönen per dag) läggs till automatiskt och "
+            "dagarna dras från den anställdes saldo när lönekörningen avslutas.",
         }
 
 
