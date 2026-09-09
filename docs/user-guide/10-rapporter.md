@@ -70,15 +70,23 @@ Rapporten kan exporteras som **PDF** – exporten avser samma datum som visas p�
 
 ## SRU-rapport
 
-**Rapporter → SRU-rapport** visar SRU-koder per konto för valt räkenskapsår, med en
-**preflight-diagnostik** som varnar/felar på:
+**Rapporter → SRU-rapport** visar fältkoder per konto för valt räkenskapsår. Vilken blankett
+som byggs styrs av **Bolagsform** i [företagsinställningarna](11-foretagsinstallningar.md):
 
-- Konton som helt saknar SRU-kod.
-- Konton med en ogiltig SRU-kod.
+- **Aktiebolag → INK2.** Kontots SRU-kod (fylls i automatiskt från BAS när kontot skapas) grupperar
+  beloppen; netto visas som debet − kredit.
+- **Enskild firma → NE-bilagan (INK1).** Kopplingen till fälten B1–B16 och R1–R11 görs från
+  kontonumret enligt BAS kopplingstabell för enskilda näringsidkare som inte upprättar förenklat
+  årsbokslut; kontots SRU-kod används inte. Beloppen visas med blankettens tecken (skulder,
+  eget kapital och intäkter positiva som kredit), R11 räknas fram som intäkter minus kostnader.
+  Momspliktig försäljning (momsfält 05–08) hamnar på R1, övrig försäljning på R2. Filen kräver att
+  ägarens **personnummer med 12 siffror** står som organisationsnummer. Skatteskulder (25xx)
+  redovisas enligt kopplingstabellen inte på NE-bilagan och hoppas över.
 
-Fixa de fel diagnostiken visar innan du exporterar – **Ladda ner** hämtar SRU-underlaget som en
-zip-fil, och en separat diagnostikrapport kan laddas ner fristående för att stämma av innan
-inlämning.
+**Preflight-diagnostiken** felar på konton med poster som saknar (eller för INK2 har en ogiltig)
+fältkod. Fixa de fel diagnostiken visar innan du exporterar – **Ladda ner** hämtar SRU-underlaget
+som en zip-fil (`info.sru` + `blanketter.sru`), och en separat diagnostikrapport kan laddas ner
+fristående för att stämma av innan inlämning.
 
 ## Händelselogg (auditlogg)
 

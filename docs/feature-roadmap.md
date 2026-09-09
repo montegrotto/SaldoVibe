@@ -38,8 +38,8 @@ prioritetsordning.
 
 - ~~Semesterhantering i lön~~ — semesterdagar på anställd/lönepost med semestertillägg
   (sammalöneregeln) och semesterlöneskuld som eget steg i bokslutsflödet (`payroll/vacation.py`).
-- **SRU för enskild firma** — `Company` har bolagsformen men `sru_lookup` täcker bara INK2.
-  NE-bilagan saknas.
+- ~~SRU för enskild firma~~ — NE-bilagan byggs från kontonumret (`bookkeeping/sru_ne.py`) när
+  bolagsformen är enskild firma; INK2 oförändrat för aktiebolag.
 - **Kontantmetoden (bokslutsmetoden) för moms** — bara faktureringsmetoden finns.
 - **Tvåfaktorsinloggning** — TOTP går med stdlib `hmac`, inget nytt beroende.
 
