@@ -190,6 +190,12 @@
       <tr><td>Skattefria tillägg</td><td class="num">{{ salary_record.total_non_taxable_additions|floatformat:"2g" }}</td></tr>
       <tr><td>Avdrag efter skatt</td><td class="num">-{{ salary_record.total_post_tax_deductions|floatformat:"2g" }}</td></tr>
       <tr class="net"><td>Nettolön</td><td class="num">{{ salary_record.net_salary|floatformat:"2g" }}</td></tr>
+      {% for claim, amount in expense_payouts %}
+      <tr><td>Utlägg {{ claim.expense_date }} – {{ claim.description }}</td><td class="num">{{ amount|floatformat:"2g" }}</td></tr>
+      {% endfor %}
+      {% if expense_payouts %}
+      <tr class="net"><td>Att utbetala</td><td class="num">{{ salary_record.payout_total|floatformat:"2g" }}</td></tr>
+      {% endif %}
     </tbody>
   </table>
 

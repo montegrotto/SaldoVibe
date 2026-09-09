@@ -442,6 +442,35 @@ class SalaryRecord(models.Model):
     def total_post_tax_deductions(self):
         return quantize_money((self.post_tax_deductions or Decimal("0.00")) + self.adjustment_totals()["post_deduct"])
 
+    def expense_payouts(self):
+        """[(utlägg, belopp)] som betalas ut med den här lönen.
+
+        Före avslut: återstående belopp på de kopplade utläggen. Efter avslut: de
+        betalningsrader avslutet skapade på löneverifikationen, så lönespecen står sig
+        även om utlägget senare ångras eller regleras på annat sätt.
+        """
+        from expenses.models import ExpenseClaimPayment
+
+        if self.pk is None:
+            return []
+        if self.payroll_run.is_finished:
+            rows = ExpenseClaimPayment.objects.filter(
+                payable__salary_record=self,
+                transaction_id=self.payroll_run.booking_transaction_id,
+                reversed_at__isnull=True,
+            ).select_related("payable")
+            return [(row.payable, row.amount) for row in rows]
+        return [(claim, claim.remaining_amount) for claim in self.expense_claims.all()]
+
+    @property
+    def expense_payout_total(self):
+        return quantize_money(sum((amount for _claim, amount in self.expense_payouts()), Decimal("0.00")))
+
+    @property
+    def payout_total(self):
+        """Nettolön plus utlägg – det belopp som faktiskt ska gå till den anställdes konto."""
+        return quantize_money((self.net_salary or Decimal("0.00")) + self.expense_payout_total)
+
     def calculate_amounts(self):
         self.vacation_supplement = self.calculate_vacation_supplement()
         taxable_salary = self.taxable_salary
@@ -591,7 +620,9 @@ def mark_payroll_run_finished(payroll_run, user):
     from django.db import transaction as db_transaction
 
     from bookkeeping.models import Account, AccountingYear, JournalEntry, Transaction, TransactionSource
+    from bookkeeping.payables import reapply_payment_state
     from bookkeeping.period_locking import is_date_locked
+    from expenses.models import ExpenseClaimPayment
 
     if payroll_run.is_finished:
         return payroll_run.booking_transaction
@@ -633,8 +664,25 @@ def mark_payroll_run_finished(payroll_run, user):
     total_generic_additions_on_salary_cost = Decimal("0.00")
     total_generic_deductions_on_salary_cost = Decimal("0.00")
     adjustment_account_totals = {}
+    # {record.pk: [(claim, amount)]} – utlägg valda på löneposten, betalas ut med nettolönen.
+    expense_payouts = {}
+    expense_liability_totals = {}
+    total_expenses = Decimal("0.00")
     salary_records = list(payroll_run.salary_records.prefetch_related("adjustments"))
     for record in salary_records:
+        expense_payouts[record.pk] = []
+        for claim in record.expense_claims.select_related("liability_account"):
+            if not claim.is_registered:
+                raise ValidationError(f"Utlägget {claim} måste vara bokfört innan det kan betalas ut via lön.")
+            if claim.is_paid:
+                raise ValidationError(f"Utlägget {claim} är redan utbetalt. Ta bort det från löneposten.")
+            amount = claim.remaining_amount
+            expense_payouts[record.pk].append((claim, amount))
+            expense_liability_totals[claim.liability_account] = (
+                expense_liability_totals.get(claim.liability_account, Decimal("0.00")) + amount
+            )
+            total_expenses += amount
+
         # Recalculate right before posting so late adjustment edits are always reflected.
         record.save(
             update_fields=[
@@ -778,8 +826,35 @@ def mark_payroll_run_finished(payroll_run, user):
             credit=quantize_money(total_net),
             description="Skuld nettolöner",
         )
+        for liability_account, amount in expense_liability_totals.items():
+            JournalEntry.objects.create(
+                transaction=txn,
+                account=liability_account,
+                debit=quantize_money(amount),
+                credit=Decimal("0.00"),
+                description="Utlägg utbetalda via lön",
+            )
+        if total_expenses > Decimal("0.00"):
+            JournalEntry.objects.create(
+                transaction=txn,
+                account=accounts["salary_liability"],
+                debit=Decimal("0.00"),
+                credit=quantize_money(total_expenses),
+                description="Skuld utlägg via lön",
+            )
 
         txn.validate_balanced()
+
+        for payouts in expense_payouts.values():
+            for claim, amount in payouts:
+                ExpenseClaimPayment.objects.create(
+                    payable=claim,
+                    transaction=txn,
+                    amount=amount,
+                    payment_date=payroll_run.payment_date,
+                    payment_account=accounts["salary_liability"],
+                )
+                reapply_payment_state(claim, ExpenseClaimPayment)
 
         for record in salary_records:
             if (record.vacation_days_taken or Decimal("0.00")) > 0:
@@ -796,7 +871,10 @@ def mark_payroll_run_finished(payroll_run, user):
                 payroll_run=payroll_run,
                 employee=record.employee,
                 due_date=payroll_run.payment_date,
-                amount=quantize_money(record.net_salary or Decimal("0.00")),
+                amount=quantize_money(
+                    (record.net_salary or Decimal("0.00"))
+                    + sum((amount for _claim, amount in expense_payouts[record.pk]), Decimal("0.00"))
+                ),
                 description=f"Utgående lön {record.employee} {payroll_run.period_year}-{payroll_run.period_month:02d}",
             )
 

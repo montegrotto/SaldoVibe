@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -17,6 +17,7 @@ from bookkeeping.compliance_policy import require_compliance_action
 from bookkeeping.models import SentEmail
 from bookkeeping.outgoing_mail import company_email_configured, send_company_email
 from bookkeeping.pdf import PdfRenderError, company_logo_size, render_pdf_bytes, render_pdf_response
+from expenses.models import ExpenseClaim
 
 from .forms import (
     EmployeeDefaultAdjustmentFormSet,
@@ -341,6 +342,7 @@ def salary_report_pdf_context(salary_record):
     ]
     return {
         "salary_record": salary_record,
+        "expense_payouts": salary_record.expense_payouts(),
         "employee_address_lines": [line for line in employee_address_lines if line and line.strip()],
         "logo_size": company_logo_size(company),
     }
@@ -428,6 +430,11 @@ def salary_record_update(request, company, payroll_run_id, salary_record_id):
         messages.error(request, "Lönekörningen är avslutad och kan inte ändras.")
         return redirect("payroll:payroll_run_detail", payroll_run_id=salary_record.payroll_run.pk)
 
+    # Bokförda, obetalda utlägg för den anställde som inte redan ligger på en annan lönepost.
+    pending_expense_claims = ExpenseClaim.objects.filter(
+        company=company, employee=salary_record.employee, is_registered=True, is_paid=False
+    ).filter(Q(salary_record__isnull=True) | Q(salary_record=salary_record))
+
     if request.method == "POST":
         form = SalaryRecordAdjustmentForm(request.POST, instance=salary_record)
         formset = SalaryAdjustmentFormSet(request.POST, instance=salary_record)
@@ -436,6 +443,10 @@ def salary_record_update(request, company, payroll_run_id, salary_record_id):
                 salary_record = form.save()
                 formset.save()
                 salary_record.save()
+                selected_claim_ids = set(request.POST.getlist("expense_claim_ids"))
+                for claim in pending_expense_claims:
+                    claim.salary_record = salary_record if str(claim.pk) in selected_claim_ids else None
+                    claim.save(update_fields=["salary_record", "updated_at"])
             except ValidationError as exc:
                 form.add_error(None, str(exc))
             else:
@@ -454,6 +465,7 @@ def salary_record_update(request, company, payroll_run_id, salary_record_id):
             "salary_record": salary_record,
             "payroll_run": salary_record.payroll_run,
             "adjustment_presets": _adjustment_presets(),
+            "pending_expense_claims": pending_expense_claims,
         },
     )
 

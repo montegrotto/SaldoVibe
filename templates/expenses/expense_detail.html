@@ -100,6 +100,14 @@
           {% include "bookkeeping/_register_payment.html" with document=claim %}
         {% endif %}
 
+        {% if claim.salary_record_id and not claim.is_paid %}
+          <div class="alert alert-info mb-0" role="alert">
+            Utlägget betalas ut med lönen i
+            <a href="{% url 'payroll:payroll_run_detail' claim.salary_record.payroll_run_id %}" class="alert-link">lönekörningen för {{ claim.salary_record.payroll_run.period_label }}</a>
+            när den avslutas.
+          </div>
+        {% endif %}
+
         {% if claim.is_paid %}
           <div class="alert alert-success mb-0" role="alert">
             Utlägget är markerat som utbetalt{% if claim.payment_date %} {{ claim.payment_date }}{% endif %}.
