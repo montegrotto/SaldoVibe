@@ -125,7 +125,10 @@
       <tbody>
         {% for record in salary_records %}
         <tr>
-          <td>{{ record.employee }}</td>
+          <td>
+            {{ record.employee }}
+            {% if record.vacation_days_taken %}<div class="small text-muted">{{ record.vacation_days_taken|floatformat:"-2g" }} semesterdagar</div>{% endif %}
+          </td>
           <td>
             <span class="badge {% if record.tax_calculation_source == 'api' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
               {{ record.get_tax_calculation_source_display }}

@@ -13,6 +13,8 @@ from saldovibe.encryption import EncryptedTextField, blind_index
 from .skatteverket_api import get_tax_amount_from_skatteverket
 
 MONEY_QUANT = Decimal("0.01")
+# Semesterlagen 16 a § (sammalöneregeln): semestertillägg 0,43 % av månadslönen per semesterdag.
+VACATION_SUPPLEMENT_RATE = Decimal("0.0043")
 
 
 class AdjustmentCategory(models.TextChoices):
@@ -84,6 +86,14 @@ class Employee(models.Model):
         "Kolumn", choices=TaxTableColumn.choices, default=TaxTableColumn.COL_1
     )
     start_date = models.DateField("Anställningsdatum", null=True, blank=True)
+    vacation_days_balance = models.DecimalField(
+        "Kvarvarande semesterdagar",
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Minskas automatiskt när en lönekörning med uttagna semesterdagar avslutas. "
+        "Fyll på manuellt vid nytt semesterår.",
+    )
     is_active = models.BooleanField("Aktiv", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -316,6 +326,12 @@ class SalaryRecord(models.Model):
         "Arbetsgivaravgift", max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
     net_salary = models.DecimalField("Nettolön", max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    vacation_days_taken = models.DecimalField(
+        "Uttagna semesterdagar", max_digits=5, decimal_places=2, default=Decimal("0.00")
+    )
+    vacation_supplement = models.DecimalField(
+        "Semestertillägg", max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
 
     class Meta:
         ordering = ["employee__first_name", "employee__last_name"]
@@ -339,6 +355,17 @@ class SalaryRecord(models.Model):
             raise ValidationError("Skattetabell måste vara mellan 1 och 40.")
         if not 1 <= (self.tax_table_column or 0) <= 6:
             raise ValidationError("Kolumn måste vara mellan 1 och 6.")
+        if (self.vacation_days_taken or Decimal("0.00")) < Decimal("0.00"):
+            raise ValidationError("Uttagna semesterdagar kan inte vara negativa.")
+
+    def calculate_vacation_supplement(self):
+        """Semestertillägg enligt sammalöneregeln: 0,43 % av månadslönen per uttagen dag."""
+        days = self.vacation_days_taken or Decimal("0.00")
+        if days <= 0:
+            return Decimal("0.00")
+        employee = self.employee
+        monthly = (employee.monthly_salary or Decimal("0.00")) * (employee.employment_rate or Decimal("0.00")) / 100
+        return quantize_money(monthly * VACATION_SUPPLEMENT_RATE * days)
 
     @property
     def taxable_salary(self):
@@ -346,6 +373,7 @@ class SalaryRecord(models.Model):
         taxable_base = (
             (self.gross_salary or Decimal("0.00"))
             + (self.taxable_additions or Decimal("0.00"))
+            + (self.vacation_supplement or Decimal("0.00"))
             + adjustment_totals["pre_add_taxable"]
             - (self.pre_tax_deductions or Decimal("0.00"))
             - adjustment_totals["pre_deduct"]
@@ -415,6 +443,7 @@ class SalaryRecord(models.Model):
         return quantize_money((self.post_tax_deductions or Decimal("0.00")) + self.adjustment_totals()["post_deduct"])
 
     def calculate_amounts(self):
+        self.vacation_supplement = self.calculate_vacation_supplement()
         taxable_salary = self.taxable_salary
         adjustment_totals = self.adjustment_totals()
         try:
@@ -481,6 +510,8 @@ def _build_payroll_report_payload(payroll_run):
                 "preliminary_tax_amount": str(record.preliminary_tax_amount or Decimal("0.00")),
                 "employer_contribution_amount": str(record.employer_contribution_amount or Decimal("0.00")),
                 "net_salary": str(record.net_salary or Decimal("0.00")),
+                "vacation_days_taken": str(record.vacation_days_taken or Decimal("0.00")),
+                "vacation_supplement": str(record.vacation_supplement or Decimal("0.00")),
                 "tax_table_number": record.tax_table_number,
                 "tax_table_column": record.tax_table_column,
                 "tax_calculation_source": record.tax_calculation_source,
@@ -613,6 +644,7 @@ def mark_payroll_run_finished(payroll_run, user):
                 "tax_calculation_reference",
                 "employer_contribution_amount",
                 "net_salary",
+                "vacation_supplement",
             ]
         )
 
@@ -621,8 +653,10 @@ def mark_payroll_run_finished(payroll_run, user):
         total_employer += record.employer_contribution_amount or Decimal("0.00")
         total_net += record.net_salary or Decimal("0.00")
 
-        total_generic_additions_on_salary_cost += (record.taxable_additions or Decimal("0.00")) + (
-            record.non_taxable_additions or Decimal("0.00")
+        total_generic_additions_on_salary_cost += (
+            (record.taxable_additions or Decimal("0.00"))
+            + (record.non_taxable_additions or Decimal("0.00"))
+            + (record.vacation_supplement or Decimal("0.00"))
         )
         total_generic_deductions_on_salary_cost += (record.pre_tax_deductions or Decimal("0.00")) + (
             record.post_tax_deductions or Decimal("0.00")
@@ -746,6 +780,14 @@ def mark_payroll_run_finished(payroll_run, user):
         )
 
         txn.validate_balanced()
+
+        for record in salary_records:
+            if (record.vacation_days_taken or Decimal("0.00")) > 0:
+                employee = record.employee
+                employee.vacation_days_balance = (
+                    employee.vacation_days_balance or Decimal("0.00")
+                ) - record.vacation_days_taken
+                employee.save(update_fields=["vacation_days_balance"])
 
         SalaryPaymentReminder.objects.filter(payroll_run=payroll_run).delete()
         for record in salary_records:

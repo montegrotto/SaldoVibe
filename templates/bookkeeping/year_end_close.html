@@ -36,10 +36,65 @@
       </div>
     </div>
 
-    {# Steg 2: Nästa räkenskapsår #}
+    {# Steg 2: Semesterlöneskuld #}
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-header bg-white py-3">
-        <h6 class="mb-0 fw-semibold">2. Nästa räkenskapsår</h6>
+        <h6 class="mb-0 fw-semibold">2. Semesterlöneskuld</h6>
+      </div>
+      <div class="card-body">
+        {% if vacation is None %}
+          <p class="text-muted mb-0">Företaget har inga anställda – inget att bokföra.</p>
+        {% else %}
+          <p class="text-muted small mb-2">
+            Kvarvarande semesterdagar × 5,03 % av månadslönen (semesterlön 4,6 % + semestertillägg 0,43 %)
+            plus arbetsgivaravgifter. Bokförs som skillnaden mot saldot på 2920/2941 per {{ year.end_date }}.
+          </p>
+          {% if vacation.rows %}
+          <div class="table-responsive mb-3">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr><th>Anställd</th><th class="text-end">Dagar</th><th class="text-end">Månadslön</th><th class="text-end">Semesterskuld</th><th class="text-end">Sociala avgifter</th></tr>
+              </thead>
+              <tbody>
+                {% for row in vacation.rows %}
+                <tr>
+                  <td>{{ row.employee }}</td>
+                  <td class="text-end">{{ row.days|floatformat:"-2g" }}</td>
+                  <td class="text-end">{{ row.monthly_salary|floatformat:"2g" }} kr</td>
+                  <td class="text-end">{{ row.amount|floatformat:"2g" }} kr</td>
+                  <td class="text-end">{{ row.contribution|floatformat:"2g" }} kr ({{ row.contribution_rate|floatformat:"2g" }} %)</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+          <p class="mb-2">
+            Beräknad skuld <strong>{{ vacation.target|floatformat:"2g" }} kr</strong> (2920) +
+            <strong>{{ vacation.target_contribution|floatformat:"2g" }} kr</strong> (2941);
+            bokfört {{ vacation.booked|floatformat:"2g" }} kr + {{ vacation.booked_contribution|floatformat:"2g" }} kr.
+          </p>
+          {% if vacation.diff == 0 and vacation.diff_contribution == 0 %}
+            <p class="text-success mb-0"><i class="bi bi-check-circle me-1"></i>Bokförd skuld stämmer med beräkningen.</p>
+          {% elif s1 %}
+            <p class="text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Skulden avviker {{ vacation.diff|floatformat:"2g" }} kr men året är redan avslutat – justera via korrigering.</p>
+          {% else %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="book_vacation_liability">
+              <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-journal-plus me-1"></i>Bokför justering {{ vacation.diff|floatformat:"2g" }} kr + {{ vacation.diff_contribution|floatformat:"2g" }} kr
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {# Steg 3: Nästa räkenskapsår #}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">3. Nästa räkenskapsår</h6>
       </div>
       <div class="card-body">
         {% if next_year %}
@@ -59,10 +114,10 @@
       </div>
     </div>
 
-    {# Steg 3: Bokslutsverifikationerna #}
+    {# Steg 4: Bokslutsverifikationerna #}
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-header bg-white py-3">
-        <h6 class="mb-0 fw-semibold">3. Bokslutsverifikationer</h6>
+        <h6 class="mb-0 fw-semibold">4. Bokslutsverifikationer</h6>
       </div>
       <div class="card-body">
         {% if s1 %}
@@ -106,11 +161,11 @@
       </div>
     </div>
 
-    {# Steg 4: IB-bekräftelse #}
+    {# Steg 5: IB-bekräftelse #}
     {% if s1 and next_year %}
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
-          <h6 class="mb-0 fw-semibold">4. Ingående balans {{ next_year.name }}</h6>
+          <h6 class="mb-0 fw-semibold">5. Ingående balans {{ next_year.name }}</h6>
         </div>
         <div class="card-body p-0">
           <p class="text-muted small px-3 pt-3">
@@ -140,10 +195,10 @@
       </div>
     {% endif %}
 
-    {# Steg 5: Helårslåsning #}
+    {# Steg 6: Helårslåsning #}
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-header bg-white py-3">
-        <h6 class="mb-0 fw-semibold">5. Helårslåsning</h6>
+        <h6 class="mb-0 fw-semibold">6. Helårslåsning</h6>
       </div>
       <div class="card-body">
         {% if year_locked %}
