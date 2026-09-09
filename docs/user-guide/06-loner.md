@@ -15,6 +15,8 @@ Gå till **Personal → Anställda** för att skapa en anställd. Nödvändiga u
   `månadslön × sysselsättningsgrad / 100`.
 - **Skattetabell** (1–40) och **kolumn** (1–6) som styr preliminärskatteberäkningen.
 - Anställningsdatum (valfritt) och om personen är aktiv.
+- **Kvarvarande semesterdagar** – saldot som semesteruttag dras från. Fyll på manuellt vid
+  nytt semesterår (SaldoVibe räknar inte intjänande per intjänandeår).
 - **E-post** (valfritt) – dit lönespecifikationen kan skickas, se nedan.
 
 Du kan även lägga upp **standardjusteringar** per anställd (t.ex. återkommande tillägg/avdrag) som
@@ -34,6 +36,16 @@ automatiskt kopieras in på varje ny lönekörning för den personen.
 Öppna lönekörningen och redigera en lönepost för att justera bruttolön, lägga till tillägg/avdrag
 (före eller efter skatt, skattepliktiga eller ej) eller ändra skattetabell/kolumn för just den
 utbetalningen.
+
+## Semester
+
+Ange **uttagna semesterdagar** på löneposten. SaldoVibe tillämpar sammalöneregeln: månadslönen
+betalas som vanligt och ett **semestertillägg** på 0,43 % av månadslönen per dag läggs till som
+skattepliktig lön (egen rad på lönespecifikationen). När lönekörningen avslutas dras dagarna från
+den anställdes saldo, och semestertillägget bokförs som lönekostnad tillsammans med övriga tillägg.
+
+Semesterlöneskulden bokförs inte löpande utan justeras vid bokslut, se steget
+**Semesterlöneskuld** i [bokslutsflödet](01-komma-igang.md#bokslut-årsavslut).
 
 ## Lönespecifikation – skriv ut eller skicka via e-post
 

@@ -7,6 +7,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.messages import get_messages
+from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 
@@ -21,6 +22,7 @@ from .models import (
     SalaryAdjustment,
     SalaryPaymentReminder,
     SalaryRecord,
+    mark_payroll_run_finished,
 )
 
 
@@ -1106,3 +1108,93 @@ class SalaryReportEmailTests(CompanyTestCase):
         self.employee.email = ""
         self.employee.save()
         self.assertNotContains(self.client.get(detail_url), self.url)
+
+
+class VacationTests(CompanyTestCase):
+    user_email = "semester@example.com"
+    user_fields = {"is_staff": True}
+    company_name = "Semesterbolaget AB"
+    company_org_number = "556677-1122"
+
+    def setUp(self):
+        super().setUp()
+        self.year.refresh_from_db()
+        create_accounts(
+            self.company,
+            [
+                ("7010", "Löner", "7"),
+                ("7510", "Arbetsgivaravgifter", "7"),
+                ("2710", "Personalskatt", "2"),
+                ("2731", "Avräkning sociala avgifter", "2"),
+                ("2910", "Upplupna löner", "2"),
+                ("2920", "Upplupna semesterlöner", "2"),
+                ("2941", "Upplupna sociala avgifter", "2"),
+                ("7290", "Förändring semesterlöneskuld", "7"),
+                ("7519", "Sociala avgifter semesterskuld", "7"),
+            ],
+        )
+        self.employee = Employee.objects.create(
+            company=self.company,
+            first_name="Sara",
+            last_name="Semester",
+            personal_identity_number="199001011234",
+            monthly_salary=Decimal("30000.00"),
+            employment_rate=Decimal("100.00"),
+            vacation_days_balance=Decimal("25.00"),
+        )
+
+    @patch("payroll.models.get_tax_amount_from_skatteverket", return_value={"tax_amount": Decimal("9000.00")})
+    def test_vacation_days_add_supplement_and_reduce_balance_on_finish(self, _api_mock):
+        run = PayrollRun.objects.create(
+            company=self.company, period_year=2026, period_month=7, payment_date=self.year.start_date
+        )
+        record = SalaryRecord.objects.create(
+            payroll_run=run,
+            employee=self.employee,
+            gross_salary=Decimal("30000.00"),
+            vacation_days_taken=Decimal("5.00"),
+        )
+        # 0,43 % × 30 000 × 5 dagar
+        self.assertEqual(record.vacation_supplement, Decimal("645.00"))
+        self.assertEqual(record.taxable_salary, Decimal("30645.00"))
+
+        txn = mark_payroll_run_finished(run, self.user)
+
+        self.employee.refresh_from_db()
+        self.assertEqual(self.employee.vacation_days_balance, Decimal("20.00"))
+        salary_cost = txn.entries.filter(account__number="7010").aggregate(d=Sum("debit"))["d"]
+        self.assertEqual(salary_cost, Decimal("30645.00"))
+
+    def test_book_vacation_liability_books_difference_and_is_idempotent(self):
+        from payroll.vacation import book_vacation_liability, vacation_liability_status
+
+        status = vacation_liability_status(self.company, self.year)
+        # 25 × 5,03 % × 30 000 = 37 725; avgifter 31,42 % = 11 853,20
+        self.assertEqual(status["target"], Decimal("37725.00"))
+        self.assertEqual(status["target_contribution"], Decimal("11853.20"))
+
+        txn = book_vacation_liability(self.company, self.user, self.year)
+        self.assertEqual(txn.date, self.year.end_date)
+        self.assertEqual(txn.entries.get(account__number="2920").credit, Decimal("37725.00"))
+        self.assertEqual(txn.entries.get(account__number="2941").credit, Decimal("11853.20"))
+
+        self.assertIsNone(book_vacation_liability(self.company, self.user, self.year))
+
+        self.employee.vacation_days_balance = Decimal("20.00")
+        self.employee.save()
+        txn2 = book_vacation_liability(self.company, self.user, self.year)
+        self.assertEqual(txn2.entries.get(account__number="2920").debit, Decimal("7545.00"))
+
+    def test_year_end_wizard_books_vacation_liability(self):
+        self.company.legal_form = "aktiebolag"
+        self.company.save()
+        url = reverse("bookkeeping:year_end_close", kwargs={"pk": self.year.pk})
+        response = self.client.get(url)
+        self.assertContains(response, "2. Semesterlöneskuld")
+        self.assertContains(response, "37\xa0725,00")
+
+        response = self.client.post(url, {"action": "book_vacation_liability"})
+        self.assertRedirects(response, url)
+        self.assertTrue(
+            Transaction.objects.filter(accounting_year=self.year, description__startswith="Semesterlöneskuld").exists()
+        )

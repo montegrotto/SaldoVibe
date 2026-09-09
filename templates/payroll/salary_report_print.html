@@ -164,6 +164,7 @@
     <tr><td class="label">Personnummer</td><td class="value">{{ salary_record.employee.personal_identity_number }}</td></tr>
     <tr><td class="label">Utbetalningsdatum</td><td class="value">{{ salary_record.payroll_run.payment_date }}</td></tr>
     <tr><td class="label">Skatteunderlag</td><td class="value">Tabell {{ salary_record.tax_table_number }}, {{ salary_record.get_tax_table_column_display }}</td></tr>
+    <tr><td class="label">Semesterdagar kvar</td><td class="value">{{ salary_record.employee.vacation_days_balance|floatformat:"-2g" }}</td></tr>
     <tr><td class="label">Skattekälla</td><td class="value">{{ salary_record.get_tax_calculation_source_display }}</td></tr>
     {% if salary_record.tax_calculation_reference %}
     <tr><td class="label">API-referens</td><td class="value">{{ salary_record.tax_calculation_reference }}</td></tr>
@@ -180,6 +181,9 @@
     <tbody>
       <tr><td>Bruttolön</td><td class="num">{{ salary_record.gross_salary|floatformat:"2g" }}</td></tr>
       <tr><td>Skattepliktiga tillägg</td><td class="num">{{ salary_record.total_taxable_additions|floatformat:"2g" }}</td></tr>
+      {% if salary_record.vacation_days_taken %}
+      <tr><td>Semestertillägg ({{ salary_record.vacation_days_taken|floatformat:"-2g" }} semesterdagar)</td><td class="num">{{ salary_record.vacation_supplement|floatformat:"2g" }}</td></tr>
+      {% endif %}
       <tr><td>Avdrag före skatt</td><td class="num">-{{ salary_record.total_pre_tax_deductions|floatformat:"2g" }}</td></tr>
       <tr><td>Underlag för skatt</td><td class="num">{{ salary_record.taxable_salary|floatformat:"2g" }}</td></tr>
       <tr><td>Preliminärskatt ({{ salary_record.preliminary_tax_rate|floatformat:"2g" }} %)</td><td class="num">-{{ salary_record.preliminary_tax_amount|floatformat:"2g" }}</td></tr>
