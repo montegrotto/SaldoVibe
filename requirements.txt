@@ -2,10 +2,10 @@ Django==5.2.17
 python-dotenv==1.2.3
 qrcode==8.2
 certifi==2026.7.22
-xhtml2pdf==0.2.17
+xhtml2pdf==0.2.18
 gunicorn==26.2.0
 whitenoise==6.12.0
-psycopg[binary]==3.3.4
+psycopg[binary]==3.3.5
 pypdfium2==5.13.0
 # Imported directly by attachments/models.py for thumbnail generation. It also
 # arrives transitively via xhtml2pdf->reportlab, but that is incidental: swapping
