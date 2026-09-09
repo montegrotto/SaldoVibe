@@ -229,3 +229,22 @@ class AccountingYearCreateRuleTests(CompanyTestCase):
         self.assertEqual(response.url, reverse("bookkeeping:accounting_year_list"))
         self.assertTrue(Transaction.objects.filter(pk=txn.pk).exists())
         self.assertTrue(AccountingYear.objects.filter(pk=year.pk).exists())
+
+
+class AccountingYearPayrollGuardTests(CompanyTestCase):
+    user_email = "year-payroll@example.com"
+    user_fields = {"is_staff": True}
+    company_name = "Year Payroll AB"
+    company_org_number = "556677-3344"
+
+    def test_delete_is_blocked_when_a_payroll_run_pays_out_in_the_year(self):
+        from payroll.models import PayrollRun
+
+        PayrollRun.objects.create(company=self.company, period_year=2026, period_month=3, payment_date="2026-03-25")
+
+        response = self.client.get(reverse("bookkeeping:accounting_year_delete", args=[self.year.pk]))
+        self.assertContains(response, "lönekörningar med utbetalningsdatum i året")
+
+        response = self.client.post(reverse("bookkeeping:accounting_year_delete", args=[self.year.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(AccountingYear.objects.filter(pk=self.year.pk).exists())

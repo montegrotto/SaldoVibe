@@ -80,7 +80,7 @@ Innan du kan registrera verifikationer eller importera SIE-filer måste minst et
 Ett skapat räkenskapsår **går inte att redigera** i efterhand (försök att öppna redigeringsvyn ger
 meddelandet "Ett skapat räkenskapsår kan inte ändras. Du kan endast ta bort det."). Vill du ändra
 datumen måste du ta bort räkenskapsåret och skapa ett nytt – vilket bara går om det inte har några
-kopplade verifikationer, se nästa kapitel.
+kopplade verifikationer eller lönekörningar med utbetalningsdatum i året, se nästa kapitel.
 
 Knappen **Budget** på räkenskapsårets rad öppnar resultatbudgeten för det året, se
 [Resultatbudget](10-rapporter.md#resultatbudget) i rapportkapitlet. Knappen **Bokslut** öppnar
@@ -90,7 +90,7 @@ bokslutsflödet, se nästa avsnitt.
 
 Knappen **Bokslut** på räkenskapsårets rad öppnar en guidad sida som avslutar året. Flödet kräver
 rollen `finance_admin` och att **Bolagsform** är satt i
-[företagsinställningarna](11-foretagsinstallningar.md#redigera-företagsuppgifter). Sidan visar fem
+[företagsinställningarna](11-foretagsinstallningar.md#redigera-företagsuppgifter). Sidan visar sex
 steg:
 
 1. **Förkontroller** – alla måste vara gröna innan bokslutet kan bokföras:
@@ -100,18 +100,23 @@ steg:
      [Periodlåsning](02-lopande-bokforing.md)), men årets sista dag får **inte** vara låst –
      bokslutsverifikationen dateras där. Helårslåsningen görs som sista steg.
    - Balanskontrollen: balansräkningens differens ska vara exakt årets resultat.
-2. **Nästa räkenskapsår** – skapas med ett klick om det saknas (omföringen bokförs på dess
+2. **Semesterlöneskuld** (bara företag med anställda) – kvarvarande semesterdagar per anställd
+   värderas till 5,03 % av månadslönen per dag (semesterlön 4,6 % + semestertillägg 0,43 %) plus
+   arbetsgivaravgifter. Knappen bokför skillnaden mot befintligt saldo på 2920/2941 (mot 7290/7519)
+   på årets sista dag, så steget kan köras om utan dubbelbokning. Se
+   [Semester](06-loner.md#semester).
+3. **Nästa räkenskapsår** – skapas med ett klick om det saknas (omföringen bokförs på dess
    första dag).
-3. **Bokslutsverifikationer** – två verifikationer bokförs i serie S:
+4. **Bokslutsverifikationer** – två verifikationer bokförs i serie S:
    - **S1** (årets sista dag): årets resultat förs från konto 8999 till 2099 (aktiebolag)
      respektive 2019 (enskild firma).
    - **S2** (nästa års första dag): för aktiebolag förs beloppet om från 2099 till 2091
      ("balanseras i ny räkning"); för enskild firma nollställs kontona 2011–2019 (de med saldo)
      mot 2010.
-4. **Ingående balans** – en bekräftelsevy med nästa års beräknade ingående saldon per konto.
+5. **Ingående balans** – en bekräftelsevy med nästa års beräknade ingående saldon per konto.
    Årets resultat står kvar på 2099/2019 i ingående balans; omföringen (S2) är daterad på nästa
    års första dag och syns i nästa års saldon.
-5. **Helårslåsning** – hela året låses så att inga poster kan ändras. Detta är sista steget.
+6. **Helårslåsning** – hela året låses så att inga poster kan ändras. Detta är sista steget.
 
 Formell vinstdisposition för aktiebolag (utdelning, avsättning till reservfond) ingår inte i
 flödet – S2 balanserar alltid hela beloppet i ny räkning; vill du dela upp dispositionen gör du

@@ -1,10 +1,12 @@
 import re
+from decimal import Decimal
 
 from django import forms
 from django.forms import inlineformset_factory
 from django.utils import timezone
 
 from bookkeeping.form_utils import normalize_decimal_fields
+from bookkeeping.models import AccountingYear
 
 from .models import Employee, EmployeeDefaultAdjustment, PayrollRun, SalaryAdjustment, SalaryRecord
 
@@ -20,6 +22,10 @@ class EmployeeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         normalize_decimal_fields(self)
+        self.fields["vacation_days_balance"].required = False
+
+    def clean_vacation_days_balance(self):
+        return self.cleaned_data.get("vacation_days_balance") or Decimal("0.00")
 
     def clean_personal_identity_number(self):
         value = self.cleaned_data["personal_identity_number"].replace("-", "").replace(" ", "")
@@ -42,6 +48,7 @@ class EmployeeForm(forms.ModelForm):
             "tax_table_number",
             "tax_table_column",
             "start_date",
+            "vacation_days_balance",
             "is_active",
         )
         widgets = {
@@ -59,6 +66,7 @@ class EmployeeForm(forms.ModelForm):
             "tax_table_number": forms.NumberInput(attrs={"class": "form-control", "min": "1", "max": "40"}),
             "tax_table_column": forms.Select(attrs={"class": "form-select"}),
             "start_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "vacation_days_balance": forms.NumberInput(attrs={"class": "form-control", "step": "0.5"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -96,11 +104,28 @@ class PayrollRunCreateForm(forms.ModelForm):
             "payment_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.company = company
         today = timezone.localdate()
         self.fields["period"].initial = today.strftime("%Y-%m")
         self.fields["payment_date"].initial = today
+
+    def clean_payment_date(self):
+        # Samma villkor som mark_payroll_run_finished - hellre stopp här än vid avslutet.
+        payment_date = self.cleaned_data["payment_date"]
+        if self.company is not None:
+            matching = AccountingYear.objects.filter(
+                company=self.company, start_date__lte=payment_date, end_date__gte=payment_date
+            ).count()
+            if matching == 0:
+                raise forms.ValidationError(
+                    "Inget räkenskapsår täcker utbetalningsdatumet. Skapa räkenskapsåret under "
+                    "Inställningar → Räkenskapsår innan lönekörningen skapas."
+                )
+            if matching > 1:
+                raise forms.ValidationError("Flera räkenskapsår täcker utbetalningsdatumet.")
+        return payment_date
 
     def clean_period(self):
         # Native type="month" ger "ÅÅÅÅ-MM"; Firefox desktop faller tillbaka till fritext.
@@ -117,18 +142,28 @@ class SalaryRecordAdjustmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         normalize_decimal_fields(self)
+        self.fields["vacation_days_taken"].required = False
+
+    def clean_vacation_days_taken(self):
+        return self.cleaned_data.get("vacation_days_taken") or Decimal("0.00")
 
     class Meta:
         model = SalaryRecord
         fields = (
             "gross_salary",
+            "vacation_days_taken",
             "tax_table_number",
             "tax_table_column",
         )
         widgets = {
             "gross_salary": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0"}),
+            "vacation_days_taken": forms.NumberInput(attrs={"class": "form-control", "step": "0.5", "min": "0"}),
             "tax_table_number": forms.NumberInput(attrs={"class": "form-control", "min": "1", "max": "40"}),
             "tax_table_column": forms.Select(attrs={"class": "form-select"}),
+        }
+        help_texts = {
+            "vacation_days_taken": "Semestertillägg (0,43 % av månadslönen per dag) läggs till automatiskt och "
+            "dagarna dras från den anställdes saldo när lönekörningen avslutas.",
         }
 
 

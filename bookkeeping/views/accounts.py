@@ -172,6 +172,10 @@ def accounting_year_delete(request, company, pk):
 
     year = get_object_or_404(AccountingYear, pk=pk, company=company)
     transaction_count = Transaction.objects.filter(accounting_year=year).count()
+    # Lönekörningar knyts till året via utbetalningsdatumet (ingen FK), även innan de bokförts.
+    payroll_run_count = company.payroll_runs.filter(
+        payment_date__gte=year.start_date, payment_date__lte=year.end_date
+    ).count()
 
     previous_year = (
         AccountingYear.objects.filter(company=company, end_date__lt=year.start_date)
@@ -197,6 +201,7 @@ def accounting_year_delete(request, company, pk):
             {
                 "year": year,
                 "transaction_count": transaction_count,
+                "payroll_run_count": payroll_run_count,
                 "gap_would_be_created": gap_would_be_created,
             },
         )
@@ -212,6 +217,13 @@ def accounting_year_delete(request, company, pk):
         messages.error(
             request,
             "Räkenskapsåret kan inte tas bort eftersom det innehåller verifikationer. Arkivera företaget istället.",
+        )
+        return redirect("bookkeeping:accounting_year_list")
+
+    if payroll_run_count:
+        messages.error(
+            request,
+            "Räkenskapsåret kan inte tas bort eftersom det finns lönekörningar med utbetalningsdatum i året.",
         )
         return redirect("bookkeeping:accounting_year_list")
 
