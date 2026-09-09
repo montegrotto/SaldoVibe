@@ -39,6 +39,15 @@ automatiskt kopieras in på varje ny lönekörning för den personen.
 (före eller efter skatt, skattepliktiga eller ej) eller ändra skattetabell/kolumn för just den
 utbetalningen.
 
+### Utlägg som betalas ut med lönen
+
+Har den anställde bokförda utlägg som ännu inte betalats ut visas rutan **Utlägg som väntar på
+utbetalning** överst på löneposten. Bocka i de utlägg som ska följa med löneutbetalningen och
+spara. Utlägget visas som en egen rad efter nettolönen på lönespecifikationen, tillsammans med
+raden **Att utbetala**, och på utläggets sida står att det betalas ut med lönen i den
+lönekörningen. Ett utlägg kan bara ligga på en lönepost i taget. Bocka ur och spara för att
+ta bort det igen, eller ta bort den anställde från körningen.
+
 ## Semester
 
 Ange **uttagna semesterdagar** på löneposten. SaldoVibe tillämpar sammalöneregeln: månadslönen
@@ -69,8 +78,11 @@ Detta är den återvändslösa delen av flödet – när en körning avslutas:
 3. En bokföringsverifikation skapas automatiskt: lönekostnad (7010), arbetsgivaravgift (7510),
    skatteskuld (2710), avgiftsskuld (2731) och löneskuld (2910), plus eventuella
    justeringskonton.
-4. Betalningspåminnelser skapas för lönerna.
-5. En redan avslutad/rapporterad körning kan inte avslutas igen.
+4. Utlägg som valts på löneposterna flyttas från utläggsskulden (t.ex. 2820) till löneskulden
+   (2910) i samma verifikation och markeras som utbetalda. Är ett valt utlägg redan utbetalt
+   avbryts avslutet: *Utlägget … är redan utbetalt. Ta bort det från löneposten.*
+5. Betalningspåminnelser skapas för lönerna, med nettolön plus eventuella utlägg.
+6. En redan avslutad/rapporterad körning kan inte avslutas igen.
 
 ## Rapportera till Skatteverket (AGI)
 

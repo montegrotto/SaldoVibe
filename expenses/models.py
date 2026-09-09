@@ -52,6 +52,15 @@ class ExpenseClaim(PayableMixin):
         verbose_name="Anställd",
     )
     person_name = models.CharField("Namn", max_length=200, blank=True)
+    # Vald på löneposten: utlägget betalas ut tillsammans med nettolönen när körningen avslutas.
+    salary_record = models.ForeignKey(
+        "payroll.SalaryRecord",
+        on_delete=models.SET_NULL,
+        related_name="expense_claims",
+        null=True,
+        blank=True,
+        verbose_name="Betalas ut via lönepost",
+    )
     description = models.CharField("Beskrivning", max_length=255)
     expense_date = models.DateField("Utläggsdatum")
 

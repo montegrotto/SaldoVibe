@@ -29,6 +29,21 @@
           </div>
           {% endfor %}
 
+          {% if pending_expense_claims %}
+          <div class="alert alert-info" id="pending-expense-claims">
+            <h6 class="alert-heading">Utlägg som väntar på utbetalning</h6>
+            <p class="small mb-2">Bocka i de utlägg som ska betalas ut tillsammans med lönen. Utlägget markeras som utbetalt när lönekörningen avslutas.</p>
+            {% for claim in pending_expense_claims %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="expense_claim_ids" value="{{ claim.pk }}" id="expense-claim-{{ claim.pk }}" {% if claim.salary_record_id == salary_record.pk %}checked{% endif %}>
+              <label class="form-check-label" for="expense-claim-{{ claim.pk }}">
+                {{ claim.expense_date }} – {{ claim.description }}: <strong>{{ claim.remaining_amount|floatformat:"2g" }} kr</strong>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
           <hr>
           <h6>Tillägg och avdrag</h6>
           <p class="text-muted small mb-2">Inga rader visas som standard. Lägg till rader manuellt eller via preset.</p>

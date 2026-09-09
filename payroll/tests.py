@@ -7,11 +7,13 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.messages import get_messages
+from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 
 from bookkeeping.models import SentEmail, Transaction
+from expenses.models import ExpenseClaim
 from saldovibe.testing import CompanyTestCase, create_accounts, create_user
 
 from .models import (
@@ -1214,3 +1216,126 @@ class VacationTests(CompanyTestCase):
         self.assertTrue(
             Transaction.objects.filter(accounting_year=self.year, description__startswith="Semesterlöneskuld").exists()
         )
+
+
+class ExpenseClaimPayoutTests(CompanyTestCase):
+    """Utlägg som väljs på löneposten betalas ut med nettolönen när körningen avslutas."""
+
+    user_email = "payroll-expenses@example.com"
+    company_name = "Utläggslön AB"
+    company_org_number = "556600-1122"
+
+    def setUp(self):
+        super().setUp()
+        accounts = create_accounts(
+            self.company,
+            [
+                ("7010", "Löner", "7"),
+                ("7510", "Arbetsgivaravgifter", "7"),
+                ("2710", "Personalskatt", "2"),
+                ("2731", "Avräkning sociala avgifter", "2"),
+                ("2910", "Upplupna löner", "2"),
+                ("2820", "Skulder till anställda", "2"),
+                ("6110", "Kontorsmateriel", "6"),
+            ],
+        )
+        self.salary_liability = accounts["2910"]
+        self.employee = Employee.objects.create(
+            company=self.company,
+            first_name="Bo",
+            last_name="Utlägg",
+            personal_identity_number="198501011234",
+            monthly_salary=Decimal("30000.00"),
+        )
+        self.payroll_run = PayrollRun.objects.create(
+            company=self.company, period_year=2026, period_month=7, payment_date="2026-07-25", created_by=self.user
+        )
+        with patch(
+            "payroll.models.get_tax_amount_from_skatteverket",
+            return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+        ):
+            self.record = SalaryRecord.objects.create(
+                payroll_run=self.payroll_run, employee=self.employee, gross_salary=Decimal("30000.00")
+            )
+        self.claim = ExpenseClaim.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            employee=self.employee,
+            description="Tågbiljett",
+            expense_date="2026-07-05",
+            expense_account=accounts["6110"],
+            liability_account=accounts["2820"],
+            amount_ex_vat=Decimal("500.00"),
+            total_amount=Decimal("500.00"),
+        )
+        self.claim.register_and_bookkeep(self.user)
+        self.edit_url = reverse("payroll:salary_record_update", args=[self.payroll_run.pk, self.record.pk])
+
+    def _edit_post(self, **extra):
+        return self.client.post(
+            self.edit_url,
+            {
+                "gross_salary": "30000.00",
+                "tax_table_number": "32",
+                "tax_table_column": "1",
+                "adjustments-TOTAL_FORMS": "0",
+                "adjustments-INITIAL_FORMS": "0",
+                **extra,
+            },
+        )
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
+    def test_salary_record_page_offers_pending_claim_and_links_it(self, _api_mock):
+        response = self.client.get(self.edit_url)
+        self.assertContains(response, "Utlägg som väntar på utbetalning")
+        self.assertContains(response, "Tågbiljett")
+
+        self._edit_post(expense_claim_ids=[str(self.claim.pk)])
+        self.claim.refresh_from_db()
+        self.assertEqual(self.claim.salary_record_id, self.record.pk)
+        self.assertEqual(self.record.payout_total, Decimal("24500.00"))
+
+        self._edit_post()
+        self.claim.refresh_from_db()
+        self.assertIsNone(self.claim.salary_record_id)
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
+    def test_finish_pays_linked_claim_via_salary_liability(self, _api_mock):
+        self.claim.salary_record = self.record
+        self.claim.save(update_fields=["salary_record"])
+
+        txn = mark_payroll_run_finished(self.payroll_run, self.user)
+
+        self.assertTrue(txn.is_balanced)
+        self.assertEqual(txn.entries.get(account__number="2820").debit, Decimal("500.00"))
+        self.assertEqual(self.payroll_run.salary_payment_total(), Decimal("24500.00"))
+        self.assertEqual(SalaryPaymentReminder.objects.get(payroll_run=self.payroll_run).amount, Decimal("24500.00"))
+
+        self.claim.refresh_from_db()
+        self.assertTrue(self.claim.is_paid)
+        self.assertEqual(self.claim.payment_transaction_id, txn.pk)
+        self.assertEqual(self.claim.payment_account, self.salary_liability)
+        self.assertEqual(self.record.expense_payouts(), [(self.claim, Decimal("500.00"))])
+
+        response = self.client.get(reverse("payroll:salary_report_print", args=[self.payroll_run.pk, self.record.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
+    def test_finish_refuses_already_paid_linked_claim(self, _api_mock):
+        self.claim.salary_record = self.record
+        self.claim.is_paid = True
+        self.claim.save(update_fields=["salary_record", "is_paid"])
+
+        with self.assertRaisesMessage(ValidationError, "redan utbetalt"):
+            mark_payroll_run_finished(self.payroll_run, self.user)
+        self.payroll_run.refresh_from_db()
+        self.assertFalse(self.payroll_run.is_finished)
