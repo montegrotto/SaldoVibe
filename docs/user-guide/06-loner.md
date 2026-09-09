@@ -26,6 +26,8 @@ automatiskt kopieras in på varje ny lönekörning för den personen.
 
 1. Gå till **Personal → Löner → Ny lönekörning**.
 2. Välj period (månad) i periodväljaren. Det går bara att ha **en** lönekörning per period och företag.
+   Utbetalningsdatumet måste ligga inom ett befintligt räkenskapsår – saknas året stoppas
+   formuläret, skapa då året under **Inställningar → Räkenskapsår** först.
 3. Kryssa i "generera lönerader" för att automatiskt skapa en lönepost per aktiv anställd
    (bruttolön beräknas från anställdas månadslön/sysselsättningsgrad, standardjusteringar kopieras
    in automatiskt).

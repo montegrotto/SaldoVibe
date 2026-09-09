@@ -6,6 +6,7 @@ from django.forms import inlineformset_factory
 from django.utils import timezone
 
 from bookkeeping.form_utils import normalize_decimal_fields
+from bookkeeping.models import AccountingYear
 
 from .models import Employee, EmployeeDefaultAdjustment, PayrollRun, SalaryAdjustment, SalaryRecord
 
@@ -103,11 +104,28 @@ class PayrollRunCreateForm(forms.ModelForm):
             "payment_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.company = company
         today = timezone.localdate()
         self.fields["period"].initial = today.strftime("%Y-%m")
         self.fields["payment_date"].initial = today
+
+    def clean_payment_date(self):
+        # Samma villkor som mark_payroll_run_finished - hellre stopp här än vid avslutet.
+        payment_date = self.cleaned_data["payment_date"]
+        if self.company is not None:
+            matching = AccountingYear.objects.filter(
+                company=self.company, start_date__lte=payment_date, end_date__gte=payment_date
+            ).count()
+            if matching == 0:
+                raise forms.ValidationError(
+                    "Inget räkenskapsår täcker utbetalningsdatumet. Skapa räkenskapsåret under "
+                    "Inställningar → Räkenskapsår innan lönekörningen skapas."
+                )
+            if matching > 1:
+                raise forms.ValidationError("Flera räkenskapsår täcker utbetalningsdatumet.")
+        return payment_date
 
     def clean_period(self):
         # Native type="month" ger "ÅÅÅÅ-MM"; Firefox desktop faller tillbaka till fritext.

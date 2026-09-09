@@ -80,7 +80,7 @@ Innan du kan registrera verifikationer eller importera SIE-filer måste minst et
 Ett skapat räkenskapsår **går inte att redigera** i efterhand (försök att öppna redigeringsvyn ger
 meddelandet "Ett skapat räkenskapsår kan inte ändras. Du kan endast ta bort det."). Vill du ändra
 datumen måste du ta bort räkenskapsåret och skapa ett nytt – vilket bara går om det inte har några
-kopplade verifikationer, se nästa kapitel.
+kopplade verifikationer eller lönekörningar med utbetalningsdatum i året, se nästa kapitel.
 
 Knappen **Budget** på räkenskapsårets rad öppnar resultatbudgeten för det året, se
 [Resultatbudget](10-rapporter.md#resultatbudget) i rapportkapitlet. Knappen **Bokslut** öppnar

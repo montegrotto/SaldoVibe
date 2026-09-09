@@ -196,7 +196,7 @@ def payroll_run_list(request, company):
 def payroll_run_create(request, company):
 
     if request.method == "POST":
-        form = PayrollRunCreateForm(request.POST)
+        form = PayrollRunCreateForm(request.POST, company=company)
         if form.is_valid():
             period_year = form.instance.period_year
             period_month = form.instance.period_month
@@ -235,7 +235,7 @@ def payroll_run_create(request, company):
                     messages.success(request, "Lönekörningen har skapats.")
                     return redirect("payroll:payroll_run_detail", payroll_run_id=payroll_run.pk)
     else:
-        form = PayrollRunCreateForm()
+        form = PayrollRunCreateForm(company=company)
 
     return render(request, "payroll/payroll_run_form.html", {"form": form})
 
