@@ -16,23 +16,19 @@ uppdateras i samma ändring.
 - ~~Enkel resultatbudget~~ — `bookkeeping:budget_edit`, commit `3d87f18`.
 - ~~Årsavslut/bokslutsflöde~~ — `bookkeeping:year_end_close`, per
   `docs/compliance/aarsavslut/bokslutsflode-design.md`.
+- ~~Glömt lösenord~~ — `accounts:password_reset` (Djangos `PasswordResetView` + utgående e-post).
+- ~~Bjud in användare till företag + läsroll~~ — `bookkeeping:company_members`, PR #17.
+- ~~Global sök~~ — sökfältet i sidhuvudet (`bookkeeping:search`).
+- ~~Lönespec via e-post~~ — `payroll:salary_report_email`.
 
 ## Genomgång 2026-09-04
 
 Punkterna 1–3 från förra genomgången är klara (se ovan). Ny inventering av vad som saknas, i
 prioritetsordning.
 
-### Små, hög nytta — byggs nu, en PR per punkt
+### Små, hög nytta
 
-- **Glömt lösenord** — `accounts` har bara login/logout/register; Djangos inbyggda
-  `PasswordResetView` + befintlig utgående e-post.
-- **Bjud in användare till företag + läsroll** — användare kopplas bara vid skapandet
-  (`company_create`); ingen vy för att lägga till kollega/revisor. Rollmatrisen saknar en ren
-  läsroll (revisorsåtkomst).
-- **Global sök** — sökfält i sidhuvudet som slår på verifikationstext, belopp, fakturanummer
-  och motpart.
-- **Lönespec via e-post** — utskriften (`salary_report_print`) och utskicksinfrastrukturen
-  (`outgoing_mail`) finns, ihopkopplingen saknas.
+Alla fyra punkter klara (se "Klart" ovan).
 
 ### Medelstora — reella hål i domänen
 
