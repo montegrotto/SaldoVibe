@@ -9,6 +9,11 @@ description: "Balansräkning, resultaträkning, resultatprognos, huvudbok, SRU-u
 **Rapporter → Balansräkning / Resultaträkning** visar rapporterna i svensk, grupperad
 uppställning för valt räkenskapsår, med möjlighet att exportera respektive rapport som **PDF**.
 
+Resultaträkningen visar hela räkenskapsåret som standard, men perioden går att välja fritt på
+månadsbasis: de två **Period**-listorna intill räkenskapsårsväljaren väljer från- och
+till-månad bland räkenskapsårets månader. Både utfall, budget och verifikationslistan bakom varje
+konto följer den valda perioden, och den valda perioden följer med till PDF-exporten.
+
 För ett [avslutat räkenskapsår](01-komma-igang.md#bokslut-årsavslut) visar resultaträkningen 0 –
 årets resultat är överfört till eget kapital via bokslutsverifikationen (8999-raden står kvar som
 förklarande post). En inforuta i rapporten förklarar detta: "Året är avslutat – årets resultat är
@@ -27,14 +32,16 @@ som positiva belopp, kostnader som negativa. En tom cell betyder att kontot sakn
 månaden. Klicka **Spara budget** för att spara, eller **Avbryt** för att gå tillbaka utan att
 spara.
 
-Rutnätet visar bara konton som antingen har bokförda rader på räkenskapsåret eller redan har en
-budgetrad – inte hela kontoplanen. Vill du budgetera på ett konto som ännu inte använts, bokför
-först en verifikation på kontot (t.ex. ett nollbelopp går inte, men en vanlig verifikation gör
-att kontot dyker upp i rutnätet nästa gång du öppnar budgeten).
+Rutnätet visar från start de konton som antingen har bokförda rader på räkenskapsåret eller redan
+har en budgetrad – inte hela kontoplanen. Vill du budgetera på ett konto som ännu inte använts,
+sök upp det i listan **Lägg till konto** under rutnätet och klicka **Lägg till**. Budgeten sparas
+samtidigt som kontot läggs till, så inget du redan skrivit in går förlorat. Ett tillagt konto som
+lämnas helt tomt försvinner ur rutnätet nästa gång du öppnar budgetsidan.
 
-Så snart minst en budgetrad finns för det valda räkenskapsåret visar resultaträkningen (både på
-skärm och i PDF-exporten) två extra kolumner per rad och delsumma: **Budget** (summan av radens
-budgetrader för året) och **Diff** (utfall minus budget).
+Finns det minst en budgetrad för det valda räkenskapsåret kan resultaträkningen visa två extra
+kolumner per rad och delsumma: **Budget** (summan av radens budgetrader för perioden) och **Diff**
+(utfall minus budget). Kolumnerna är dolda som standard – kryssa i **Visa budget** överst i
+resultaträkningen för att ta fram dem. Valet följer med till PDF-exporten.
 
 ## Resultatprognos
 

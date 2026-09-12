@@ -122,6 +122,12 @@ def reskontra_pdf(request, company):
     return render_pdf_response("bookkeeping/reskontra_pdf.html", context, filename)
 
 
+def _budget_extra_account_ids(raw):
+    """Konton som lagts till manuellt på budgetsidan, som kommaseparerade id:n. BudgetForm
+    kontrollerar sedan att de hör till företaget och är resultatkonton."""
+    return [int(part) for part in (raw or "").split(",") if part.strip().isdigit()]
+
+
 @login_required
 @company_required
 def budget_edit(request, company, pk):
@@ -131,14 +137,28 @@ def budget_edit(request, company, pk):
     accounting_year = get_object_or_404(AccountingYear, pk=pk, company=company)
 
     if request.method == "POST":
-        form = BudgetForm(request.POST, company=company, accounting_year=accounting_year)
+        extra_account_ids = _budget_extra_account_ids(request.POST.get("extra_accounts")) + (
+            _budget_extra_account_ids(request.POST.get("add_account"))
+        )
+        form = BudgetForm(
+            request.POST, company=company, accounting_year=accounting_year, extra_account_ids=extra_account_ids
+        )
         if form.is_valid():
             form.save()
             messages.success(request, f"Budgeten för {accounting_year.name} har sparats.")
+            if request.POST.get("action") == "add":
+                # Spara först, visa sedan sidan med det nya kontot - annars försvinner
+                # allt som redan skrivits in i rutnätet när sidan laddas om.
+                keep = ",".join(str(account_id) for account_id in form.extra_account_ids)
+                return redirect(f"{request.path}?konto={keep}")
             return redirect("bookkeeping:income_statement")
         messages.error(request, "Kunde inte spara budgeten. Kontrollera formuläret och försök igen.")
     else:
-        form = BudgetForm(company=company, accounting_year=accounting_year)
+        form = BudgetForm(
+            company=company,
+            accounting_year=accounting_year,
+            extra_account_ids=_budget_extra_account_ids(request.GET.get("konto")),
+        )
 
     return render(
         request,

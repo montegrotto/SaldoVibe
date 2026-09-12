@@ -803,7 +803,7 @@ class BudgetForm(forms.Form):
     see BudgetLine's docstring.
     """
 
-    def __init__(self, *args, company, accounting_year, **kwargs):
+    def __init__(self, *args, company, accounting_year, extra_account_ids=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.company = company
         self.accounting_year = accounting_year
@@ -820,14 +820,19 @@ class BudgetForm(forms.Form):
         budgeted_account_ids = set(
             BudgetLine.objects.filter(accounting_year=accounting_year).values_list("account_id", flat=True)
         )
+        # ...plus accounts the user has explicitly added on the page (extra_account_ids) -
+        # budgeting an account that has neither postings nor budget lines yet has to be possible.
         self.accounts = list(
             Account.objects.filter(
                 company=company,
                 is_active=True,
                 account_class__in=BUDGET_ACCOUNT_CLASSES,
-                pk__in=used_account_ids | budgeted_account_ids,
+                pk__in=used_account_ids | budgeted_account_ids | set(extra_account_ids),
             ).order_by("number")
         )
+        self.extra_account_ids = [
+            account.pk for account in self.accounts if account.pk not in used_account_ids | budgeted_account_ids
+        ]
         existing = {
             (line.account_id, line.month): line.amount
             for line in BudgetLine.objects.filter(accounting_year=accounting_year)
@@ -845,6 +850,15 @@ class BudgetForm(forms.Form):
                         attrs={"class": "form-control form-control-sm budget-cell", "step": "0.01"}
                     ),
                 )
+
+    @property
+    def available_accounts(self):
+        """Resultatkonton som ännu inte har en rad i grid:en - urvalet i "Lägg till konto"."""
+        return (
+            Account.objects.filter(company=self.company, is_active=True, account_class__in=BUDGET_ACCOUNT_CLASSES)
+            .exclude(pk__in=[account.pk for account in self.accounts])
+            .order_by("number")
+        )
 
     @property
     def rows(self):

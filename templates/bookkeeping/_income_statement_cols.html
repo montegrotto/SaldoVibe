@@ -1,0 +1,11 @@
+{% comment %}
+Delad kolumnindelning för resultaträkningens alla sektionstabeller. Utan den sätter varje
+tabell sina egna bredder och kolumnerna hamnar i otakt mellan sektionerna — inkluderas
+direkt efter <table> tillsammans med klassen report-cols (table-layout: fixed).
+{% endcomment %}
+<colgroup>
+  <col style="width:110px;">
+  <col>
+  <col style="width:140px;">
+  {% if show_budget %}<col style="width:140px;"><col style="width:140px;">{% endif %}
+</colgroup>

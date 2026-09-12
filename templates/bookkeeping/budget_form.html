@@ -10,6 +10,8 @@
     Belopp per konto och månad för räkenskapsåret {{ accounting_year.start_date }} –
     {{ accounting_year.end_date }}. Ange belopp med samma tecken som resultaträkningen visar dem:
     intäkter positiva, kostnader negativa. Lämna en ruta tom för att inte budgetera den månaden.
+    Konton med bokföring eller budget finns med från start – övriga läggs till med "Lägg till konto"
+    (budgeten sparas samtidigt, så inget du skrivit går förlorat).
   </p>
 </div>
 
@@ -20,6 +22,11 @@
     {% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
+      <input type="hidden" name="extra_accounts" value="{{ form.extra_account_ids|join:',' }}">
+      {% comment %}Enter i en budgetruta ska spara, inte lägga till konto: webbläsaren skickar
+      formuläret via dess första submit-knapp, och "Lägg till" ligger före "Spara budget" i sidan.
+      {% endcomment %}
+      <button type="submit" class="visually-hidden" tabindex="-1" aria-hidden="true"></button>
       <div class="table-responsive">
         <table class="table table-sm align-middle mb-3">
           <thead class="table-light">
@@ -51,6 +58,19 @@
           </tbody>
         </table>
       </div>
+      <div class="d-flex align-items-center gap-2 mb-4" style="max-width:520px;">
+        <label class="text-muted small text-nowrap mb-0" for="add_account">Lägg till konto</label>
+        <select id="add_account" name="add_account" class="form-select form-select-sm js-account-select">
+          <option value=""></option>
+          {% for account in form.available_accounts %}
+            <option value="{{ account.pk }}">{{ account.number }} {{ account.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" name="action" value="add" class="btn btn-outline-secondary btn-sm text-nowrap">
+          <i class="bi bi-plus-lg me-1"></i>Lägg till
+        </button>
+      </div>
+
       <div class="d-flex justify-content-between">
         <a href="{% url 'bookkeeping:income_statement' %}?year={{ accounting_year.pk }}" class="btn btn-outline-secondary">Avbryt</a>
         <button type="submit" class="btn btn-primary">
@@ -60,4 +80,8 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "bookkeeping/_register_payment_js.html" %}
 {% endblock %}

@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -105,12 +106,13 @@ class BudgetEditViewTests(CompanyTestCase):
     def test_unused_account_without_postings_or_budget_not_shown(self):
         """Regression guard: a company's full BAS chart has ~780 klass 3-10 accounts, so
         showing every one of them (rather than just those in use) would blow past
-        DATA_UPLOAD_MAX_NUMBER_FIELDS on submit - see BudgetForm's docstring."""
-        create_account(self.company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
+        DATA_UPLOAD_MAX_NUMBER_FIELDS on submit - see BudgetForm's docstring. Kontot går att
+        lägga till manuellt, så det finns med i "Lägg till konto" men utan beloppsrutor."""
+        unused = create_account(self.company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
 
         response = self.client.get(self._url())
 
-        self.assertNotContains(response, "Telefon")
+        self.assertNotContains(response, budget_field_name(unused.pk, 1))
 
     def test_account_with_only_a_budget_line_is_still_shown(self):
         unposted_account = create_account(self.company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
@@ -171,6 +173,41 @@ class BudgetEditViewTests(CompanyTestCase):
         self.client.post(self._url(), {budget_field_name(self.revenue_account.pk, 1): ""})
 
         self.assertFalse(BudgetLine.objects.filter(account=self.revenue_account, month=1).exists())
+
+    def test_add_account_saves_entered_amounts_and_adds_the_row(self):
+        unused = create_account(self.company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
+
+        response = self.client.post(
+            self._url(),
+            {
+                budget_field_name(self.revenue_account.pk, 1): "7000.00",
+                "add_account": str(unused.pk),
+                "action": "add",
+            },
+        )
+
+        self.assertRedirects(response, f"{self._url()}?konto={unused.pk}")
+        # Det som redan var inskrivet får inte tappas när kontot läggs till.
+        self.assertEqual(BudgetLine.objects.get(account=self.revenue_account, month=1).amount, Decimal("7000.00"))
+        self.assertContains(self.client.get(f"{self._url()}?konto={unused.pk}"), budget_field_name(unused.pk, 1))
+
+    def test_added_account_can_be_budgeted_even_without_postings(self):
+        unused = create_account(self.company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
+
+        self.client.post(
+            self._url(),
+            {"extra_accounts": str(unused.pk), budget_field_name(unused.pk, 2): "-250.00"},
+        )
+
+        self.assertEqual(BudgetLine.objects.get(account=unused, month=2).amount, Decimal("-250.00"))
+
+    def test_another_companys_account_cannot_be_added(self):
+        other_company = create_company("Främmande budgetbolag AB", "556677-9911")
+        foreign = create_account(other_company, "6420", "Telefon", AccountClass.OTHER_EXTERNAL_2)
+
+        response = self.client.get(f"{self._url()}?konto={foreign.pk}")
+
+        self.assertNotContains(response, budget_field_name(foreign.pk, 1))
 
     def test_other_companys_accounting_year_is_not_reachable(self):
         other_company = create_company("Annat budgetbolag AB", "556677-7788")
@@ -281,3 +318,76 @@ class IncomeStatementBudgetContextTests(CompanyTestCase):
         context = self._context()
 
         self.assertFalse(context["has_budget_data"])
+
+
+class IncomeStatementPeriodTests(CompanyTestCase):
+    """Fri månadsperiod (?from_month/&to_month) och den valfria budgetvisningen."""
+
+    company_name = "Periodbolaget AB"
+    company_org_number = "556677-9922"
+
+    def setUp(self):
+        super().setUp()
+        self.revenue_account = create_account(self.company, "3041", "Försäljning tjänster", AccountClass.REVENUE)
+        self.bank_account = create_account(self.company, "1930", "Företagskonto", AccountClass.ASSET)
+        for month, amount in ((1, "1000.00"), (3, "2000.00"), (6, "4000.00")):
+            txn = Transaction.objects.create(
+                accounting_year=self.year, date=f"2026-{month:02d}-15", description="Test", created_by=self.user
+            )
+            JournalEntry.objects.create(transaction=txn, account=self.revenue_account, credit=Decimal(amount))
+            JournalEntry.objects.create(transaction=txn, account=self.bank_account, debit=Decimal(amount))
+            BudgetLine.objects.create(
+                company=self.company,
+                accounting_year=self.year,
+                account=self.revenue_account,
+                month=month,
+                amount=Decimal("500.00"),
+            )
+
+    def _context(self, **params):
+        request = self.client.get(
+            reverse("bookkeeping:income_statement"), {"year": self.year.pk, **params}
+        ).wsgi_request
+        return build_income_statement_context(request, self.company)
+
+    def _revenue(self, context):
+        return next(row for row in context["operating_income_rows"] if row["account"] == self.revenue_account)
+
+    def test_whole_year_is_the_default_period(self):
+        context = self._context()
+
+        self.assertTrue(context["is_full_period"])
+        self.assertEqual(self._revenue(context)["amount"], Decimal("7000.00"))
+        self.assertEqual(self._revenue(context)["budget_amount"], Decimal("1500.00"))
+
+    def test_month_range_limits_both_actual_and_budget(self):
+        context = self._context(from_month="2026-02", to_month="2026-04")
+
+        self.assertFalse(context["is_full_period"])
+        self.assertEqual(context["period_start"], date(2026, 2, 1))
+        self.assertEqual(context["period_end"], date(2026, 4, 30))
+        row = self._revenue(context)
+        self.assertEqual(row["amount"], Decimal("2000.00"))
+        self.assertEqual(row["budget_amount"], Decimal("500.00"))
+        self.assertEqual(row["budget_difference"], Decimal("1500.00"))
+
+    def test_reversed_range_is_read_in_the_right_order(self):
+        context = self._context(from_month="2026-04", to_month="2026-02")
+
+        self.assertEqual(context["period_start"], date(2026, 2, 1))
+        self.assertEqual(context["period_end"], date(2026, 4, 30))
+
+    def test_unknown_month_falls_back_to_the_whole_year(self):
+        context = self._context(from_month="1999-13", to_month="")
+
+        self.assertTrue(context["is_full_period"])
+        self.assertEqual(self._revenue(context)["amount"], Decimal("7000.00"))
+
+    def test_budget_columns_are_hidden_unless_asked_for(self):
+        self.assertFalse(self._context()["show_budget"])
+        self.assertTrue(self._context(show_budget="1")["show_budget"])
+
+    def test_budget_columns_stay_off_without_budget_data(self):
+        BudgetLine.objects.all().delete()
+
+        self.assertFalse(self._context(show_budget="1")["show_budget"])
