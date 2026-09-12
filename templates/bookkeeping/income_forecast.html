@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Resultatprognos – SaldoVibe{% endblock %}
+{% block page_title %}Resultatprognos{% endblock %}
+{% block nav_income_forecast %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  {% if active_company and active_company.company_icon %}
+    <img src="{{ active_company.company_icon.url }}" alt="{{ active_company.name }}" style="width:30px; height:30px; object-fit:contain;" class="border rounded bg-white p-1 me-2">
+  {% endif %}
+  <h5 class="mb-0">Resultatprognos</h5>
+  <form method="get" class="d-flex align-items-center gap-2 ms-3">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for year in years %}
+        <option value="{{ year.pk }}" {% if selected_year and year.pk == selected_year.pk %}selected{% endif %}>
+          {{ year.name }}
+        </option>
+      {% endfor %}
+    </select>
+    {% if month_choices %}
+    <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" aria-label="Utfall till och med månad">
+      {% for choice in month_choices %}
+        <option value="{{ choice.value }}" {% if choice.value == selected_month %}selected{% endif %}>t.o.m. {{ choice.label }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </form>
+  {% if selected_year %}
+    <span class="ms-3 text-muted small">{{ selected_year.start_date }} - {{ selected_year.end_date }}</span>
+  {% endif %}
+</div>
+
+{% if not month_choices %}
+  <div class="alert alert-info" style="max-width:960px;">
+    <i class="bi bi-info-circle me-1"></i>
+    {% if selected_year %}
+      Det finns ingen bokföring på {{ selected_year.name }} ännu, så det går inte att göra någon prognos.
+    {% else %}
+      Lägg upp ett räkenskapsår först, så går det att göra en prognos.
+    {% endif %}
+  </div>
+{% elif not sections %}
+  <div class="alert alert-info" style="max-width:960px;">
+    <i class="bi bi-info-circle me-1"></i>Inga resultatkonton har belopp eller budget på {{ selected_year.name }}.
+  </div>
+{% else %}
+
+<div class="d-flex align-items-center flex-wrap gap-3 mb-3" style="max-width:960px;">
+  <p class="text-muted small mb-0 flex-grow-1" style="max-width:640px;">
+    Utfallet visas till och med {{ cutoff_date }}. Beloppen under <strong>Resten av året</strong> är
+    {% if budget_prefilled %}förifyllda från resultatbudgetens återstående månader{% else %}noll, eftersom det inte finns någon budget för de återstående månaderna{% endif %} –
+    ändra dem fritt, prognosen räknas om direkt. Intäkter anges som positiva belopp, kostnader som
+    negativa. Prognosen sparas inte.
+  </p>
+  {% if budget_prefilled %}
+  <button type="button" class="btn btn-outline-secondary btn-sm" id="reset-forecast">
+    <i class="bi bi-arrow-counterclockwise me-1"></i>Återställ till budget
+  </button>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm border-0 report-print" style="max-width:960px;">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <colgroup>
+        <col style="width:90px;">
+        <col>
+        <col style="width:160px;">
+        <col style="width:170px;">
+        <col style="width:160px;">
+      </colgroup>
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4 small text-muted">Konto</th>
+          <th class="small text-muted">Benämning</th>
+          <th class="text-end small text-muted">Utfall t.o.m. {{ selected_month_label }}</th>
+          <th class="text-end small text-muted">Resten av året</th>
+          <th class="text-end pe-4 small text-muted">Totalt</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for section in sections %}
+        <tr>
+          <td colspan="5" class="ps-4 pt-3 fw-bold border-0">{{ section.title }}</td>
+        </tr>
+        {% for row in section.rows %}
+        <tr data-forecast-row data-section="{{ section.key }}" data-actual="{{ row.actual|floatformat:'2u' }}">
+          <td class="ps-4 text-muted small">{{ row.account.number }}</td>
+          <td>{{ row.account.name }}</td>
+          <td class="text-end">{{ row.actual|floatformat:"2g" }} kr</td>
+          <td class="text-end">
+            <input
+              type="text"
+              inputmode="decimal"
+              class="form-control form-control-sm text-end forecast-rest"
+              value="{{ row.rest|floatformat:'2' }}"
+              data-default="{{ row.rest|floatformat:'2' }}"
+              aria-label="Resten av året för konto {{ row.account.number }} {{ row.account.name }}"
+            >
+          </td>
+          <td class="text-end pe-4 fw-semibold forecast-row-total">{{ row.total|floatformat:"2g" }} kr</td>
+        </tr>
+        {% endfor %}
+        <tr class="fw-semibold border-top">
+          <td colspan="2" class="ps-4">Summa {{ section.title|lower }}</td>
+          <td class="text-end" data-sum-of="{{ section.key }}" data-sum-kind="actual">{{ section.actual|floatformat:"2g" }} kr</td>
+          <td class="text-end" data-sum-of="{{ section.key }}" data-sum-kind="rest">{{ section.rest|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4" data-sum-of="{{ section.key }}" data-sum-kind="total">{{ section.total|floatformat:"2g" }} kr</td>
+        </tr>
+        {% if section.key == last_operating_key %}
+        <tr class="table-light fw-bold">
+          <td colspan="2" class="ps-4">Rörelseresultat</td>
+          <td class="text-end" data-sum-of="{{ operating_sum_keys }}" data-sum-kind="actual">{{ operating_result.actual|floatformat:"2g" }} kr</td>
+          <td class="text-end" data-sum-of="{{ operating_sum_keys }}" data-sum-kind="rest">{{ operating_result.rest|floatformat:"2g" }} kr</td>
+          <td class="text-end pe-4" data-sum-of="{{ operating_sum_keys }}" data-sum-kind="total">{{ operating_result.total|floatformat:"2g" }} kr</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+
+    <hr class="my-0">
+
+    <div class="px-4 py-4 summary">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <div>
+          <h5 class="mb-0 fw-bold">Preliminärt resultat</h5>
+          <div class="text-muted small mt-1">
+            Utfall t.o.m. {{ selected_month_label }}
+            <span data-sum-of="{{ all_sum_keys }}" data-sum-kind="actual">{{ preliminary_result.actual|floatformat:"2g" }} kr</span>
+            · Resten av året
+            <span data-sum-of="{{ all_sum_keys }}" data-sum-kind="rest">{{ preliminary_result.rest|floatformat:"2g" }} kr</span>
+          </div>
+        </div>
+        <div class="ms-auto text-end">
+          <span
+            class="fs-3 fw-bold {% if preliminary_result.total >= 0 %}text-success{% else %}text-danger{% endif %}"
+            data-sum-of="{{ all_sum_keys }}"
+            data-sum-kind="total"
+            data-sum-color
+          >{{ preliminary_result.total|floatformat:"2g" }} kr</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if sections %}
+<script>
+  (function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll("[data-forecast-row]"));
+    if (!rows.length) {
+      return;
+    }
+    var sumCells = Array.prototype.slice.call(document.querySelectorAll("[data-sum-of]"));
+    var inputs = Array.prototype.slice.call(document.querySelectorAll(".forecast-rest"));
+
+    function parseAmount(raw) {
+      var value = parseFloat(String(raw).replace(/\s/g, "").replace(",", "."));
+      return isFinite(value) ? value : 0;
+    }
+
+    function formatAmount(value) {
+      return value.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
+    }
+
+    function recalculate() {
+      var totals = {};
+      rows.forEach(function (row) {
+        var actual = parseAmount(row.dataset.actual);
+        var rest = parseAmount(row.querySelector(".forecast-rest").value);
+        row.querySelector(".forecast-row-total").textContent = formatAmount(actual + rest);
+        var section = totals[row.dataset.section];
+        if (!section) {
+          section = totals[row.dataset.section] = { actual: 0, rest: 0 };
+        }
+        section.actual += actual;
+        section.rest += rest;
+      });
+
+      sumCells.forEach(function (cell) {
+        var kind = cell.dataset.sumKind;
+        var value = cell.dataset.sumOf.split(",").reduce(function (sum, key) {
+          var section = totals[key];
+          if (!section) {
+            return sum;
+          }
+          if (kind === "actual") {
+            return sum + section.actual;
+          }
+          if (kind === "rest") {
+            return sum + section.rest;
+          }
+          return sum + section.actual + section.rest;
+        }, 0);
+        cell.textContent = formatAmount(value);
+        if (cell.hasAttribute("data-sum-color")) {
+          cell.classList.toggle("text-success", value >= 0);
+          cell.classList.toggle("text-danger", value < 0);
+        }
+      });
+    }
+
+    inputs.forEach(function (input) {
+      input.addEventListener("input", recalculate);
+    });
+
+    var reset = document.getElementById("reset-forecast");
+    if (reset) {
+      reset.addEventListener("click", function () {
+        inputs.forEach(function (input) {
+          input.value = input.dataset.default;
+        });
+        recalculate();
+      });
+    }
+  })();
+</script>
+{% endif %}
+{% endblock %}

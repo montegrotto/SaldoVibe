@@ -371,6 +371,9 @@
           <a class="nav-link {% block nav_income %}{% endblock %}" href="{% url 'bookkeeping:income_statement' %}">
             <i class="bi bi-graph-up" aria-hidden="true"></i>Resultaträkning
           </a>
+          <a class="nav-link {% block nav_income_forecast %}{% endblock %}" href="{% url 'bookkeeping:income_forecast' %}">
+            <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>Resultatprognos
+          </a>
           <a class="nav-link {% block nav_general_ledger %}{% endblock %}" href="{% url 'bookkeeping:general_ledger' %}">
             <i class="bi bi-journal-text" aria-hidden="true"></i>Huvudbok
           </a>

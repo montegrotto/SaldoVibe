@@ -1,5 +1,5 @@
 ---
-description: "Balansräkning, resultaträkning, huvudbok, SRU-underlag, bokslut, händelselogg och compliance-översikt i SaldoVibe."
+description: "Balansräkning, resultaträkning, resultatprognos, huvudbok, SRU-underlag, bokslut, händelselogg och compliance-översikt i SaldoVibe."
 ---
 
 # 10. Rapporter
@@ -35,6 +35,35 @@ att kontot dyker upp i rutnätet nästa gång du öppnar budgeten).
 Så snart minst en budgetrad finns för det valda räkenskapsåret visar resultaträkningen (både på
 skärm och i PDF-exporten) två extra kolumner per rad och delsumma: **Budget** (summan av radens
 budgetrader för året) och **Diff** (utfall minus budget).
+
+## Resultatprognos
+
+**Rapporter → Resultatprognos** svarar på frågan "hur ser årets resultat ut om resten av året blir
+som vi tror?". Rapporten visar utfallet till och med en vald månad och låter dig fylla i vad du
+räknar med för resten av räkenskapsåret.
+
+Överst väljer du räkenskapsår och brytmånad. Listan **t.o.m. …** innehåller bara månader som har
+bokförda verifikationer, och den senaste av dem är förvald.
+
+Varje konto får en rad med tre belopp:
+
+- **Utfall t.o.m. [månad]** – det bokförda beloppet från räkenskapsårets början till och med den
+  valda månaden.
+- **Resten av året** – ett redigerbart fält, förifyllt med [resultatbudgeten](#resultatbudget) för
+  de månader som ligger efter brytmånaden (noll om kontot saknar budget där).
+- **Totalt** – summan av de två.
+
+Ändra ett belopp så räknas raden, delsummorna, rörelseresultatet och **Preliminärt resultat**
+längst ner om direkt. Samma teckenkonvention som i resultaträkningen gäller: intäkter är positiva
+belopp, kostnader negativa. Knappen **Återställ till budget** fyller tillbaka de förifyllda
+budgetbeloppen.
+
+Prognosen är ett räkneunderlag – **den sparas inte**. Lämnar du sidan är de egna beloppen borta, och
+nästa gång utgår rapporten från budgeten igen. Vill du att en ändrad plan ska ligga kvar lägger du
+in den i resultatbudgeten i stället.
+
+Konton som bara har bokförda poster *efter* brytmånaden är också med i listan, med noll i utfall, så
+att det går att lägga in ett eget belopp även för dem.
 
 ## Huvudbok
 
