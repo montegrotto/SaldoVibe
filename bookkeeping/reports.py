@@ -8,6 +8,7 @@ from decimal import Decimal
 from django.db.models import Q, Sum
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import urlencode
 
 from auditlog.models import AuditLogEntry
 
@@ -172,8 +173,53 @@ def build_balance_sheet_context(request, company):
     return context
 
 
+def get_period_context(request, selected_year):
+    """Fritt vald månadsperiod inom räkenskapsåret (``?from_month=``/``?to_month=YYYY-MM``).
+
+    Utan val gäller hela året. Månaderna följer räkenskapsårets ordning, så ett brutet år
+    (t.ex. maj-april) går att dela var som helst - "YYYY-MM" sorterar kronologiskt."""
+    choices = [
+        {"value": f"{month:%Y-%m}", "label": f"{MONTH_LABELS[month.month - 1]} {month.year}", "start": month}
+        for month in (fiscal_months(selected_year) if selected_year else [])
+    ]
+    if not choices:
+        return {
+            "month_choices": [],
+            "from_month": None,
+            "to_month": None,
+            "period_start": None,
+            "period_end": None,
+            "budget_months": None,
+            "is_full_period": True,
+        }
+
+    values = [choice["value"] for choice in choices]
+
+    def pick(param, fallback):
+        value = request.GET.get(param)
+        return value if value in values else fallback
+
+    from_value = pick("from_month", values[0])
+    to_value = pick("to_month", values[-1])
+    if from_value > to_value:
+        from_value, to_value = to_value, from_value
+    selected = [choice for choice in choices if from_value <= choice["value"] <= to_value]
+    last_start = selected[-1]["start"]
+    return {
+        "month_choices": choices,
+        "from_month": from_value,
+        "to_month": to_value,
+        "period_start": max(selected[0]["start"], selected_year.start_date),
+        "period_end": min((last_start + timedelta(days=31)).replace(day=1) - timedelta(days=1), selected_year.end_date),
+        "budget_months": {choice["start"].month for choice in selected},
+        "is_full_period": len(selected) == len(choices),
+    }
+
+
 def build_income_statement_context(request, company):
     years, selected_year = get_year_context(request, company)
+    period = get_period_context(request, selected_year)
+    period_start, period_end = period["period_start"], period["period_end"]
 
     def get_accounts_for_class(account_class):
         return Account.objects.filter(company=company, account_class=account_class, is_active=True)
@@ -182,6 +228,8 @@ def build_income_statement_context(request, company):
         entries_qs = JournalEntry.objects.filter(account=acc)
         if selected_year:
             entries_qs = entries_qs.filter(transaction__accounting_year=selected_year)
+        if period_start:
+            entries_qs = entries_qs.filter(transaction__date__range=(period_start, period_end))
         entries = entries_qs.aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
         debit = entries["total_debit"] or Decimal("0")
         credit = entries["total_credit"] or Decimal("0")
@@ -193,6 +241,8 @@ def build_income_statement_context(request, company):
         budget_qs = BudgetLine.objects.filter(account=acc)
         if selected_year:
             budget_qs = budget_qs.filter(accounting_year=selected_year)
+        if period["budget_months"] is not None:
+            budget_qs = budget_qs.filter(month__in=period["budget_months"])
         return budget_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
     def section_rows(account_class):
@@ -270,6 +320,8 @@ def build_income_statement_context(request, company):
     )
     if selected_year:
         income_statement_entries = income_statement_entries.filter(transaction__accounting_year=selected_year)
+    if period_start:
+        income_statement_entries = income_statement_entries.filter(transaction__date__range=(period_start, period_end))
     income_statement_entries = income_statement_entries.filter(
         transaction__correction_of__isnull=True,
         transaction__corrections__isnull=True,
@@ -277,6 +329,20 @@ def build_income_statement_context(request, company):
     income_statement_drilldown_map = build_account_drilldown_map(income_statement_entries)
     for row in income_statement_rows:
         row["drilldown_entries"] = income_statement_drilldown_map.get(row["account"].pk, [])
+
+    has_budget_data = any(row["budget_amount"] != Decimal("0") for row in income_statement_rows)
+    # Budgetkolumnerna är avstängda som default - resultaträkningen ska läsas i tre kolumner
+    # om man inte ber om jämförelsen. Kryssrutan i sidhuvudet sätter ?show_budget=1.
+    show_budget = has_budget_data and request.GET.get("show_budget") == "1"
+
+    report_query = {}
+    if selected_year:
+        report_query["year"] = selected_year.pk
+    if not period["is_full_period"]:
+        report_query["from_month"] = period["from_month"]
+        report_query["to_month"] = period["to_month"]
+    if show_budget:
+        report_query["show_budget"] = "1"
 
     context = {
         "operating_income_rows": operating_income_rows,
@@ -328,16 +394,15 @@ def build_income_statement_context(request, company):
         "result_after_taxes_budget": result_after_taxes_budget,
         "result_after_taxes_diff": result_after_taxes - result_after_taxes_budget,
         "transaction_list_account_url_prefix": transaction_list_account_url_prefix(selected_year),
-        "has_budget_data": any(
-            row["budget_amount"] != Decimal("0")
-            for row in operating_income_rows
-            + raw_material_rows
-            + external_cost_rows
-            + personnel_rows
-            + financial_rows
-            + results_and_tax_rows
-            + year_end_rows
-        ),
+        "has_budget_data": has_budget_data,
+        "show_budget": show_budget,
+        "month_choices": period["month_choices"],
+        "from_month": period["from_month"],
+        "to_month": period["to_month"],
+        "period_start": period_start,
+        "period_end": period_end,
+        "is_full_period": period["is_full_period"],
+        "report_query": urlencode(report_query),
     }
     return context
 
