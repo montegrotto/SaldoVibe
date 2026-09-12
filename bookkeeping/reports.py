@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from auditlog.models import AuditLogEntry
 
+from .forms import MONTH_LABELS
 from .models import (
     Account,
     AccountClass,
@@ -339,6 +340,150 @@ def build_income_statement_context(request, company):
         ),
     }
     return context
+
+
+#: Resultatprognosens sektioner: (nyckel, rubrik, kontoklasser). Samma gruppering som
+#: resultaträkningen, men klass 9 och 10 slås ihop - mitt i året är de nästan alltid tomma.
+INCOME_FORECAST_SECTIONS = (
+    ("operating_income", "Rörelsens intäkter", (AccountClass.REVENUE,)),
+    ("raw_material", "Råvaror och förnödenheter", (AccountClass.COST_OF_GOODS,)),
+    ("external_costs", "Övriga externa kostnader", (AccountClass.OTHER_EXTERNAL, AccountClass.OTHER_EXTERNAL_2)),
+    ("personnel", "Personalkostnader", (AccountClass.PERSONNEL,)),
+    ("financial", "Finansiella poster", (AccountClass.FINANCIAL,)),
+    ("year_end", "Bokslutsdispositioner och skatt", (AccountClass.RESULTS_AND_TAX, AccountClass.YEAR_END)),
+)
+OPERATING_FORECAST_SECTIONS = ("operating_income", "raw_material", "external_costs", "personnel")
+
+
+def fiscal_months(accounting_year):
+    """Första dagen i varje månad räkenskapsåret spänner över, i räkenskapsårets ordning -
+    klarar brutet räkenskapsår (t.ex. maj-april), inte bara jan-dec."""
+    months = []
+    month = accounting_year.start_date.replace(day=1)
+    while month <= accounting_year.end_date:
+        months.append(month)
+        month = (month + timedelta(days=31)).replace(day=1)
+    return months
+
+
+def _net_amounts_by_account(entries_qs):
+    """Kredit minus debet per konto - resultaträkningens teckenkonvention, en fråga
+    för alla konton i stället för en per konto."""
+    grouped = entries_qs.values("account_id").annotate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    return {
+        row["account_id"]: (row["total_credit"] or Decimal("0")) - (row["total_debit"] or Decimal("0"))
+        for row in grouped
+    }
+
+
+def _budget_amounts_by_account(budget_qs):
+    return {
+        row["account_id"]: row["total"] or Decimal("0")
+        for row in budget_qs.values("account_id").annotate(total=Sum("amount"))
+    }
+
+
+def build_income_forecast_context(request, company):
+    """Resultatprognos: utfallet till och med en vald månad plus ett belopp för resten
+    av året. Beloppen förifylls från resultatbudgetens återstående månader men är fria
+    att räkna om i sidan - prognosen sparas inte, den är ett underlag att laborera med."""
+    years, selected_year = get_year_context(request, company)
+    zero = Decimal("0")
+
+    month_choices = []
+    year_months = []
+    if selected_year:
+        booked_months = set(
+            JournalEntry.objects.filter(transaction__accounting_year=selected_year).dates("transaction__date", "month")
+        )
+        year_months = fiscal_months(selected_year)
+        month_choices = [
+            {"value": f"{month:%Y-%m}", "label": f"{MONTH_LABELS[month.month - 1]} {month.year}", "start": month}
+            for month in year_months
+            if month in booked_months
+        ]
+
+    requested = request.GET.get("month")
+    selected_month = next((choice for choice in month_choices if choice["value"] == requested), None)
+    if selected_month is None and month_choices:
+        selected_month = month_choices[-1]
+
+    sections = []
+    cutoff_date = None
+    if selected_month:
+        month_start = selected_month["start"]
+        cutoff_date = min(
+            (month_start + timedelta(days=31)).replace(day=1) - timedelta(days=1),
+            selected_year.end_date,
+        )
+        remaining_months = [month.month for month in year_months if month > month_start]
+
+        entries = JournalEntry.objects.filter(transaction__accounting_year=selected_year)
+        actual_to_date = _net_amounts_by_account(entries.filter(transaction__date__lte=cutoff_date))
+        actual_for_year = _net_amounts_by_account(entries)
+        budget_lines = BudgetLine.objects.filter(accounting_year=selected_year)
+        budget_remaining = _budget_amounts_by_account(budget_lines.filter(month__in=remaining_months))
+        budget_for_year = _budget_amounts_by_account(budget_lines)
+
+        section_by_class = {
+            account_class: key for key, _, classes in INCOME_FORECAST_SECTIONS for account_class in classes
+        }
+        rows_by_section = defaultdict(list)
+        accounts = Account.objects.filter(company=company, is_active=True, account_class__in=section_by_class).order_by(
+            "number"
+        )
+        for account in accounts:
+            # Kontot är med om det har bokförts på eller budgeterats någon gång under året -
+            # även när brytmånaden ligger före posterna, så att raden går att prognosticera.
+            if actual_for_year.get(account.pk, zero) == zero and budget_for_year.get(account.pk, zero) == zero:
+                continue
+            actual = actual_to_date.get(account.pk, zero)
+            rest = budget_remaining.get(account.pk, zero)
+            rows_by_section[section_by_class[account.account_class]].append(
+                {"account": account, "actual": actual, "rest": rest, "total": actual + rest}
+            )
+
+        for key, title, _classes in INCOME_FORECAST_SECTIONS:
+            rows = rows_by_section.get(key)
+            if not rows:
+                continue
+            sections.append(
+                {
+                    "key": key,
+                    "title": title,
+                    "rows": rows,
+                    "actual": sum((row["actual"] for row in rows), zero),
+                    "rest": sum((row["rest"] for row in rows), zero),
+                    "total": sum((row["total"] for row in rows), zero),
+                }
+            )
+
+    def subtotal(keys):
+        chosen = [section for section in sections if section["key"] in keys]
+        return {
+            "actual": sum((section["actual"] for section in chosen), zero),
+            "rest": sum((section["rest"] for section in chosen), zero),
+            "total": sum((section["total"] for section in chosen), zero),
+        }
+
+    operating_keys = [section["key"] for section in sections if section["key"] in OPERATING_FORECAST_SECTIONS]
+    all_keys = [section["key"] for section in sections]
+
+    return {
+        "years": years,
+        "selected_year": selected_year,
+        "month_choices": month_choices,
+        "selected_month": selected_month["value"] if selected_month else None,
+        "selected_month_label": selected_month["label"] if selected_month else None,
+        "cutoff_date": cutoff_date,
+        "sections": sections,
+        "operating_result": subtotal(operating_keys),
+        "preliminary_result": subtotal(all_keys),
+        "last_operating_key": operating_keys[-1] if operating_keys else None,
+        "operating_sum_keys": ",".join(operating_keys),
+        "all_sum_keys": ",".join(all_keys),
+        "budget_prefilled": any(section["rest"] != zero for section in sections),
+    }
 
 
 def build_general_ledger_context(request, company):

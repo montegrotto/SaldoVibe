@@ -13,6 +13,7 @@ from ..pdf import company_logo_size, render_pdf_response
 from ..reports import (
     build_balance_sheet_context,
     build_general_ledger_context,
+    build_income_forecast_context,
     build_income_statement_context,
     build_reskontra_context,
 )
@@ -61,6 +62,15 @@ def income_statement_pdf(request, company):
     year_label = context["selected_year"].name if context.get("selected_year") else ""
     filename = f"resultaträkning_{year_label}.pdf" if year_label else "resultaträkning.pdf"
     return render_pdf_response("bookkeeping/income_statement_pdf.html", context, filename)
+
+
+@login_required
+@company_required
+def income_forecast(request, company):
+    """Resultatprognos – utfall t.o.m. vald månad plus ett eget belopp för resten av året."""
+
+    context = build_income_forecast_context(request, company)
+    return render(request, "bookkeeping/income_forecast.html", context)
 
 
 @login_required

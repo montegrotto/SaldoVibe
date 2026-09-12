@@ -91,6 +91,7 @@ urlpatterns = [
     path("balansrakning/pdf/", views.balance_sheet_pdf, name="balance_sheet_pdf"),
     path("resultatrakning/", views.income_statement, name="income_statement"),
     path("resultatrakning/pdf/", views.income_statement_pdf, name="income_statement_pdf"),
+    path("resultatprognos/", views.income_forecast, name="income_forecast"),
     path("huvudbok/", views.general_ledger, name="general_ledger"),
     path("huvudbok/pdf/", views.general_ledger_pdf, name="general_ledger_pdf"),
     path("reskontra/", views.reskontra, name="reskontra"),
