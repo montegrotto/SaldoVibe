@@ -65,6 +65,10 @@ längst ner om direkt. Samma teckenkonvention som i resultaträkningen gäller: 
 belopp, kostnader negativa. Knappen **Återställ till budget** fyller tillbaka de förifyllda
 budgetbeloppen.
 
+Knappen **Fyll med snitt per månad** räknar i stället fram varje konto för sig: utfallet delat på
+antalet utfallsmånader, gånger antalet månader som återstår av året. Den visas när brytmånaden inte
+är räkenskapsårets sista månad.
+
 Prognosen är ett räkneunderlag – **den sparas inte**. Lämnar du sidan är de egna beloppen borta, och
 nästa gång utgår rapporten från budgeten igen. Vill du att en ändrad plan ska ligga kvar lägger du
 in den i resultatbudgeten i stället.

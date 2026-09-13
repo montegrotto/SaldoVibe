@@ -52,6 +52,12 @@
     ändra dem fritt, prognosen räknas om direkt. Intäkter anges som positiva belopp, kostnader som
     negativa. Prognosen sparas inte.
   </p>
+  {% if average_factor %}
+  <button type="button" class="btn btn-outline-secondary btn-sm" id="average-forecast"
+          data-average-factor="{{ average_factor|stringformat:'f' }}">
+    <i class="bi bi-calculator me-1"></i>Fyll med snitt per månad
+  </button>
+  {% endif %}
   {% if budget_prefilled %}
   <button type="button" class="btn btn-outline-secondary btn-sm" id="reset-forecast">
     <i class="bi bi-arrow-counterclockwise me-1"></i>Återställ till budget
@@ -210,6 +216,17 @@
     inputs.forEach(function (input) {
       input.addEventListener("input", recalculate);
     });
+
+    var average = document.getElementById("average-forecast");
+    if (average) {
+      average.addEventListener("click", function () {
+        var factor = parseFloat(average.dataset.averageFactor);
+        rows.forEach(function (row) {
+          row.querySelector(".forecast-rest").value = (parseAmount(row.dataset.actual) * factor).toFixed(2).replace(".", ",");
+        });
+        recalculate();
+      });
+    }
 
     var reset = document.getElementById("reset-forecast");
     if (reset) {

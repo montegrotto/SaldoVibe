@@ -475,6 +475,7 @@ def build_income_forecast_context(request, company):
 
     sections = []
     cutoff_date = None
+    average_factor = 0.0
     if selected_month:
         month_start = selected_month["start"]
         cutoff_date = min(
@@ -482,6 +483,10 @@ def build_income_forecast_context(request, company):
             selected_year.end_date,
         )
         remaining_months = [month.month for month in year_months if month > month_start]
+        # Snittknappens faktor: utfallet per utfallsmånad gånger antalet månader som återstår.
+        elapsed_count = len(year_months) - len(remaining_months)
+        if elapsed_count and remaining_months:
+            average_factor = len(remaining_months) / elapsed_count
 
         entries = JournalEntry.objects.filter(transaction__accounting_year=selected_year)
         actual_to_date = _net_amounts_by_account(entries.filter(transaction__date__lte=cutoff_date))
@@ -548,6 +553,7 @@ def build_income_forecast_context(request, company):
         "operating_sum_keys": ",".join(operating_keys),
         "all_sum_keys": ",".join(all_keys),
         "budget_prefilled": any(section["rest"] != zero for section in sections),
+        "average_factor": average_factor,
     }
 
 

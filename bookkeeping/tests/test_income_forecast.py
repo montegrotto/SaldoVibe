@@ -140,6 +140,19 @@ class IncomeForecastContextTests(CompanyTestCase):
         self.assertEqual(row["actual"], Decimal("500.00"))
         self.assertEqual(row["rest"], Decimal("200.00"))
 
+    def test_average_factor_scales_the_actual_to_the_remaining_months(self):
+        self._post_transaction(self.revenue_account, "2026-01-15", credit=Decimal("800.00"))
+        self._post_transaction(self.revenue_account, "2026-03-15", credit=Decimal("700.00"))
+
+        # Utfall t.o.m. mars = 3 månader, 9 månader kvar av året.
+        self.assertEqual(self._context()["average_factor"], 3.0)
+        self.assertEqual(self._context(month="2026-01")["average_factor"], 11.0)
+
+    def test_average_factor_is_zero_when_the_cutoff_is_the_last_month(self):
+        self._post_transaction(self.revenue_account, "2026-12-15", credit=Decimal("800.00"))
+
+        self.assertEqual(self._context()["average_factor"], 0.0)
+
 
 class IncomeForecastViewTests(CompanyTestCase):
     company_name = "Prognosvyn AB"
