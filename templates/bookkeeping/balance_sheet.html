@@ -26,275 +26,77 @@
   {% endif %}
 </div>
 
+{% with colspan=3 %}
 <div class="card shadow-sm border-0 report-print" style="max-width:860px;">
   <div class="card-body p-0">
-
-    <div class="section">
-    <div class="px-4 pt-4 pb-2">
-      <h6 class="text-primary fw-bold"><i class="bi bi-bank me-2"></i>Tillgångar</h6>
-    </div>
-    {% if assets %}
     <div class="table-responsive">
     <table class="table table-sm mb-0">
+      <colgroup>
+        <col style="width:110px;">
+        <col>
+        <col style="width:160px;">
+      </colgroup>
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4 small text-muted fw-normal">Konto</th>
+          <th class="small text-muted fw-normal">Benämning</th>
+          <th class="text-end pe-4 small text-muted fw-normal">Saldo</th>
+        </tr>
+      </thead>
       <tbody>
+
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Tillgångar</td></tr>
         {% for row in assets %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
+        {% empty %}
+          <tr><td colspan="3" class="ps-4 text-muted py-3">Inga tillgångskonton med saldo.</td></tr>
         {% endfor %}
-      </tbody>
-      <tfoot class="table-primary fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa tillgångar</td>
-          <td class="text-end pe-4">{{ total_assets|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    {% else %}
-    <div class="text-center text-muted py-4">Inga tillgångskonton med saldo.</div>
-    {% endif %}
-    </div>
+        {% include "bookkeeping/_report_sum_row.html" with row_class="table-light fw-bold" label="Summa tillgångar" amount=total_assets %}
 
-    <hr class="my-0">
-
-    <div class="section">
-    <div class="px-4 pt-3 pb-2">
-      <h6 class="text-secondary fw-bold"><i class="bi bi-shield-check me-2"></i>Eget kapital och skulder</h6>
-    </div>
-
-    <div class="px-4 pt-2 pb-2">
-      <div class="text-uppercase text-muted small fw-semibold">Eget kapital</div>
-    </div>
-    {% if equity %}
-    <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <tbody>
+        {% if equity %}
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Eget kapital</td></tr>
         {% for row in equity %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
         {% endfor %}
-      </tbody>
-      <tfoot class="table-light fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa eget kapital</td>
-          <td class="text-end pe-4">{{ total_equity|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    {% else %}
-    <div class="text-muted small px-4 pb-3">Inga konton för eget kapital med saldo.</div>
-    {% endif %}
+        {% include "bookkeeping/_report_sum_row.html" with label="Summa eget kapital" amount=total_equity %}
+        {% endif %}
 
-    <div class="px-4 pt-3 pb-2">
-      <div class="text-uppercase text-muted small fw-semibold">Obeskattade reserver</div>
-    </div>
-    {% if untaxed_reserves %}
-    <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <tbody>
+        {% if untaxed_reserves %}
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Obeskattade reserver</td></tr>
         {% for row in untaxed_reserves %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
         {% endfor %}
-      </tbody>
-      <tfoot class="table-light fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa obeskattade reserver</td>
-          <td class="text-end pe-4">{{ total_untaxed_reserves|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    {% else %}
-    <div class="text-muted small px-4 pb-3">Inga obeskattade reserver med saldo.</div>
-    {% endif %}
+        {% include "bookkeeping/_report_sum_row.html" with label="Summa obeskattade reserver" amount=total_untaxed_reserves %}
+        {% endif %}
 
-    <div class="px-4 pt-3 pb-2">
-      <div class="text-uppercase text-muted small fw-semibold">Avsättningar</div>
-    </div>
-    {% if provisions %}
-    <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <tbody>
+        {% if provisions %}
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Avsättningar</td></tr>
         {% for row in provisions %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
         {% endfor %}
-      </tbody>
-      <tfoot class="table-light fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa avsättningar</td>
-          <td class="text-end pe-4">{{ total_provisions|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    {% else %}
-    <div class="text-muted small px-4 pb-3">Inga avsättningar med saldo.</div>
-    {% endif %}
+        {% include "bookkeeping/_report_sum_row.html" with label="Summa avsättningar" amount=total_provisions %}
+        {% endif %}
 
-    <div class="px-4 pt-3 pb-2">
-      <div class="text-uppercase text-muted small fw-semibold">Långfristiga skulder</div>
-    </div>
-    {% if long_term_liabilities %}
-    <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <tbody>
+        {% if long_term_liabilities %}
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Långfristiga skulder</td></tr>
         {% for row in long_term_liabilities %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
         {% endfor %}
-      </tbody>
-      <tfoot class="table-light fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa långfristiga skulder</td>
-          <td class="text-end pe-4">{{ total_long_term_liabilities|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    {% else %}
-    <div class="text-muted small px-4 pb-3">Inga långfristiga skulder med saldo.</div>
-    {% endif %}
+        {% include "bookkeeping/_report_sum_row.html" with label="Summa långfristiga skulder" amount=total_long_term_liabilities %}
+        {% endif %}
 
-    <div class="px-4 pt-3 pb-2">
-      <div class="text-uppercase text-muted small fw-semibold">Kortfristiga skulder</div>
-    </div>
-    {% if current_liabilities %}
-    <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <tbody>
+        {% if current_liabilities %}
+        <tr><td colspan="3" class="ps-4 pt-3 fw-bold border-0">Kortfristiga skulder</td></tr>
         {% for row in current_liabilities %}
-        <tr>
-          <td class="ps-4 text-muted small" style="width:110px;">{{ row.account.number }}</td>
-          <td class="ps-2">
-            <button
-              type="button"
-              class="btn btn-link p-0 text-decoration-none text-start fw-semibold"
-              data-bs-toggle="collapse"
-              data-bs-target="#report-drilldown-{{ row.account.pk }}"
-              aria-expanded="false"
-              aria-controls="report-drilldown-{{ row.account.pk }}"
-            >
-              <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
-            </button>
-          </td>
-          <td class="text-end pe-4 fw-semibold">{{ row.balance|floatformat:"2g" }} kr</td>
-        </tr>
-        <tr>
-          <td colspan="3" class="p-0 border-0">
-            {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
-          </td>
-        </tr>
+          {% include "bookkeeping/_report_account_row.html" with amount=row.balance %}
         {% endfor %}
+        {% include "bookkeeping/_report_sum_row.html" with label="Summa kortfristiga skulder" amount=total_current_liabilities %}
+        {% endif %}
+
+        {% include "bookkeeping/_report_sum_row.html" with row_class="table-light fw-bold" label="Summa eget kapital och skulder" amount=total_equity_and_liabilities %}
+
       </tbody>
-      <tfoot class="table-light fw-bold">
-        <tr>
-          <td colspan="2" class="ps-4">Summa kortfristiga skulder</td>
-          <td class="text-end pe-4">{{ total_current_liabilities|floatformat:"2g" }} kr</td>
-        </tr>
-      </tfoot>
     </table>
-    </div>
-    {% else %}
-    <div class="text-muted small px-4 pb-3">Inga kortfristiga skulder med saldo.</div>
-    {% endif %}
     </div>
 
     <hr class="my-0">
@@ -321,4 +123,5 @@
 
   </div>
 </div>
+{% endwith %}
 {% endblock %}
