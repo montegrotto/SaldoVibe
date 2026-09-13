@@ -1,0 +1,29 @@
+{% comment %}
+Kontorad + dess dolda drilldown, delad av resultat- och balansräkningen.
+Anropas med amount=<beloppet som ska visas>; colspan och show_budget ärvs från context.
+{% endcomment %}
+<tr>
+  <td class="ps-4 text-muted small">{{ row.account.number }}</td>
+  <td>
+    <button
+      type="button"
+      class="btn btn-link p-0 text-decoration-none text-start text-body"
+      data-bs-toggle="collapse"
+      data-bs-target="#report-drilldown-{{ row.account.pk }}"
+      aria-expanded="false"
+      aria-controls="report-drilldown-{{ row.account.pk }}"
+    >
+      <i class="bi bi-chevron-right me-1 text-muted"></i>{{ row.account.name }}
+    </button>
+  </td>
+  <td class="text-end pe-4">{{ amount|floatformat:"2g" }} kr</td>
+  {% if show_budget %}
+  <td class="text-end pe-4 text-muted">{{ row.budget_amount|floatformat:"2g" }} kr</td>
+  <td class="text-end pe-4 {% if row.budget_difference >= 0 %}text-success{% else %}text-danger{% endif %}">{{ row.budget_difference|floatformat:"2g" }} kr</td>
+  {% endif %}
+</tr>
+<tr>
+  <td colspan="{{ colspan }}" class="p-0 border-0">
+    {% include "bookkeeping/_account_drilldown.html" with collapse_suffix=row.account.pk transaction_list_url_prefix=transaction_list_account_url_prefix account_pk=row.account.pk drilldown_entries=row.drilldown_entries %}
+  </td>
+</tr>

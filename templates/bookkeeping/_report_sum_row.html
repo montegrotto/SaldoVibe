@@ -1,0 +1,12 @@
+{% comment %}
+Summa-/resultatrad i resultat- och balansräkningen. Anropas med label, amount och
+valfritt row_class (t.ex. "table-light fw-bold" för resultatrader) samt budget/diff.
+{% endcomment %}
+<tr class="{{ row_class|default:'fw-semibold border-top' }}">
+  <td colspan="2" class="ps-4">{{ label }}</td>
+  <td class="text-end pe-4">{{ amount|floatformat:"2g" }} kr</td>
+  {% if show_budget %}
+  <td class="text-end pe-4">{{ budget|floatformat:"2g" }} kr</td>
+  <td class="text-end pe-4 {% if diff >= 0 %}text-success{% else %}text-danger{% endif %}">{{ diff|floatformat:"2g" }} kr</td>
+  {% endif %}
+</tr>
