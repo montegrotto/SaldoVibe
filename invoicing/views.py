@@ -234,7 +234,10 @@ def invoice_list(request, company):
         .prefetch_related("lines")
         .order_by("-invoice_date", "-created_at")
     )
-    return render(request, "invoicing/invoice_list.html", {"invoices": invoices})
+    show_all = request.GET.get("visa") == "alla"
+    if not show_all:
+        invoices = invoices.filter(is_paid=False)
+    return render(request, "invoicing/invoice_list.html", {"invoices": invoices, "show_all": show_all})
 
 
 @login_required

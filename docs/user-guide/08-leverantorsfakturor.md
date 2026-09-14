@@ -10,6 +10,11 @@ description: "Leverantörer, registrering av leverantörsfakturor med OCR-försl
 kan även skriva in leverantörsnamn fritt på en faktura utan att skapa ett register-objekt, men en
 kopplad leverantör ger bättre spårbarhet och historik).
 
+## Fakturalistan
+
+**Inköp → Leverantörsfakturor** visar som standard endast **obetalda** fakturor. Växla till **Alla**
+i listans huvud för att även se betalda fakturor.
+
 ## Skapa en leverantörsfaktura
 
 1. Gå till **Inköp → Leverantörsfakturor → Ny faktura**.

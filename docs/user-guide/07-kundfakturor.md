@@ -12,6 +12,11 @@ description: "Kunder, artiklar, fakturering, påminnelser, kreditfakturor och Pe
   måste alltid kopplas till en artikel – det är artikelns intäktskonto och momssats som styr
   bokföringen, inte fritext.
 
+## Fakturalistan
+
+**Försäljning → Kundfakturor** visar som standard endast **obetalda** fakturor. Växla till **Alla**
+i listans huvud för att även se betalda fakturor.
+
 ## Skapa en kundfaktura
 
 1. Gå till **Försäljning → Kundfakturor → Ny faktura**.

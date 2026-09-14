@@ -133,11 +133,16 @@ def invoice_list(request, company):
         )
     )
 
+    show_all = request.GET.get("visa") == "alla"
+    if not show_all:
+        invoices = invoices.filter(is_paid=False)
+
     return render(
         request,
         "supplier_invoices/invoice_list.html",
         {
             "invoices": invoices,
+            "show_all": show_all,
             "today_date": timezone.localdate(),
         },
     )
