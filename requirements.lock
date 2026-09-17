@@ -995,7 +995,7 @@ whitenoise==6.12.0 \
     --hash=sha256:f723ebb76a112e98816ff80fcea0a6c9b8ecde835f8ddda25df7a30a3c2db6ad \
     --hash=sha256:fc5e8c572e33ebf24795b47b6a7da8da3c00cff2349f5b04c02f28d0cc5a3cc2
     # via -r requirements.txt
-xhtml2pdf==0.2.18 \
-    --hash=sha256:2e1a8ec7a060497deaaeb87a607bdf1e6a23f69bb16edb25937b081b3aedd059 \
-    --hash=sha256:f1d327c83954a278d5fb99810527e37446aea4a8b6789458e863991f6373a512
+xhtml2pdf==0.2.19 \
+    --hash=sha256:14edd71131c8172c930811edbef20f8f024159a3fb1cd22e1cca37abd45d2111 \
+    --hash=sha256:8dd55579b225dc1b7db8893a9550a1087ab45d7260590a3f50eb5e71a24def6c
     # via -r requirements.txt
