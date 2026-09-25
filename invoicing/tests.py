@@ -656,6 +656,15 @@ class InvoicingWorkflowTests(CompanyTestCase):
         self.company.plusgiro = "765432-1"
         self.company.company_icon = "company_icons/test-logo.png"
         self.company.save(update_fields=["bankgiro", "plusgiro", "company_icon"])
+        # Riktig fil i MEDIA_ROOT (en tempdir utanför cwd, som /data/media i Docker)
+        # så att testet fångar om xhtml2pdf:s resurspolicy tyst tappar loggan.
+        from pathlib import Path
+
+        from PIL import Image
+
+        logo_path = Path(self.company.company_icon.path)
+        logo_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (80, 40), "red").save(logo_path)
 
         invoice = Invoice.objects.create(
             company=self.company,
@@ -683,6 +692,11 @@ class InvoicingWorkflowTests(CompanyTestCase):
         self.assertIn(invoice.ocr_code, text)
         self.assertIn("Bankgiro", text)
         self.assertIn(invoice.customer.name, text)
+
+        from pypdf import PdfReader
+
+        images = PdfReader(BytesIO(response.content)).pages[0].images
+        self.assertIn((80, 40), [img.image.size for img in images])
 
     def test_invoice_qr_payload_uses_company_payment_settings(self):
         self.company.bankgiro = "123-4567"

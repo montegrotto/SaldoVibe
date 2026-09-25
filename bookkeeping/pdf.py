@@ -1,5 +1,7 @@
 from io import BytesIO
+from pathlib import Path
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.http import content_disposition_header
@@ -13,12 +15,17 @@ def render_pdf_bytes(template_name, context) -> bytes:
     """Render a template to PDF bytes via xhtml2pdf. Raises PdfRenderError on failure."""
     try:
         from xhtml2pdf import pisa
+        from xhtml2pdf.config.resources import ResourceAccessPolicy
     except ImportError as exc:
         raise PdfRenderError("PDF-export kräver paketet xhtml2pdf. Installera beroenden och försök igen.") from exc
 
     html = render_to_string(template_name, context)
     output = BytesIO()
-    pdf = pisa.CreatePDF(src=html, dest=output, encoding="utf-8")
+    # Enda lokala resursen är företagsloggan (company_icon.path). xhtml2pdf
+    # begränsar annars läsningar till cwd, och MEDIA_ROOT ligger utanför i Docker
+    # (/data/media) — loggan försvann då tyst ur PDF:en.
+    policy = ResourceAccessPolicy(base_dir=Path(settings.MEDIA_ROOT), allow_remote=False)
+    pdf = pisa.CreatePDF(src=html, dest=output, encoding="utf-8", resource_policy=policy)
     if pdf.err:
         raise PdfRenderError("Kunde inte skapa PDF-rapport.")
 
