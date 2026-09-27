@@ -73,8 +73,8 @@ nyspårad modell tvingar fram en ROPA-uppdatering.
 - **Registrerade / kategorier:** e-postavsändare — adress, meddelandemetadata,
   bilageinnehåll; brevlådeuppgifter (app-lösenord / OAuth-hemlighet) för
   företagsbrevlådan.
-- **Mottagare/biträden:** kundens egen e-postleverantör (Gmail / Microsoft 365) — kundens
-  biträde, inte operatörens (se `roles-and-scope.md`).
+- **Mottagare/biträden:** kundens egen e-postleverantör (Gmail, annan IMAP-leverantör eller
+  Microsoft 365) — kundens biträde, inte operatörens (se `roles-and-scope.md`).
 - **Bevarande:** hämtade bilagor blir klass A via A5; inloggningsuppgifterna finns kvar
   tills företaget inaktiverar integrationen.
 

@@ -22,8 +22,9 @@ Anmärkningar:
 - Vid hostad drift måste operatörens underbiträden (hosting, backuplagring) listas i
   PUB-avtalet och i `processor-register.md` (G-011). OCR-fältextraktion för bilagor körs
   in-process, inte via ett separat underbiträde.
-- Kundens egna e-postleverantörer (Gmail / Microsoft 365 för e-posthämtning) anlitas av
-  kunden, under kundens egna avtal — de är kundens biträden, inte operatörens underbiträden.
+- Kundens egna e-postleverantörer (Gmail, annan IMAP-server eller Microsoft 365 för
+  e-posthämtning) anlitas av kunden, under kundens egna avtal — de är kundens biträden, inte
+  operatörens underbiträden.
 
 ## Disposition för PUB-avtal (hostad drift)
 

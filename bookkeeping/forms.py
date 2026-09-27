@@ -307,6 +307,7 @@ class CompanyForm(forms.ModelForm):
         # Ett förslagsvärde ska inte kunna blockera en företagsuppdatering:
         # lämnas fältet tomt behålls nuvarande värde (eller standardvärdet).
         self.fields["reminder_fee"].required = False
+        self.fields["email_fetch_imap_port"].required = False
         self.fields["email_send_smtp_port"].required = False
         self.fields["email_notify_smtp_port"].required = False
 
@@ -318,21 +319,22 @@ class CompanyForm(forms.ModelForm):
             return self.instance.reminder_fee
         return Company._meta.get_field("reminder_fee").default
 
-    def clean_email_send_smtp_port(self):
-        value = self.cleaned_data.get("email_send_smtp_port")
+    def _clean_optional_port(self, name):
+        value = self.cleaned_data.get(name)
         if value is not None:
             return value
         if self.instance.pk:
-            return self.instance.email_send_smtp_port
-        return Company._meta.get_field("email_send_smtp_port").default
+            return getattr(self.instance, name)
+        return Company._meta.get_field(name).default
+
+    def clean_email_fetch_imap_port(self):
+        return self._clean_optional_port("email_fetch_imap_port")
+
+    def clean_email_send_smtp_port(self):
+        return self._clean_optional_port("email_send_smtp_port")
 
     def clean_email_notify_smtp_port(self):
-        value = self.cleaned_data.get("email_notify_smtp_port")
-        if value is not None:
-            return value
-        if self.instance.pk:
-            return self.instance.email_notify_smtp_port
-        return Company._meta.get_field("email_notify_smtp_port").default
+        return self._clean_optional_port("email_notify_smtp_port")
 
     class Meta:
         model = Company
@@ -357,6 +359,9 @@ class CompanyForm(forms.ModelForm):
             "email_fetch_provider",
             "email_fetch_address",
             "email_fetch_password",
+            "email_fetch_imap_host",
+            "email_fetch_imap_port",
+            "email_fetch_imap_username",
             "email_fetch_oauth_tenant_id",
             "email_fetch_oauth_client_id",
             "email_fetch_oauth_client_secret",
@@ -400,6 +405,9 @@ class CompanyForm(forms.ModelForm):
             "email_fetch_provider": forms.Select(attrs={"class": "form-select"}),
             "email_fetch_address": forms.EmailInput(attrs={"class": "form-control"}),
             "email_fetch_password": forms.PasswordInput(attrs={"class": "form-control"}, render_value=False),
+            "email_fetch_imap_host": forms.TextInput(attrs={"class": "form-control"}),
+            "email_fetch_imap_port": forms.NumberInput(attrs={"class": "form-control", "min": "1", "max": "65535"}),
+            "email_fetch_imap_username": forms.TextInput(attrs={"class": "form-control"}),
             "email_fetch_oauth_tenant_id": forms.TextInput(attrs={"class": "form-control"}),
             "email_fetch_oauth_client_id": forms.TextInput(attrs={"class": "form-control"}),
             "email_fetch_oauth_client_secret": forms.PasswordInput(attrs={"class": "form-control"}, render_value=False),

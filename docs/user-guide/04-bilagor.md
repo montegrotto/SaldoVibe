@@ -24,10 +24,10 @@ posten. Väljaren tar dig sedan tillbaka till formuläret du kom ifrån med bila
 
 ## E-postimport av bilagor
 
-Om e-postimport är konfigurerat för företaget (`Inställningar → Företag`, Gmail via IMAP eller
-Microsoft 365 via Microsoft Graph) hämtas bilagor automatiskt från den angivna mappen, taggas med
-källa "E-post" och kopplas till avsändarens ämnesrad/meddelande-id för spårbarhet. Ett försök görs
-även direkt när e-postimport aktiveras på företaget.
+Om e-postimport är konfigurerat för företaget (`Inställningar → Företag`: Gmail eller en annan
+IMAP-server, eller Microsoft 365 via Microsoft Graph) hämtas bilagor automatiskt från den angivna
+mappen, taggas med källa "E-post" och kopplas till avsändarens ämnesrad/meddelande-id för
+spårbarhet. Ett försök görs även direkt när e-postimport aktiveras på företaget.
 
 **Endast PDF hämtas via e-post.** Fakturamail bifogar ofta logotyper och layoutgrafik som vanliga
 bilagor (inte inline), och de skulle annars fylla bilagelistan med skräp. PNG och JPEG går
@@ -59,6 +59,15 @@ python manage.py hamta_epostbilagor --company 2  # ett företag
 För omedelbar återkoppling finns knappen **Hämta e-postbilagor** på företagssidan. Att slå på
 e-posthämtning när ett företag skapas startar däremot ingen hämtning direkt — företagsskapandet
 ska inte kunna fastna på en brevlåda som inte svarar.
+
+### Sätta upp Gmail eller en annan IMAP-brevlåda
+
+Välj **Gmail** eller **Annan IMAP-server** som leverantör och ange e-postkontot och dess lösenord.
+Gmail har fast server (`imap.gmail.com`) och kräver ett app-lösenord. För en annan IMAP-server
+anger du dessutom **IMAP-server**, **IMAP-port** (993 hos de flesta leverantörer; anslutningen
+görs alltid över TLS) och, bara om det skiljer sig från e-postadressen, **IMAP-användarnamn**.
+Ett sparat lösenord behålls när fältet lämnas tomt vid nästa redigering. **Inkorgsmapp** är den
+mapp som läses av, med serverns eget namn (oftast `INBOX`).
 
 ### Sätta upp Microsoft 365 (Exchange Online)
 
