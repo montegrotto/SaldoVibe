@@ -104,10 +104,24 @@
             <label class="form-label" for="{{ form.email_fetch_address.id_for_label }}">{{ form.email_fetch_address.label }}</label>
             {{ form.email_fetch_address }}
           </div>
-          <div class="mb-3 gmail-only-field">
+          <div class="mb-3 imap-server-field">
+            <label class="form-label" for="{{ form.email_fetch_imap_host.id_for_label }}">{{ form.email_fetch_imap_host.label }}</label>
+            {{ form.email_fetch_imap_host }}
+          </div>
+          <div class="mb-3 imap-server-field">
+            <label class="form-label" for="{{ form.email_fetch_imap_port.id_for_label }}">{{ form.email_fetch_imap_port.label }}</label>
+            {{ form.email_fetch_imap_port }}
+            <div class="form-text">993 hos de flesta leverantörer. Anslutningen görs alltid över TLS.</div>
+          </div>
+          <div class="mb-3 imap-server-field">
+            <label class="form-label" for="{{ form.email_fetch_imap_username.id_for_label }}">{{ form.email_fetch_imap_username.label }}</label>
+            {{ form.email_fetch_imap_username }}
+            <div class="form-text">Lämna tomt om användarnamnet är e-postadressen.</div>
+          </div>
+          <div class="mb-3 imap-only-field">
             <label class="form-label" for="{{ form.email_fetch_password.id_for_label }}">{{ form.email_fetch_password.label }}</label>
             {{ form.email_fetch_password }}
-            <div class="form-text">Gmail: använd app-losenord.</div>
+            <div class="form-text">Gmail: använd app-lösenord. Lämna tomt för att behålla nuvarande lösenord.</div>
           </div>
           <div class="mb-3 outlook-only-field">
             <label class="form-label" for="{{ form.email_fetch_oauth_tenant_id.id_for_label }}">{{ form.email_fetch_oauth_tenant_id.label }}</label>
@@ -266,17 +280,15 @@
       if (!providerSelect) {
         return;
       }
-      const outlookFields = form.querySelectorAll(".outlook-only-field");
-      const gmailFields = form.querySelectorAll(".gmail-only-field");
-
-      const showOutlook = providerSelect.value === "outlook";
-      outlookFields.forEach(function (field) {
-        field.style.display = showOutlook ? "" : "none";
+      const value = providerSelect.value;
+      form.querySelectorAll(".outlook-only-field").forEach(function (field) {
+        field.style.display = value === "outlook" ? "" : "none";
       });
-
-      const showGmail = providerSelect.value === "gmail";
-      gmailFields.forEach(function (field) {
-        field.style.display = showGmail ? "" : "none";
+      form.querySelectorAll(".imap-only-field").forEach(function (field) {
+        field.style.display = value === "gmail" || value === "imap" ? "" : "none";
+      });
+      form.querySelectorAll(".imap-server-field").forEach(function (field) {
+        field.style.display = value === "imap" ? "" : "none";
       });
     }
 

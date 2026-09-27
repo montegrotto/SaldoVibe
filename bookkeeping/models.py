@@ -34,6 +34,7 @@ class Company(models.Model):
         NONE = "", "Ingen"
         GMAIL = "gmail", "Gmail"
         OUTLOOK = "outlook", "Outlook"
+        IMAP = "imap", "Annan IMAP-server"
 
     class EmailSendProvider(models.TextChoices):
         NONE = "", "Ingen"
@@ -101,7 +102,11 @@ class Company(models.Model):
         default=EmailProvider.NONE,
     )
     email_fetch_address = models.EmailField("E-postkonto", blank=True)
-    email_fetch_password = EncryptedTextField("App-lösenord", blank=True)
+    email_fetch_password = EncryptedTextField("Lösenord", blank=True)
+    # Bara för EmailProvider.IMAP - Gmail har fast server (attachments/email_import.py).
+    email_fetch_imap_host = models.CharField("IMAP-server", max_length=255, blank=True)
+    email_fetch_imap_port = models.PositiveIntegerField("IMAP-port", default=993)
+    email_fetch_imap_username = models.CharField("IMAP-användarnamn", max_length=255, blank=True)
     email_fetch_oauth_tenant_id = models.CharField("Microsoft 365 Tenant ID", max_length=255, blank=True)
     email_fetch_oauth_client_id = models.CharField("Microsoft 365 Client ID", max_length=255, blank=True)
     email_fetch_oauth_client_secret = EncryptedTextField("Microsoft 365 Client Secret", blank=True)

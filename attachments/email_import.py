@@ -111,10 +111,17 @@ def _store_attachment(company, user, counters, payload, file_name, message_id, a
 def _import_imap_attachments_for_company(company, user, max_messages, folder):
     counters = _ImportCounters()
 
-    mail = imaplib.IMAP4_SSL(GMAIL_IMAP_HOST)
+    if company.email_fetch_provider == "gmail":
+        host, port = GMAIL_IMAP_HOST, 993
+    else:
+        host, port = company.email_fetch_imap_host.strip(), company.email_fetch_imap_port
+    # ponytail: alltid implicit TLS (IMAPS); STARTTLS på port 143 får läggas till om någon leverantör kräver det.
+    mail = imaplib.IMAP4_SSL(host, port)
     try:
-        logger.debug("Connecting to IMAP host", extra={"host": GMAIL_IMAP_HOST, "company_id": company.id})
-        mail.login(company.email_fetch_address, company.email_fetch_password)
+        logger.debug("Connecting to IMAP host", extra={"host": host, "port": port, "company_id": company.id})
+        mail.login(
+            company.email_fetch_imap_username.strip() or company.email_fetch_address, company.email_fetch_password
+        )
         logger.debug("IMAP login successful", extra={"company_id": company.id})
 
         status, _ = mail.select(folder)
@@ -287,13 +294,15 @@ def _import_graph_attachments_for_company(company, user, max_messages, folder):
 def import_email_attachments_for_company(company, user, max_messages=100):
     if not company.email_fetch_enabled:
         raise ValueError("E-posthämtning är inte aktiverad för företaget.")
-    if company.email_fetch_provider not in {"gmail", "outlook"}:
-        raise ValueError("Välj Gmail eller Outlook som e-postleverantör i företagsinställningarna.")
+    if company.email_fetch_provider not in {"gmail", "imap", "outlook"}:
+        raise ValueError("Välj Gmail, Outlook eller annan IMAP-server som e-postleverantör i företagsinställningarna.")
     if not company.email_fetch_address:
         raise ValueError("Ange e-postkonto i företagsinställningarna.")
 
-    if company.email_fetch_provider == "gmail" and not company.email_fetch_password:
-        raise ValueError("Ange app-lösenord för Gmail i företagsinställningarna.")
+    if company.email_fetch_provider in {"gmail", "imap"} and not company.email_fetch_password:
+        raise ValueError("Ange lösenord för e-postkontot i företagsinställningarna.")
+    if company.email_fetch_provider == "imap" and not company.email_fetch_imap_host.strip():
+        raise ValueError("Ange IMAP-server i företagsinställningarna.")
 
     if company.email_fetch_provider == "outlook":
         missing = [
@@ -322,7 +331,7 @@ def import_email_attachments_for_company(company, user, max_messages=100):
     )
 
     try:
-        if company.email_fetch_provider == "gmail":
+        if company.email_fetch_provider in {"gmail", "imap"}:
             result = _import_imap_attachments_for_company(
                 company=company, user=user, max_messages=max_messages, folder=folder
             )

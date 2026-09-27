@@ -29,11 +29,14 @@ from .views import attachment_list
 
 
 class _FakeImapClient:
-    def __init__(self, host, raw_messages_by_id):
+    def __init__(self, host, raw_messages_by_id, port=993):
         self.host = host
+        self.port = port
+        self.login_user = None
         self._raw_messages_by_id = raw_messages_by_id
 
     def login(self, address, password):
+        self.login_user = address
         return "OK", [b"Logged in"]
 
     def select(self, folder):
@@ -369,7 +372,7 @@ class AttachmentViewTests(CompanyTestCase):
 
         with patch(
             "attachments.email_import.imaplib.IMAP4_SSL",
-            side_effect=lambda host: _FakeImapClient(host, raw_messages),
+            side_effect=lambda host, port: _FakeImapClient(host, raw_messages, port),
         ):
             result = import_email_attachments_for_company(company=self.company, user=self.user)
 
@@ -397,7 +400,7 @@ class AttachmentViewTests(CompanyTestCase):
         with (
             patch(
                 "attachments.email_import.imaplib.IMAP4_SSL",
-                side_effect=lambda host: _FakeImapClient(host, raw_messages),
+                side_effect=lambda host, port: _FakeImapClient(host, raw_messages, port),
             ),
             patch(
                 "attachments.services.extract_fields",
@@ -410,6 +413,43 @@ class AttachmentViewTests(CompanyTestCase):
         self.assertEqual(mocked_extract.call_args.kwargs["own_company"], self.company.name)
         attachment = TransactionAttachment.objects.get(company=self.company)
         self.assertEqual(attachment.extracted_data, {"leverantör": "Exempel AB", "totalbelopp": "199.00"})
+
+    def test_import_email_attachments_supports_generic_imap_server(self):
+        self.company.email_fetch_enabled = True
+        self.company.email_fetch_provider = "imap"
+        self.company.email_fetch_address = "faktura@example.se"
+        self.company.email_fetch_password = "secret"
+        self.company.email_fetch_imap_host = "imap.example.se"
+        self.company.email_fetch_imap_port = 9993
+        self.company.email_fetch_imap_username = "faktura-login"
+        self.company.email_fetch_folder = "INBOX"
+        self.company.save()
+
+        clients = []
+
+        def fake_client(host, port):
+            client = _FakeImapClient(host, {b"1": self._build_email_bytes()}, port)
+            clients.append(client)
+            return client
+
+        with patch("attachments.email_import.imaplib.IMAP4_SSL", side_effect=fake_client):
+            result = import_email_attachments_for_company(company=self.company, user=self.user)
+
+        self.assertEqual(result["imported"], 1)
+        (client,) = clients
+        self.assertEqual((client.host, client.port, client.login_user), ("imap.example.se", 9993, "faktura-login"))
+        attachment = TransactionAttachment.objects.get(company=self.company)
+        self.assertEqual(attachment.source_provider, "imap")
+
+    def test_import_email_attachments_rejects_imap_without_host(self):
+        self.company.email_fetch_enabled = True
+        self.company.email_fetch_provider = "imap"
+        self.company.email_fetch_address = "faktura@example.se"
+        self.company.email_fetch_password = "secret"
+        self.company.save()
+
+        with self.assertRaisesMessage(ValueError, "Ange IMAP-server"):
+            import_email_attachments_for_company(company=self.company, user=self.user)
 
     def _configure_outlook(self):
         self.company.email_fetch_enabled = True

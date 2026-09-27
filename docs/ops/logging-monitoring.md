@@ -27,7 +27,7 @@ loggning.
 | root / `django` | `INFO` | Meddelanden på ramverksnivå. |
 | `django.request` | `WARNING` | 4xx/5xx-fel på requests — det är här trasiga vyer syns. |
 | `attachments` | `INFO` | Uppladdning/radering/miniatyrer av bilagor. |
-| `attachments.email_import` | `DEBUG` i dev, `INFO` i prod | Importkörningar från e-post (Gmail/Outlook) — se [användarhandboken, kapitel 4](../user-guide/04-bilagor.md). |
+| `attachments.email_import` | `DEBUG` i dev, `INFO` i prod | Importkörningar från e-post (IMAP/Microsoft 365) — se [användarhandboken, kapitel 4](../user-guide/04-bilagor.md). |
 | `bookkeeping` | `INFO` | Livscykelhändelser för företag/konton/transaktioner (skapande, raderingsförsök, SIE-importresultat). |
 
 De flesta vyer i appen anropar både `messages.error/success/...` för återkoppling till användaren
