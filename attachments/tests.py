@@ -441,6 +441,34 @@ class AttachmentViewTests(CompanyTestCase):
         attachment = TransactionAttachment.objects.get(company=self.company)
         self.assertEqual(attachment.source_provider, "imap")
 
+    def test_import_email_attachments_takes_inline_pdf(self):
+        """Apple Mail skickar PDF:er med Content-Disposition: inline, inte attachment."""
+        self.company.email_fetch_enabled = True
+        self.company.email_fetch_provider = "gmail"
+        self.company.email_fetch_address = "finance@example.com"
+        self.company.email_fetch_password = "app-password"
+        self.company.save()
+
+        msg = EmailMessage()
+        msg["From"] = "sender@example.com"
+        msg["To"] = "receiver@example.com"
+        msg["Subject"] = "Test"
+        msg["Message-ID"] = "<inline@example.com>"
+        msg.set_content("Se bilaga")
+        msg.add_attachment(
+            b"%PDF-1.4 inline", maintype="application", subtype="pdf", filename="inline.pdf", disposition="inline"
+        )
+        raw_messages = {b"1": msg.as_bytes()}
+
+        with patch(
+            "attachments.email_import.imaplib.IMAP4_SSL",
+            side_effect=lambda host, port: _FakeImapClient(host, raw_messages, port),
+        ):
+            result = import_email_attachments_for_company(company=self.company, user=self.user)
+
+        self.assertEqual(result["imported"], 1)
+        self.assertTrue(TransactionAttachment.objects.get(company=self.company).file_name.startswith("inline"))
+
     def test_import_email_attachments_rejects_imap_without_host(self):
         self.company.email_fetch_enabled = True
         self.company.email_fetch_provider = "imap"

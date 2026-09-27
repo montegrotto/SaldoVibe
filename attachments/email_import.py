@@ -176,7 +176,9 @@ def _import_imap_attachments_for_company(company, user, max_messages, folder):
             source_subject = _decode_subject(email_message.get("Subject"))
 
             for part_index, part in enumerate(email_message.walk(), start=1):
-                if part.get_content_disposition() != "attachment":
+                # Apple Mail m.fl. skickar PDF:er med Content-Disposition: inline,
+                # så en PDF-del tas med oavsett disposition.
+                if part.get_content_disposition() != "attachment" and part.get_content_type() not in PDF_CONTENT_TYPES:
                     continue
 
                 payload = part.get_payload(decode=True)
