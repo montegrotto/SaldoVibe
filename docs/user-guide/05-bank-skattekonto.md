@@ -37,6 +37,9 @@ Du kan även registrera en enskild transaktion manuellt istället för att impor
 
 ## Bokföra banktransaktioner
 
+Listan visar som standard endast **ohanterade** (obokförda) transaktioner för vald bankkälla.
+Växla till **Alla** i listans huvud för att även se bokförda transaktioner.
+
 Varje importerad rad bokförs på ett av två sätt:
 
 - **Snabbbokföring** – systemet föreslår en motpart automatiskt baserat på tidigare mönster eller

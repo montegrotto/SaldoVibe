@@ -15,6 +15,11 @@ kopplad leverantör ger bättre spårbarhet och historik).
 **Inköp → Leverantörsfakturor** visar som standard endast **obetalda** fakturor. Växla till **Alla**
 i listans huvud för att även se betalda fakturor.
 
+## Utlägg
+
+**Inköp → Utlägg** visar som standard endast **obetalda** utlägg. Växla till **Alla** i listans
+huvud för att även se utbetalda utlägg.
+
 ## Skapa en leverantörsfaktura
 
 1. Gå till **Inköp → Leverantörsfakturor → Ny faktura**.

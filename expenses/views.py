@@ -40,12 +40,16 @@ def expense_list(request, company):
         )
         .prefetch_related("attachments", "payments__transaction")
     )
+    show_all = request.GET.get("visa") == "alla"
+    if not show_all:
+        claims = claims.filter(is_paid=False)
 
     return render(
         request,
         "expenses/expense_list.html",
         {
             "claims": claims,
+            "show_all": show_all,
             "today_date": timezone.localdate(),
         },
     )
