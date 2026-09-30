@@ -529,6 +529,41 @@ class InvoicingWorkflowTests(CompanyTestCase):
         self.assertTrue(entries.filter(account__number="3041", debit=Decimal("1000.00")).exists())
         self.assertTrue(entries.filter(account__number="2611", debit=Decimal("250.00")).exists())
 
+    def test_credit_invoice_keeps_text_lines_as_text_lines(self):
+        # Textrader kopierades som artikelrader utan artikel, så kreditfakturan kunde aldrig bokföras.
+        invoice = Invoice.objects.create(
+            company=self.company,
+            customer=self.customer,
+            invoice_date="2026-06-26",
+            due_date="2026-07-26",
+            payment_terms_days=30,
+        )
+        invoice.lines.create(
+            article=self.article,
+            description="Konsultarbete",
+            quantity=Decimal("1.00"),
+            unit="tim",
+            unit_price=Decimal("1000.00"),
+            vat_rate=Decimal("25.00"),
+            sort_order=0,
+        )
+        invoice.lines.create(
+            line_type=InvoiceLine.LINE_TYPE_TEXT,
+            description="Avser projekt X",
+            quantity=Decimal("0.00"),
+            unit_price=Decimal("0.00"),
+            vat_rate=Decimal("0.00"),
+            sort_order=1,
+        )
+        invoice.bookkeep(self.user)
+
+        response = self.client.post(reverse("invoicing:invoice_credit", args=[invoice.pk]))
+        self.assertEqual(response.status_code, 302)
+
+        credit_invoice = Invoice.objects.exclude(pk=invoice.pk).get(company=self.company)
+        self.assertTrue(credit_invoice.is_booked)
+        self.assertEqual(credit_invoice.lines.filter(line_type=InvoiceLine.LINE_TYPE_TEXT).count(), 1)
+
     def test_can_register_manual_payment_on_customer_invoice(self):
         invoice = Invoice.objects.create(
             company=self.company,

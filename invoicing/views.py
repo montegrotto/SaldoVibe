@@ -500,6 +500,7 @@ def invoice_credit(request, company, invoice_id):
 
     for line in lines:
         credit_invoice.lines.create(
+            line_type=line.line_type,
             article=line.article,
             description=f"Kreditering: {line.description}",
             quantity=(line.quantity or Decimal("0.00")) * Decimal("-1.00"),
