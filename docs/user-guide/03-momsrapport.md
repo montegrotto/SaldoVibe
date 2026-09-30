@@ -14,7 +14,8 @@ Momsrapportering styrs per företag av inställningen **Momsperiod** (`Inställn
 2. Välj räkenskapsår och period (perioderna följer företagets valda momsperiod, t.ex. månad/kvartal/år).
 3. Rapporten visar Skatteverkets momsrutor (05, 06, 10, 11, 12, 30–39, 48, 49, 50 m.fl.) beräknade
    från bokförda verifikationer i perioden, med möjlighet att klicka in på varje rutas
-   underliggande verifikationer.
+   underliggande verifikationer. Listan visar för varje verifikation det belopp som ingår i just
+   den rutan (för ruta 49/50 verifikationens bidrag till nettomomsen).
 4. Momsberäkningen tar hänsyn till företagets **momsstartdatum** – transaktioner före det datumet
    räknas inte in även om de ligger inom vald period.
 5. Innan export/stängning valideras rapporten och eventuella fel eller varningar visas direkt i

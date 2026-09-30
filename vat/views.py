@@ -29,6 +29,7 @@ from .services import (
     get_field_account_prefixes,
     get_field_account_query,
     get_skatteverket_field_groups,
+    get_transaction_field_amount,
     get_vat_closing_balances,
     parse_period_key,
     round_to_whole_krona,
@@ -524,7 +525,7 @@ def vat_field_transactions(request, company, field_code):
 
     years, selected_year, periods, selected_period = _resolve_year_and_period(request, company)
     if selected_year is None or selected_period is None:
-        messages.error(request, "Valj en avslutad momsperiod for att se verifikationer.")
+        messages.error(request, "Välj en avslutad momsperiod för att se verifikationer.")
         return redirect("vat:report")
 
     transactions = Transaction.objects.none()
@@ -538,10 +539,13 @@ def vat_field_transactions(request, company, field_code):
                 date__lte=selected_period["end_date"],
             )
             .filter(account_filter)
+            .exclude(reference__startswith=VAT_CLOSING_REFERENCE_PREFIX)
             .distinct()
             .prefetch_related("entries__account")
             .order_by("-date", "-created_at")
         )
+        for txn in transactions:
+            txn.field_amount = get_transaction_field_amount(txn.entries.all(), field_code)
 
     return render(
         request,

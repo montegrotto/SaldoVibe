@@ -392,6 +392,23 @@ def validate_eskd_export(company, start_date, end_date, vat_boxes):
     return {"errors": errors, "warnings": warnings}
 
 
+def get_transaction_field_amount(entries, field_code):
+    """Amount a voucher contributes to a momsdeklaration box, using the same signs as
+    calculate_vat_boxes (49 = net VAT to pay, 50 = net VAT to be refunded)."""
+    codes = set(get_field_account_prefixes(field_code))
+    net_box = field_code in {"49", "50"}
+    total = ZERO
+    for entry in entries:
+        code = get_effective_vat_field_code(entry.account.number, entry.account.vat_field_code)
+        if code not in codes:
+            continue
+        amount = entry.credit - entry.debit
+        if code in PURCHASE_SIDE_FIELD_CODES and not net_box:
+            amount = -amount
+        total += amount
+    return -total if field_code == "50" else total
+
+
 def _get_vat_entry_queryset(*, company, start_date, end_date):
     return JournalEntry.objects.filter(
         account__company=company,
