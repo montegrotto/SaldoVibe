@@ -587,6 +587,10 @@ def transaction_list(request, company):
     if selected_bank_account is not None:
         transactions = transactions.filter(bank_account=selected_bank_account)
 
+    show_all = request.GET.get("visa") == "alla"
+    if not show_all:
+        transactions = transactions.filter(is_booked=False)
+
     transactions = transactions.order_by("-date", "-id")[:300]
 
     selected_bank_account_balance = None
@@ -620,6 +624,7 @@ def transaction_list(request, company):
             "selected_bank_account": selected_bank_account,
             "selected_bank_account_id": str(selected_bank_account_id or ""),
             "selected_bank_account_balance": selected_bank_account_balance,
+            "show_all": show_all,
         },
     )
 
