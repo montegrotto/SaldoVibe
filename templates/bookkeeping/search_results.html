@@ -15,7 +15,7 @@
     <div class="card shadow-sm border-0"><div class="card-header bg-white fw-semibold">Verifikationer</div>
       <div class="list-group list-group-flush">
         {% for txn in results.transactions %}
-        <a class="list-group-item list-group-item-action" href="{% url 'bookkeeping:transaction_detail' txn.pk %}">
+        <a class="list-group-item list-group-item-action" href="{% url 'bookkeeping:transaction_detail' txn.pk %}?return_to={{ request.get_full_path|urlencode }}">
           <span class="text-muted small">{{ txn.date }}{% if txn.voucher_number %} · {{ txn.voucher_series }}{{ txn.voucher_number }}{% endif %}</span>
           <div>{{ txn.description }}</div>
         </a>

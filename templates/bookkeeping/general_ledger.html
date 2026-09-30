@@ -58,7 +58,7 @@
           {% for row in item.rows %}
           <tr>
             <td class="ps-4 text-nowrap">{{ row.date }}</td>
-            <td><a href="{% url 'bookkeeping:transaction_detail' row.transaction_id %}" class="text-decoration-none">{{ row.voucher }}</a></td>
+            <td><a href="{% url 'bookkeeping:transaction_detail' row.transaction_id %}?return_to={{ request.get_full_path|urlencode }}" class="text-decoration-none">{{ row.voucher }}</a></td>
             <td>{{ row.description }}</td>
             <td class="text-end">{% if row.debit %}{{ row.debit|floatformat:"2g" }}{% endif %}</td>
             <td class="text-end">{% if row.credit %}{{ row.credit|floatformat:"2g" }}{% endif %}</td>
