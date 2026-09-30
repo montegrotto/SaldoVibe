@@ -47,7 +47,7 @@ def serialize_sie_verifications(verifications):
 def deserialize_sie_verifications(serialized):
     return [
         {
-            "series": "A",
+            "series": ver.get("series") or "",
             "number": ver.get("number") or "",
             "date": date.fromisoformat(ver["date"]),
             "description": ver.get("description") or "",

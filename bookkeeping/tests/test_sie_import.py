@@ -978,3 +978,11 @@ class SieOpeningBalanceImportTests(SIEImportTests):
         content = response.content.decode("cp437")
         self.assertIn("Insättning - ägarens kapital", content)
         self.assertNotIn("?", content)
+
+
+class SieVerificationSerializationTests(CompanyTestCase):
+    def test_roundtrip_keeps_series(self):
+        from bookkeeping.sie_import import deserialize_sie_verifications, serialize_sie_verifications
+
+        ver = {"series": "B", "number": "7", "date": date(2026, 2, 10), "description": "x", "entries": []}
+        self.assertEqual(deserialize_sie_verifications(serialize_sie_verifications([ver]))[0]["series"], "B")
