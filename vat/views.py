@@ -409,6 +409,12 @@ def vat_close_period(request, company):
     settlement_credit = Decimal("0.00")
 
     with db_transaction.atomic():
+        # Lås räkenskapsåret så två samtidiga "stäng period" inte skapar dubbla stängningsverifikationer.
+        AccountingYear.objects.select_for_update().get(pk=selected_year.pk)
+        if Transaction.objects.filter(accounting_year__company=company, reference=closing_reference).exists():
+            messages.info(request, "Momsperioden är redan stängd.")
+            return redirect(redirect_url)
+
         closing_transaction = Transaction.objects.create(
             accounting_year=selected_year,
             date=selected_period["end_date"],
