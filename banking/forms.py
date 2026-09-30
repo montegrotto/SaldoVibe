@@ -426,7 +426,7 @@ def _parse_skatteverket_headerless_csv(data):
 
         balance = _normalize_amount(raw_balance) if raw_balance else None
         description = raw_description or "Saknar text"
-        external_id = f"line-{idx}-{tx_date.isoformat()}-{description}-{amount}"
+        external_id = f"line-{idx}-{tx_date.isoformat()}-{description}-{amount:.2f}"
         rows.append(
             {
                 "date": tx_date,
@@ -498,7 +498,7 @@ def parse_bank_csv(file_obj, bank_profile="auto"):
         balance = _normalize_amount(balance_raw) if str(balance_raw or "").strip() else None
         external_id = (row.get(id_col) or "").strip() if id_col else ""
         if not external_id:
-            external_id = f"line-{idx}-{tx_date.isoformat()}-{amount}"
+            external_id = f"line-{idx}-{tx_date.isoformat()}-{amount:.2f}"
 
         rows.append(
             {

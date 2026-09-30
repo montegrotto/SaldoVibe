@@ -257,3 +257,14 @@ class BankImportTests(BankingTestCase):
         first = imported.filter(description="Intäktsränta").first()
         self.assertIsNotNone(first)
         self.assertEqual(first.amount, Decimal("341.00"))
+
+
+class ExternalIdStabilityTests(BankingTestCase):
+    def test_external_id_ignores_amount_formatting(self):
+        # Excel-resparade filer tappar avslutande nollor ("100,00" -> "100"); samma rad får inte bli en ny transaktion.
+        header = "Bokföringsdatum;Specifikation;Belopp;Saldo\n"
+        ids = set()
+        for amount in ("100,00", "100", "100,0"):
+            rows = parse_bank_csv(BytesIO((header + f"2026-06-21;Swish;{amount};10250,00\n").encode()), "danske_bank")
+            ids.add(rows[0]["external_id"])
+        self.assertEqual(len(ids), 1, ids)
