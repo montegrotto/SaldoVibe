@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Ny körrapport{% endblock %}
+{% block page_title %}Ny körrapport{% endblock %}
+{% block nav_mileage %}active{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0" style="max-width:860px;">
+  <div class="card-body p-4">
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" for="{{ form.employee.id_for_label }}">{{ form.employee.label }}</label>
+          {{ form.employee }}
+          {{ form.employee.errors }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" for="{{ form.trip_date.id_for_label }}">{{ form.trip_date.label }}</label>
+          {{ form.trip_date }}
+          {{ form.trip_date.errors }}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" for="{{ form.route.id_for_label }}">{{ form.route.label }}</label>
+          {{ form.route }}
+          {{ form.route.errors }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" for="{{ form.purpose.id_for_label }}">{{ form.purpose.label }}</label>
+          {{ form.purpose }}
+          {{ form.purpose.errors }}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" for="{{ form.distance_km.id_for_label }}">{{ form.distance_km.label }}</label>
+          {{ form.distance_km }}
+          {{ form.distance_km.errors }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" for="{{ form.rate_per_mil.id_for_label }}">{{ form.rate_per_mil.label }}</label>
+          {{ form.rate_per_mil }}
+          {{ form.rate_per_mil.errors }}
+          <div class="form-text">Skattefri schablon för egen bil. Ersättningen bokförs på 7331 mot skuld 2820 och betalas ut som ett utlägg.</div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-send me-2"></i>Lämna in</button>
+        <a href="{% url 'payroll:mileage_report_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

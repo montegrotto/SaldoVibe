@@ -1000,3 +1000,105 @@ class SalaryPaymentReminder(models.Model):
 
     def __str__(self):
         return f"{self.employee} {self.amount} {self.due_date}"
+
+
+class MileageReport(models.Model):
+    """Körrapport: resa med egen bil som ersätts skattefritt.
+
+    Vid inlämning skapas och bokförs ett utlägg (7331 mot 2820) så att utbetalningen
+    sker precis som för andra utlägg: via bank, manuell betalning eller lönepost.
+    """
+
+    # Skatteverkets skattefria schablon för egen bil. Belopp över schablonen är
+    # skattepliktig lön och stöds inte här – lägg då tillägget på lönebeskedet.
+    DEFAULT_RATE_PER_MIL = Decimal("25.00")
+    EXPENSE_ACCOUNT_NUMBER = "7331"
+
+    company = models.ForeignKey(
+        "bookkeeping.Company",
+        on_delete=models.CASCADE,
+        related_name="mileage_reports",
+        verbose_name="Företag",
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="mileage_reports",
+        verbose_name="Anställd",
+    )
+    trip_date = models.DateField("Datum")
+    route = models.CharField("Resväg", max_length=200, help_text="T.ex. Stockholm–Uppsala t/r")
+    purpose = models.CharField("Syfte", max_length=200)
+    distance_km = models.DecimalField("Sträcka (km)", max_digits=8, decimal_places=1)
+    rate_per_mil = models.DecimalField(
+        "Ersättning (kr/mil)", max_digits=6, decimal_places=2, default=DEFAULT_RATE_PER_MIL
+    )
+    expense_claim = models.OneToOneField(
+        "expenses.ExpenseClaim",
+        on_delete=models.CASCADE,
+        related_name="mileage_report",
+        verbose_name="Utlägg",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_mileage_reports",
+        verbose_name="Skapad av",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-trip_date", "-id"]
+        verbose_name = "Körrapport"
+        verbose_name_plural = "Körrapporter"
+
+    def __str__(self):
+        return f"Körrapport {self.trip_date} {self.route}"
+
+    @property
+    def amount(self):
+        return quantize_money((self.distance_km or Decimal("0")) / Decimal("10") * (self.rate_per_mil or Decimal("0")))
+
+    def _default_account(self, *numbers):
+        for number in numbers:
+            account = self.company.accounts.filter(is_active=True, number=number).first()
+            if account is not None:
+                return account
+        raise ValidationError(f"Standardkonto {numbers[0]} saknas i kontoplanen.")
+
+    def submit(self, user):
+        """Lämna in: skapa och bokför utlägget, spara sedan rapporten. Anropas i stället för save()."""
+        from django.db import transaction as db_transaction
+
+        from expenses.models import ExpenseClaim
+
+        if self.amount <= Decimal("0.00"):
+            raise ValidationError("Ersättningen måste vara större än 0.")
+        accounting_year = self.company.accounting_years.filter(
+            start_date__lte=self.trip_date, end_date__gte=self.trip_date
+        ).first()
+        if accounting_year is None:
+            raise ValidationError("Inget räkenskapsår matchar resdatumet.")
+
+        with db_transaction.atomic():
+            claim = ExpenseClaim.objects.create(
+                company=self.company,
+                accounting_year=accounting_year,
+                employee=self.employee,
+                person_name=str(self.employee),
+                description=f"Körrapport {self.trip_date:%Y-%m-%d} {self.route}"[:255],
+                expense_date=self.trip_date,
+                expense_account=self._default_account(self.EXPENSE_ACCOUNT_NUMBER),
+                liability_account=self._default_account(*ExpenseClaim.DEFAULT_LIABILITY_ACCOUNT_NUMBERS),
+                amount_ex_vat=self.amount,
+                vat_amount=Decimal("0.00"),
+                total_amount=self.amount,
+                created_by=user,
+            )
+            claim.register_and_bookkeep(user)
+            self.expense_claim = claim
+            self.created_by = user
+            self.save()
+        return claim

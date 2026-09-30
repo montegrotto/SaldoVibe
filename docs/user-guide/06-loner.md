@@ -48,6 +48,20 @@ raden **Att utbetala**, och på utläggets sida står att det betalas ut med lö
 lönekörningen. Ett utlägg kan bara ligga på en lönepost i taget. Bocka ur och spara för att
 ta bort det igen, eller ta bort den anställde från körningen.
 
+## Körrapporter
+
+Under **Personal → Körrapporter → Ny körrapport** registrerar du en resa med egen bil: anställd,
+datum, resväg, syfte, sträcka i km och ersättning i kr/mil (förifyllt med Skatteverkets skattefria
+schablon, 25 kr/mil). Klicka **Lämna in** så skapas och bokförs ett utlägg på beloppet
+(`km / 10 × kr/mil`) med konto 7331 (Skattefria bilersättningar) mot skulden 2820. Saknas något
+av kontona i kontoplanen, eller ett räkenskapsår för resdatumet, stoppas inlämningen.
+
+Körrapporten betalas sedan ut precis som ett vanligt utlägg: bocka i den på löneposten (se ovan),
+matcha den mot en bankbetalning, eller markera den som betald från utläggets sida via
+**Visa utlägg** i listan. Listan visar som standard bara ej utbetalda körrapporter – växla till
+**Alla** för historiken. Ersättning över schablonen är skattepliktig och läggs i så fall som ett
+tillägg på lönebeskedet i stället.
+
 ## Semester
 
 Ange **uttagna semesterdagar** på löneposten. SaldoVibe tillämpar sammalöneregeln: månadslönen
