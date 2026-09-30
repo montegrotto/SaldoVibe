@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model, login, logout
 from django.db import transaction as db_transaction
 from django.shortcuts import redirect, render
 
+from attachments.utils import is_safe_return_to
+
 from .forms import LoginForm, RegisterForm
 
 User = get_user_model()
@@ -15,7 +17,8 @@ def login_view(request):
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
             login(request, form.get_user())
-            return redirect(request.GET.get("next", "bookkeeping:dashboard"))
+            next_url = request.GET.get("next", "")
+            return redirect(next_url if is_safe_return_to(next_url) else "bookkeeping:dashboard")
     else:
         form = LoginForm(request)
     return render(request, "accounts/login.html", {"form": form})

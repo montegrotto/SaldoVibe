@@ -84,3 +84,26 @@ class PasswordResetTests(TestCase):
     def test_login_page_links_to_reset(self):
         response = self.client.get(reverse("accounts:login"))
         self.assertContains(response, reverse("accounts:password_reset"))
+
+
+class LoginRedirectTests(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user("anna@example.com", "losen-123-abc")
+
+    def _login(self, next_url):
+        return self.client.post(
+            reverse("accounts:login") + "?next=" + next_url,
+            {"username": "anna@example.com", "password": "losen-123-abc"},
+        )
+
+    def test_local_next_is_followed(self):
+        response = self._login("/hjalp/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/hjalp/")
+
+    def test_external_next_is_ignored(self):
+        for evil in ("https://evil.example/", "//evil.example/", "/\\evil.example"):
+            with self.subTest(evil=evil):
+                self.client.logout()
+                response = self._login(evil)
+                self.assertRedirects(response, reverse("bookkeeping:dashboard"), fetch_redirect_response=False)
