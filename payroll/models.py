@@ -1088,7 +1088,7 @@ class MileageReport(models.Model):
                 accounting_year=accounting_year,
                 employee=self.employee,
                 person_name=str(self.employee),
-                description=f"Körrapport {self.trip_date:%Y-%m-%d} {self.route}"[:255],
+                description=f"Körrapport {self.trip_date} {self.route}"[:255],
                 expense_date=self.trip_date,
                 expense_account=self._default_account(self.EXPENSE_ACCOUNT_NUMBER),
                 liability_account=self._default_account(*ExpenseClaim.DEFAULT_LIABILITY_ACCOUNT_NUMBERS),

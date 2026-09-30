@@ -9,6 +9,7 @@ from unittest.mock import patch
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
@@ -27,6 +28,7 @@ from .models import (
     SalaryRecord,
     mark_payroll_run_finished,
 )
+from .views import salary_report_pdf_context
 
 
 class PayrollFlowTests(CompanyTestCase):
@@ -1326,6 +1328,36 @@ class ExpenseClaimPayoutTests(CompanyTestCase):
 
         response = self.client.get(reverse("payroll:salary_report_print", args=[self.payroll_run.pk, self.record.pk]))
         self.assertEqual(response.status_code, 200)
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
+    def test_payslip_shows_only_totals_for_claims_and_mileage(self, _api_mock):
+        create_accounts(self.company, [("7331", "Skattefria bilersättningar", "7")])
+        report = MileageReport(
+            company=self.company,
+            employee=self.employee,
+            trip_date="2026-07-06",
+            route="Malmö–Lund t/r",
+            purpose="Kundmöte",
+            distance_km=Decimal("40.0"),
+        )
+        report.submit(self.user)
+        ExpenseClaim.objects.filter(company=self.company).update(salary_record=self.record)
+
+        for finished in (False, True):
+            if finished:
+                mark_payroll_run_finished(self.payroll_run, self.user)
+            context = salary_report_pdf_context(SalaryRecord.objects.get(pk=self.record.pk))
+            self.assertEqual(context["expense_payout_total"], Decimal("500.00"))
+            self.assertEqual(context["mileage_payout_total"], Decimal("100.00"))
+            html = render_to_string("payroll/salary_report_print.html", context)
+            self.assertIn("<td>Utlägg</td>", html)
+            self.assertIn("<td>Körrapporter</td>", html)
+            self.assertIn("Att utbetala", html)
+            self.assertNotIn("Tågbiljett", html)
+            self.assertNotIn("Malmö–Lund", html)
 
     @patch(
         "payroll.models.get_tax_amount_from_skatteverket",

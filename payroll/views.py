@@ -343,9 +343,13 @@ def salary_report_pdf_context(salary_record):
         employee.address,
         f"{employee.postal_code} {employee.city}".strip(),
     ]
+    # Lönespecen visar bara summorna – enskilda utlägg/körrapporter får inte plats.
+    payouts = salary_record.expense_payouts()
+    mileage_total = sum((amount for claim, amount in payouts if hasattr(claim, "mileage_report")), Decimal("0.00"))
     return {
         "salary_record": salary_record,
-        "expense_payouts": salary_record.expense_payouts(),
+        "expense_payout_total": sum((amount for _claim, amount in payouts), Decimal("0.00")) - mileage_total,
+        "mileage_payout_total": mileage_total,
         "employee_address_lines": [line for line in employee_address_lines if line and line.strip()],
         "logo_size": company_logo_size(company),
     }
