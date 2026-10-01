@@ -121,7 +121,10 @@ class Command(BaseCommand):
         # 2) Restore into a throwaway database so the dry-run never touches the live database.
         run(["createdb", *connection_args, restore_db])
         try:
-            run(["pg_restore", *connection_args, "-d", restore_db, str(dump_file)])
+            # --no-owner/--no-privileges: the app role isn't superuser, so the dump's
+            # ALTER ... OWNER TO postgres / ALTER DEFAULT PRIVILEGES would fail. Ownership and
+            # ACLs are irrelevant here; the dry-run only checks that the data restores.
+            run(["pg_restore", *connection_args, "--no-owner", "--no-privileges", "-d", restore_db, str(dump_file)])
 
             table_counts = {}
             with psycopg.connect(host=host, port=port, user=user, password=password, dbname=restore_db) as conn:
