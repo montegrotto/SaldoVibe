@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import quote
 
 from django.urls import reverse
 from django.utils import timezone
@@ -82,7 +83,7 @@ class GeneralLedgerTests(CompanyTestCase):
             transaction=opening_txn, account=self.equity_account, debit=Decimal("0.00"), credit=Decimal("50000.00")
         )
 
-        sale_txn = Transaction.objects.create(
+        self.sale_txn = sale_txn = Transaction.objects.create(
             accounting_year=self.year_2018,
             date="2018-03-01",
             description="Försäljning",
@@ -119,6 +120,17 @@ class GeneralLedgerTests(CompanyTestCase):
 
         self.assertEqual(response.context["total_debit"], Decimal("1000.00"))
         self.assertEqual(response.context["total_credit"], Decimal("1000.00"))
+
+    def test_general_ledger_voucher_link_returns_to_ledger(self):
+        ledger_url = f"{reverse('bookkeeping:general_ledger')}?year={self.year_2018.pk}"
+        response = self.client.get(ledger_url)
+        detail_url = (
+            f"{reverse('bookkeeping:transaction_detail', args=[self.sale_txn.pk])}?return_to={quote(ledger_url)}"
+        )
+        self.assertContains(response, detail_url.replace("&", "&amp;"))
+
+        detail = self.client.get(detail_url)
+        self.assertEqual(detail.context["back_url"], ledger_url)
 
     def test_general_ledger_pdf_downloads(self):
         response = self.client.get(reverse("bookkeeping:general_ledger_pdf"), {"year": self.year_2018.pk})
