@@ -595,6 +595,28 @@ class ManualPaymentTests(PartialPaymentTestCase):
         self.assertTrue(invoice.is_partially_paid)
         self.assertEqual(invoice.remaining_amount, Decimal("600.00"))
 
+    def test_earlier_partial_payment_voucher_cannot_be_corrected_directly(self):
+        # invoice.payment_transaction only points at the latest payment; the first
+        # one must still be routed to "Ångra betalning" instead of a bare correction.
+        invoice = self._create_customer_invoice(total=Decimal("1000.00"))
+        first, _second = (
+            register_manual_payment(
+                invoice,
+                self.user,
+                payment_date=date(2026, 7, day),
+                amount=Decimal("400.00"),
+                payment_account=self.bank_gl_account,
+            )
+            for day in (10, 11)
+        )
+
+        detail = self.client.get(reverse("bookkeeping:transaction_detail", args=[first.pk]))
+        self.assertContains(detail, "Ångra betalning")
+        self.assertNotContains(detail, "Skapa korrigering")
+
+        self.client.post(reverse("bookkeeping:transaction_reverse", args=[first.pk]))
+        self.assertFalse(Transaction.objects.filter(correction_of=first).exists())
+
     def test_register_manual_payment_undo_resets_invoice(self):
         invoice = self._create_customer_invoice(total=Decimal("1000.00"))
         txn = register_manual_payment(

@@ -12,7 +12,6 @@ from django.db import transaction as db_transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -428,7 +427,41 @@ def _linked_source_entries(txn):
             }
         )
 
+    for asset in txn.fixed_asset_disposals.all():
+        entries.append(
+            {
+                "icon": "bi-building-gear",
+                "label": f"Utrangering/avyttring: {asset.name}",
+                "url": reverse("fixed_assets:asset_detail", args=[asset.pk]) + return_to,
+            }
+        )
+
+    for snapshot in txn.vat_close_snapshots.all():
+        entries.append(
+            {
+                "icon": "bi-percent",
+                "label": f"Momsstängning {snapshot.period_start} – {snapshot.period_end}",
+                "url": reverse("vat:report"),
+            }
+        )
+
     return entries
+
+
+def _is_payment_transaction(txn):
+    # payment_transaction pekar bara på den senaste betalningen – tidigare delbetalningar
+    # hittas via betalningsraderna.
+    return any(
+        getattr(txn, related_name).exists()
+        for related_name in (
+            "supplier_invoice_payment_transactions",
+            "outgoing_invoice_payments",
+            "expense_claim_payment_transactions",
+            "supplier_invoice_payment_rows",
+            "customer_invoice_payment_rows",
+            "expense_claim_payment_rows",
+        )
+    )
 
 
 @login_required
@@ -451,12 +484,6 @@ def transaction_detail(request, company, pk):
     ):
         back_url = requested_back_url
 
-    is_payment_transaction = (
-        txn.supplier_invoice_payment_transactions.exists()
-        or txn.outgoing_invoice_payments.exists()
-        or txn.expense_claim_payment_transactions.exists()
-    )
-
     return render(
         request,
         "bookkeeping/transaction_detail.html",
@@ -472,7 +499,7 @@ def transaction_detail(request, company, pk):
                 attach_url=reverse("bookkeeping:transaction_attachment_add", args=[txn.pk]),
                 detach_url=reverse("bookkeeping:transaction_attachment_remove", args=[txn.pk]),
             ),
-            "is_payment_transaction": is_payment_transaction,
+            "is_payment_transaction": _is_payment_transaction(txn),
         },
     )
 
@@ -522,11 +549,7 @@ def transaction_reverse(request, company, pk):
         messages.info(request, "Verifikationen har redan en registrerad korrigering.")
         return redirect("bookkeeping:transaction_detail", pk=txn.pk)
 
-    if (
-        txn.supplier_invoice_payment_transactions.exists()
-        or txn.outgoing_invoice_payments.exists()
-        or txn.expense_claim_payment_transactions.exists()
-    ):
+    if _is_payment_transaction(txn):
         messages.error(
             request,
             'Detta är en betalningsverifikation. Använd "Ångra betalning" på fakturan/utlägget för att '
@@ -534,28 +557,15 @@ def transaction_reverse(request, company, pk):
         )
         return redirect("bookkeeping:transaction_detail", pk=txn.pk)
 
-    reversal_date = timezone.localdate()
-    if is_date_locked(company, reversal_date):
-        messages.error(request, "Dagens period är låst. Lås upp perioden eller välj en öppen period för korrigering.")
-        return redirect("bookkeeping:transaction_detail", pk=txn.pk)
-
-    matching_years = AccountingYear.objects.filter(
-        company=company,
-        start_date__lte=reversal_date,
-        end_date__gte=reversal_date,
-    ).order_by("-start_date", "-id")
-
-    if not matching_years.exists():
-        messages.error(request, "Ingen öppen period/räkenskapsår hittades för korrigeringsdatumet.")
-        return redirect("bookkeeping:transaction_detail", pk=txn.pk)
-    if matching_years.count() > 1:
-        messages.error(request, "Flera räkenskapsår matchar korrigeringsdatumet. Kontrollera räkenskapsåren.")
+    # Korrigeringen bokförs på originalets datum, så originalets period måste vara öppen.
+    if is_date_locked(company, txn.date):
+        messages.error(request, "Perioden är låst – verifikationen kan inte korrigeras.")
         return redirect("bookkeeping:transaction_detail", pk=txn.pk)
 
     with db_transaction.atomic():
         reversal = Transaction.objects.create(
-            accounting_year=matching_years.first(),
-            date=reversal_date,
+            accounting_year=txn.accounting_year,
+            date=txn.date,
             description=f"Korrigering av verifikation {txn.reference or txn.pk}",
             created_by=request.user,
             correction_of=txn,

@@ -125,7 +125,7 @@ firma med en ägare; handelsbolag/kommanditbolag stöds inte.
 
 **Ångra ett bokslut:** det finns ingen egen ångra-funktion. En `finance_admin` låser upp
 perioden under **Inställningar → Periodlåsning** och skapar korrigeringar av S1/S2 via
-**Korrigera** på respektive verifikation – därefter kan bokslutsflödet köras igen för året.
+**Skapa korrigering** på respektive verifikation – därefter kan bokslutsflödet köras igen för året.
 
 ## Nästa steg
 

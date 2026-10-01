@@ -5,7 +5,15 @@ from django.db import IntegrityError, transaction
 from django.urls import reverse
 
 from attachments.models import TransactionAttachment
-from bookkeeping.models import Account, AccountClass, AccountingYear, JournalEntry, Transaction, VerificationTemplate
+from bookkeeping.models import (
+    Account,
+    AccountClass,
+    AccountingYear,
+    JournalEntry,
+    PeriodLock,
+    Transaction,
+    VerificationTemplate,
+)
 from saldovibe.testing import CompanyTestCase, create_account
 
 
@@ -250,6 +258,32 @@ class TransactionPostTests(CompanyTestCase):
         reversal_debit_entry = reversal.entries.get(account=self.debit_account)
         self.assertEqual(reversal_debit_entry.debit, Decimal("0.00"))
         self.assertEqual(reversal_debit_entry.credit, Decimal("100.00"))
+        # Korrigeringen bokförs på originalets datum, inte dagens.
+        self.assertEqual(reversal.date.isoformat(), "2026-06-26")
+        self.assertEqual(reversal.accounting_year, self.year)
+
+    def test_transaction_in_locked_period_cannot_be_corrected(self):
+        txn = Transaction.objects.create(
+            accounting_year=self.year, date="2026-06-26", description="Låst", created_by=self.user
+        )
+        JournalEntry.objects.create(transaction=txn, account=self.debit_account, debit="100.00", credit="0.00")
+        JournalEntry.objects.create(transaction=txn, account=self.credit_account, debit="0.00", credit="100.00")
+        PeriodLock.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            period_start="2026-06-01",
+            period_end="2026-06-30",
+            is_locked=True,
+            locked_by=self.user,
+        )
+
+        detail = self.client.get(reverse("bookkeeping:transaction_detail", args=[txn.pk]))
+        self.assertContains(detail, "Perioden är låst – kan inte korrigeras")
+        self.assertNotContains(detail, "Skapa korrigering")
+
+        response = self.client.post(reverse("bookkeeping:transaction_reverse", args=[txn.pk]), follow=True)
+        self.assertContains(response, "Perioden är låst – verifikationen kan inte korrigeras.")
+        self.assertFalse(Transaction.objects.filter(correction_of=txn).exists())
 
     def test_transaction_list_shows_corrected_transaction_and_reversal(self):
         txn = Transaction.objects.create(
@@ -295,6 +329,34 @@ class TransactionPostTests(CompanyTestCase):
         self.assertContains(reversal_response, "Korrigering av")
         self.assertContains(reversal_response, reverse("bookkeeping:transaction_detail", args=[txn.pk]))
         self.assertNotContains(reversal_response, "Skapa korrigering")
+
+    def test_correction_button_asks_for_confirmation_and_warns_about_linked_documents(self):
+        from vat.models import VatCloseSnapshot
+
+        plain = Transaction.objects.create(
+            accounting_year=self.year, date="2026-06-26", description="Fristående", created_by=self.user
+        )
+        linked = Transaction.objects.create(
+            accounting_year=self.year, date="2026-06-30", description="Momsstängning", created_by=self.user
+        )
+        VatCloseSnapshot.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            period_start="2026-04-01",
+            period_end="2026-06-30",
+            closed_transaction=linked,
+            source_fingerprint="x",
+        )
+
+        plain_response = self.client.get(reverse("bookkeeping:transaction_detail", args=[plain.pk]))
+        self.assertContains(plain_response, 'data-bs-target="#correction-modal"')
+        self.assertContains(plain_response, "Korrigeringen dateras till 2026-06-26")
+        self.assertNotContains(plain_response, "Det är bättre att göra rättelsen där istället")
+
+        linked_response = self.client.get(reverse("bookkeeping:transaction_detail", args=[linked.pk]))
+        self.assertContains(linked_response, "Det är bättre att göra rättelsen där istället")
+        self.assertContains(linked_response, "Öppna Momsstängning 2026-04-01 – 2026-06-30")
+        self.assertContains(linked_response, "Skapa korrigering ändå")
 
     def test_balance_sheet_account_rows_link_to_filtered_transaction_list(self):
         txn = Transaction.objects.create(
