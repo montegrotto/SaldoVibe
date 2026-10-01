@@ -54,6 +54,10 @@ if ! "$PYTHON_BIN" manage.py anchor_audit_chain; then
   echo "WARNING: could not reach the timestamp authority to anchor the audit chain this month." >&2
 fi
 
+# Each run leaves a full dump of the database behind; keep them to the same rolling 90 days
+# as the backups (GDPR art. 17, see restore-runbook.md). The JSON reports are evidence and stay.
+find "$OUTPUT_DIR" -name 'restore-dump-*.dump' -mtime +90 -delete
+
 if [[ "$failed" -ne 0 ]]; then
   echo "Monthly restore dry-run / audit-chain verification finished WITH FAILURES (see above)." >&2
   exit 1
