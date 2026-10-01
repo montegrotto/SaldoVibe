@@ -79,17 +79,26 @@ Filtrera på:
 SaldoVibe tillåter inte att en bokförd verifikation ändras i efterhand. Istället skapas en
 **korrigeringsverifikation**:
 
-1. Öppna verifikationen och välj **Korrigera**.
-2. Systemet skapar automatiskt en ny verifikation daterad till idag, med alla debet/kredit-belopp
-   från originalet vända (debet blir kredit och tvärtom), kopplad till originalet.
+1. Öppna verifikationen, välj **Skapa korrigering** och bekräfta i dialogrutan. Är verifikationen
+   länkad till ett underlag (t.ex. en kund- eller leverantörsfaktura, ett utlägg, en lönekörning,
+   en banktransaktion, en anläggningstillgång eller en momsstängning) visar dialogrutan en
+   varning: det är bättre att göra rättelsen där istället, eftersom en korrigeringsverifikation
+   bara vänder bokföringen – det länkade underlaget ändras inte. Underlaget öppnas med den blå
+   knappen **Öppna …**; vill du korrigera verifikationen ändå väljer du den röda knappen
+   **Skapa korrigering ändå**.
+   Betalningsverifikationer (även delbetalningar) korrigeras inte här utan via **Ångra betalning**.
+2. Systemet skapar automatiskt en ny verifikation med samma datum som originalet, med alla
+   debet/kredit-belopp från originalet vända (debet blir kredit och tvärtom), kopplad till
+   originalet.
 3. Både originalet och korrigeringen ligger kvar i transaktionslistan. Öppnar du någon av dem
    visas en gul länk i sidfoten ("Korrigerad av …" respektive "Korrigering av …") som tar dig
    till den andra verifikationen.
 4. En verifikation kan bara korrigeras **en gång** – försöker du igen får du meddelandet
    "Verifikationen har redan en registrerad korrigering." Knappen **Skapa korrigering** visas
    därför inte på verifikationer som redan är korrigerade, eller på korrigeringsverifikationer.
-5. Precis som vid vanlig registrering blockeras korrigeringen om dagens datum ligger i en låst
-   period, eller om inget/flera räkenskapsår matchar dagens datum.
+5. Ligger verifikationens datum i en låst period går den inte att korrigera: knappen ersätts av
+   "Perioden är låst – kan inte korrigeras". Perioden måste först låsas upp under
+   **Inställningar → Periodlåsning**.
 
 ## Importera från annat bokföringssystem
 

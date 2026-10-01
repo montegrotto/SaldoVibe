@@ -84,13 +84,52 @@
       <a href="{% url 'banking:payment_undo_confirm' txn.pk %}?return_to={{ request.get_full_path|urlencode }}" class="btn btn-outline-warning btn-sm ms-auto">
         <i class="bi bi-arrow-counterclockwise me-1"></i>Ångra betalning
       </a>
+    {% elif period_locked %}
+      <span class="badge bg-secondary ms-auto"><i class="bi bi-lock me-1"></i>Perioden är låst – kan inte korrigeras</span>
     {% else %}
-      <form method="post" action="{% url 'bookkeeping:transaction_reverse' txn.pk %}" class="ms-auto">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-outline-warning btn-sm">
-          <i class="bi bi-arrow-counterclockwise me-1"></i>Skapa korrigering
-        </button>
-      </form>
+      <button type="button" class="btn btn-outline-warning btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#correction-modal">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Skapa korrigering
+      </button>
+      <div class="modal fade" id="correction-modal" tabindex="-1" aria-labelledby="correction-modal-title" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form method="post" action="{% url 'bookkeeping:transaction_reverse' txn.pk %}">
+              {% csrf_token %}
+              <div class="modal-header">
+                <h6 class="modal-title" id="correction-modal-title">Skapa korrigeringsverifikation?</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Stäng"></button>
+              </div>
+              <div class="modal-body">
+                {% if linked_sources %}
+                <div class="alert alert-warning" role="alert">
+                  <i class="bi bi-exclamation-triangle me-1"></i>Verifikationen är länkad till ett underlag.
+                  Det är bättre att göra rättelsen där istället – en korrigeringsverifikation vänder bara
+                  bokföringen, det länkade underlaget ändras inte.
+                </div>
+                <div class="d-grid gap-2 mb-3">
+                  {% for src in linked_sources %}
+                  <a href="{{ src.url }}" class="btn btn-primary btn-sm">
+                    <i class="bi {{ src.icon }} me-1"></i>Öppna {{ src.label }}
+                  </a>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p>En ny verifikation skapas som vänder den här verifikationen.</p>
+                {% endif %}
+                <p class="small text-muted mb-0">
+                  Korrigeringen dateras till {{ txn.date|date:"Y-m-d" }}, samma datum som originalet, och kan inte ångras.
+                </p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Avbryt</button>
+                <button type="submit" class="btn btn-danger btn-sm">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Skapa korrigering{% if linked_sources %} ändå{% endif %}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     {% endif %}
   </div>
 </div>
