@@ -452,6 +452,15 @@ class VatReportingTests(TestCase):
         )
         self.assertEqual(field_response.status_code, 200)
         self.assertContains(field_response, "Momsperiod januari")
+        # Each voucher shows what it contributes to the box, not the whole voucher total.
+        self.assertContains(field_response, "Belopp i fältet")
+        self.assertContains(field_response, "250,00")
+        self.assertContains(field_05_response, "1\xa0000,00")
+        field_48_response = self.client.get(
+            reverse("vat:field_transactions", args=["48"]),
+            {"year": accounting_year.pk, "period": period_key},
+        )
+        self.assertContains(field_48_response, "100,00")
 
     def test_vat_close_is_blocked_when_period_is_locked(self):
         from bookkeeping.models import PeriodLock
