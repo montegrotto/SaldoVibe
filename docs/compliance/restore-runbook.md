@@ -84,7 +84,9 @@ Stäm av manuellt: `python manage.py reconcile_audit_log`.
 
 Dry-runnen rör aldrig den skarpa databasen. Den dumpar den skarpa databasen med `pg_dump`,
 återställer dumpen i en engångsdatabas (`<db>_restore_dryrun_<timestamp>`), verifierar radantal
-där och släpper därefter alltid engångsdatabasen (lyckat eller ej). `pg_dump`/`pg_restore` i
+där och släpper därefter alltid engångsdatabasen (lyckat eller ej). Återställningen körs med
+`--no-owner --no-privileges`, så att appens icke-superuser-roll klarar den även när dumpen
+innehåller `OWNER TO postgres` (t.ex. append-only-triggerfunktionerna). `pg_dump`/`pg_restore` i
 runtime-imagen är pinnade till PostgreSQL 17-klientpaket för att matcha
 `postgres:17-alpine`-servern; en klient nyare än servern misslyckas vid återställning med felet
 `unrecognized configuration parameter` (en v17-klient mot en v16-server föll så här på
