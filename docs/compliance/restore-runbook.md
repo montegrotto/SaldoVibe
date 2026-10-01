@@ -20,6 +20,10 @@ volymen `saldovibe-data` och därmed överlever att containern återskapas/deplo
 manuellt steg krävs i normaldrift; proceduren nedan är för lokal verifiering eller om det
 schemalagda jobbet behöver köras om manuellt.
 
+Alla steg (dry-run, `verify_audit_chain`, `verify_audit_chain_anchors`, `reconcile_audit_log`)
+körs även om ett tidigare steg misslyckas; jobbet avslutas då med felkod och `FAILED: <steg>` i
+schedulerloggen. Kolla loggen efter varje månadsskifte.
+
 Bekräfta att schemat är registrerat: `docker compose logs scheduler`.
 Trigga på begäran: `docker compose exec web /usr/local/bin/monthly-restore-dry-run.sh`.
 
