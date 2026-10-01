@@ -8,7 +8,7 @@ from django.utils import timezone
 from bookkeeping.form_utils import normalize_decimal_fields
 from bookkeeping.models import AccountingYear
 
-from .models import Employee, EmployeeDefaultAdjustment, PayrollRun, SalaryAdjustment, SalaryRecord
+from .models import Employee, EmployeeDefaultAdjustment, MileageReport, PayrollRun, SalaryAdjustment, SalaryRecord
 
 
 class EmployeeForm(forms.ModelForm):
@@ -237,3 +237,35 @@ EmployeeDefaultAdjustmentFormSet = inlineformset_factory(
     extra=0,
     can_delete=True,
 )
+
+
+class MileageReportForm(forms.ModelForm):
+    class Meta:
+        model = MileageReport
+        fields = ("employee", "trip_date", "route", "purpose", "distance_km", "rate_per_mil")
+        widgets = {
+            "employee": forms.Select(attrs={"class": "form-select"}),
+            "trip_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "route": forms.TextInput(attrs={"class": "form-control", "placeholder": "Stockholm–Uppsala t/r"}),
+            "purpose": forms.TextInput(attrs={"class": "form-control", "placeholder": "Kundmöte"}),
+            "distance_km": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.1", "min": "0"}),
+            "rate_per_mil": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.01", "min": "0"}),
+        }
+
+    def __init__(self, *args, company, **kwargs):
+        super().__init__(*args, **kwargs)
+        normalize_decimal_fields(self)
+        self.fields["employee"].queryset = company.employees.filter(is_active=True)
+        self.fields["employee"].empty_label = "Välj anställd…"
+
+    def clean_distance_km(self):
+        distance = self.cleaned_data["distance_km"]
+        if distance <= Decimal("0"):
+            raise forms.ValidationError("Sträckan måste vara större än 0.")
+        return distance
+
+    def clean_rate_per_mil(self):
+        rate = self.cleaned_data["rate_per_mil"]
+        if rate <= Decimal("0"):
+            raise forms.ValidationError("Ersättningen måste vara större än 0.")
+        return rate

@@ -9,16 +9,18 @@ from unittest.mock import patch
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
-from bookkeeping.models import SentEmail, Transaction
+from bookkeeping.models import AccountClass, JournalEntry, SentEmail, Transaction
 from expenses.models import ExpenseClaim
 from saldovibe.testing import CompanyTestCase, create_accounts, create_user
 
 from .models import (
     Employee,
     EmployeeDefaultAdjustment,
+    MileageReport,
     PayrollReportEvidence,
     PayrollRun,
     SalaryAdjustment,
@@ -26,6 +28,7 @@ from .models import (
     SalaryRecord,
     mark_payroll_run_finished,
 )
+from .views import salary_report_pdf_context
 
 
 class PayrollFlowTests(CompanyTestCase):
@@ -1330,6 +1333,36 @@ class ExpenseClaimPayoutTests(CompanyTestCase):
         "payroll.models.get_tax_amount_from_skatteverket",
         return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
     )
+    def test_payslip_shows_only_totals_for_claims_and_mileage(self, _api_mock):
+        create_accounts(self.company, [("7331", "Skattefria bilersättningar", "7")])
+        report = MileageReport(
+            company=self.company,
+            employee=self.employee,
+            trip_date="2026-07-06",
+            route="Malmö–Lund t/r",
+            purpose="Kundmöte",
+            distance_km=Decimal("40.0"),
+        )
+        report.submit(self.user)
+        ExpenseClaim.objects.filter(company=self.company).update(salary_record=self.record)
+
+        for finished in (False, True):
+            if finished:
+                mark_payroll_run_finished(self.payroll_run, self.user)
+            context = salary_report_pdf_context(SalaryRecord.objects.get(pk=self.record.pk))
+            self.assertEqual(context["expense_payout_total"], Decimal("500.00"))
+            self.assertEqual(context["mileage_payout_total"], Decimal("100.00"))
+            html = render_to_string("payroll/salary_report_print.html", context)
+            self.assertIn("<td>Utlägg</td>", html)
+            self.assertIn("<td>Körrapporter</td>", html)
+            self.assertIn("Att utbetala", html)
+            self.assertNotIn("Tågbiljett", html)
+            self.assertNotIn("Malmö–Lund", html)
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
     def test_finish_refuses_already_paid_linked_claim(self, _api_mock):
         self.claim.salary_record = self.record
         self.claim.is_paid = True
@@ -1339,3 +1372,74 @@ class ExpenseClaimPayoutTests(CompanyTestCase):
             mark_payroll_run_finished(self.payroll_run, self.user)
         self.payroll_run.refresh_from_db()
         self.assertFalse(self.payroll_run.is_finished)
+
+
+class MileageReportTests(CompanyTestCase):
+    user_email = "mileage@example.com"
+    company_name = "Milbolaget AB"
+    company_org_number = "556600-1122"
+
+    def setUp(self):
+        super().setUp()
+        self.accounts = create_accounts(
+            self.company,
+            [
+                ("7331", "Skattefria bilersättningar", AccountClass.PERSONNEL),
+                ("2820", "Kortfristiga skulder till anställda", AccountClass.EQUITY_LIABILITY),
+            ],
+        )
+        self.employee = Employee.objects.create(
+            company=self.company,
+            first_name="Anna",
+            last_name="Andersson",
+            personal_identity_number="199001011234",
+            monthly_salary=Decimal("40000.00"),
+        )
+
+    def _post(self, **overrides):
+        data = {
+            "employee": str(self.employee.pk),
+            "trip_date": "2026-07-05",
+            "route": "Stockholm–Uppsala t/r",
+            "purpose": "Kundmöte",
+            "distance_km": "123,4",
+            "rate_per_mil": "25.00",
+            **overrides,
+        }
+        return self.client.post(reverse("payroll:mileage_report_create"), data)
+
+    def test_submit_creates_registered_expense_claim(self):
+        response = self._post()
+
+        self.assertRedirects(response, reverse("payroll:mileage_report_list"))
+        report = MileageReport.objects.get(company=self.company)
+        claim = report.expense_claim
+        self.assertEqual(report.amount, Decimal("308.50"))
+        self.assertEqual(claim.total_amount, Decimal("308.50"))
+        self.assertEqual(claim.vat_amount, Decimal("0.00"))
+        self.assertEqual(claim.employee, self.employee)
+        self.assertTrue(claim.is_registered)
+        self.assertEqual(
+            JournalEntry.objects.get(transaction=claim.registered_transaction, account=self.accounts["7331"]).debit,
+            Decimal("308.50"),
+        )
+        self.assertEqual(
+            JournalEntry.objects.get(transaction=claim.registered_transaction, account=self.accounts["2820"]).credit,
+            Decimal("308.50"),
+        )
+        self.assertContains(self.client.get(reverse("payroll:mileage_report_list")), "Stockholm–Uppsala t/r")
+
+    def test_submit_without_expense_account_saves_nothing(self):
+        self.accounts["7331"].delete()
+
+        response = self._post()
+
+        self.assertContains(response, "Standardkonto 7331 saknas i kontoplanen.")
+        self.assertFalse(MileageReport.objects.exists())
+        self.assertFalse(ExpenseClaim.objects.exists())
+
+    def test_zero_distance_is_rejected(self):
+        response = self._post(distance_km="0")
+
+        self.assertContains(response, "Sträckan måste vara större än 0.")
+        self.assertFalse(MileageReport.objects.exists())

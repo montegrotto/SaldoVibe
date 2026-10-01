@@ -61,6 +61,7 @@ TRACKED_MODELS = {
     "payroll.payrollrun": {"name": "Lönekörning", "company_path": "company"},
     "payroll.salaryrecord": {"name": "Lönebesked", "company_path": "payroll_run.company"},
     "payroll.payrollreportevidence": {"name": "AGI-bevispaket", "company_path": "payroll_run.company"},
+    "payroll.mileagereport": {"name": "Körrapport", "company_path": "company"},
     "payroll.salaryadjustment": {
         "name": "Lönejustering",
         "company_path": "salary_record.payroll_run.company",

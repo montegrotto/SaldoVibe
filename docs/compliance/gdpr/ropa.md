@@ -166,6 +166,7 @@ hela registret.
 | payroll.payrollrun | A2 | inga direkt |
 | payroll.salaryrecord | A2 | lönebelopp per anställd |
 | payroll.salaryadjustment | A2 | justeringsbeskrivningar per anställd |
+| payroll.mileagereport | A2 | referens till den anställde, resväg och syfte |
 | payroll.payrollreportevidence | A2 | AGI-underlag (personnummer, lönebelopp) |
 | vat.vatclosesnapshot | A8 | inga |
 | attachments.transactionattachment | A5 | dokumentinnehåll |
