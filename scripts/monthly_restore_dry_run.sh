@@ -35,10 +35,16 @@ fi
 
 OUTPUT_DIR="${COMPLIANCE_EVIDENCE_DIR:-docs/compliance/evidence/restore-tests}"
 
-"$PYTHON_BIN" manage.py compliance_restore_dry_run --output-dir "$OUTPUT_DIR"
-"$PYTHON_BIN" manage.py verify_audit_chain
-"$PYTHON_BIN" manage.py verify_audit_chain_anchors
-"$PYTHON_BIN" manage.py reconcile_audit_log
+# Run every check even if an earlier one fails: the audit-chain verification doesn't depend
+# on the restore dry-run (which can fail on DB privileges, disk or client versions) and must
+# not be skipped because of it. The job still exits non-zero if any step failed.
+failed=0
+step() { "$@" || { echo "FAILED: $*" >&2; failed=1; }; }
+
+step "$PYTHON_BIN" manage.py compliance_restore_dry_run --output-dir "$OUTPUT_DIR"
+step "$PYTHON_BIN" manage.py verify_audit_chain
+step "$PYTHON_BIN" manage.py verify_audit_chain_anchors
+step "$PYTHON_BIN" manage.py reconcile_audit_log
 
 # The external TSA is a network dependency on top of what was previously a fully
 # offline check - a transient outage there shouldn't fail the whole monthly job.
@@ -48,4 +54,12 @@ if ! "$PYTHON_BIN" manage.py anchor_audit_chain; then
   echo "WARNING: could not reach the timestamp authority to anchor the audit chain this month." >&2
 fi
 
+# Each run leaves a full dump of the database behind; keep them to the same rolling 90 days
+# as the backups (GDPR art. 17, see restore-runbook.md). The JSON reports are evidence and stay.
+find "$OUTPUT_DIR" -name 'restore-dump-*.dump' -mtime +90 -delete
+
+if [[ "$failed" -ne 0 ]]; then
+  echo "Monthly restore dry-run / audit-chain verification finished WITH FAILURES (see above)." >&2
+  exit 1
+fi
 echo "Monthly restore dry-run and audit-chain verification completed."
