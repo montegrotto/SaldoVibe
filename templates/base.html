@@ -344,9 +344,6 @@
           <a class="nav-link {% block nav_suppliers %}{% endblock %}" href="{% url 'supplier_invoices:supplier_list' %}">
             <i class="bi bi-truck" aria-hidden="true"></i>Leverantörer
           </a>
-          <a class="nav-link {% block nav_expenses %}{% endblock %}" href="{% url 'expenses:expense_list' %}">
-            <i class="bi bi-wallet2" aria-hidden="true"></i>Utlägg
-          </a>
         </div>
       </div>
 
@@ -359,8 +356,8 @@
           <a class="nav-link {% block nav_employees %}{% endblock %}" href="{% url 'payroll:employee_list' %}">
             <i class="bi bi-person-badge" aria-hidden="true"></i>Anställda
           </a>
-          <a class="nav-link {% block nav_mileage %}{% endblock %}" href="{% url 'payroll:mileage_report_list' %}">
-            <i class="bi bi-car-front" aria-hidden="true"></i>Körrapporter
+          <a class="nav-link {% block nav_expenses %}{% endblock %}" href="{% url 'expenses:expense_list' %}">
+            <i class="bi bi-wallet2" aria-hidden="true"></i>Utlägg
           </a>
         </div>
       </div>

@@ -1005,8 +1005,9 @@ class SalaryPaymentReminder(models.Model):
 class MileageReport(models.Model):
     """Körrapport: resa med egen bil som ersätts skattefritt.
 
-    Vid inlämning skapas och bokförs ett utlägg (7331 mot 2820) så att utbetalningen
-    sker precis som för andra utlägg: via bank, manuell betalning eller lönepost.
+    Vid inlämning skapas ett utlägg som bokförs direkt (7331 mot 2820) eller sparas som
+    utkast och bokförs senare från utläggslistan. Utbetalningen sker sedan precis som för
+    andra utlägg: via bank, manuell betalning eller lönepost.
     """
 
     # Skatteverkets skattefria schablon för egen bil. Belopp över schablonen är
@@ -1068,8 +1069,8 @@ class MileageReport(models.Model):
                 return account
         raise ValidationError(f"Standardkonto {numbers[0]} saknas i kontoplanen.")
 
-    def submit(self, user):
-        """Lämna in: skapa och bokför utlägget, spara sedan rapporten. Anropas i stället för save()."""
+    def submit(self, user, register=True):
+        """Lämna in: skapa utlägget (bokför det om register), spara sedan rapporten. Anropas i stället för save()."""
         from django.db import transaction as db_transaction
 
         from expenses.models import ExpenseClaim
@@ -1097,7 +1098,8 @@ class MileageReport(models.Model):
                 total_amount=self.amount,
                 created_by=user,
             )
-            claim.register_and_bookkeep(user)
+            if register:
+                claim.register_and_bookkeep(user)
             self.expense_claim = claim
             self.created_by = user
             self.save()

@@ -17,8 +17,9 @@ i listans huvud för att även se betalda fakturor.
 
 ## Utlägg
 
-**Inköp → Utlägg** visar som standard endast **obetalda** utlägg. Växla till **Alla** i listans
-huvud för att även se utbetalda utlägg.
+**Personal → Utlägg** visar som standard endast **obetalda** utlägg. Växla till **Alla** i listans
+huvud för att även se utbetalda utlägg. Där finns även knappen **Ny körrapport**, se
+[Körrapporter](06-loner.md#körrapporter).
 
 ## Skapa en leverantörsfaktura
 
