@@ -18,9 +18,12 @@ direkt från flöden som leverantörsfakturaregistrering via en bilage-väljare.
 
 ## Ladda upp från mobilen (dela-knappen)
 
-Från en iPhone eller iPad kan du skicka filen du tittar på – en PDF i Safari, Filer eller Mail, eller
-ett kvitto du just skannat – direkt till bilagelistan via delningsbladet. Det görs med en egen
-genväg i appen **Genvägar** och en personlig **uppladdningstoken**; ingen separat app behövs.
+Från mobilen kan du skicka filen du tittar på – en PDF i Filer eller Mail, eller ett kvitto du just
+skannat – direkt till bilagelistan via dela-knappen. Det bygger på en personlig
+**uppladdningstoken** och en genväg som du sätter upp en gång:
+
+- **iPhone och iPad:** en egen genväg i den inbyggda appen **Genvägar**; ingen separat app behövs.
+- **Android:** appen **HTTP Shortcuts**, eftersom Android saknar en inbyggd motsvarighet.
 
 ### 1. Skapa en token
 
@@ -34,7 +37,7 @@ en token per företag: **Skapa ny token (ersätter den gamla)** gör den tidigar
 **Återkalla** tar bort den helt. Token slutar också fungera om du förlorar åtkomsten till
 företaget eller bara har läsbehörighet där. Uppladdade filer står med dig som uppladdare.
 
-### 2. Bygg genvägen (en gång per företag)
+### 2. iPhone och iPad: bygg genvägen (en gång per företag)
 
 Menynamnen nedan är de svenska i iOS, med de engelska inom parentes.
 
@@ -42,14 +45,20 @@ Menynamnen nedan är de svenska i iOS, med de engelska inom parentes.
 2. Öppna genvägens informationsruta (ⓘ) och slå på **Visa i delningsblad** (Show in Share Sheet).
    Begränsa gärna det som tas emot till **PDF:er**, **bilder** och **filer**.
 3. Lägg till åtgärden **Hämta innehåll från URL** (Get Contents of URL) och ställ in:
-   - **URL**: adressen från bilagesidan (slutar på `/bilagor/api/ladda-upp/`)
-   - **Metod** (Method): `POST`
-   - **Rubriker** (Headers): nyckel `Authorization`, värde `Bearer ` följt av din token
-   - **Begärandetext** (Request Body): **Formulär** (Form), med ett fält av typen **Fil** (File)
-     som har **Genvägsindata** (Shortcut Input) som värde. Fältets namn spelar ingen roll, men
-     typen måste vara Fil, inte Text. Servern tar också emot filen som själva begärandetexten,
-     dvs. **Fil** i stället för Formulär.
-4. Lägg till **Visa notis** (Show Notification) med resultatet om du vill ha en kvittens.
+    - **URL**: adressen från bilagesidan, exakt som den står. Den **måste sluta med `/`**
+      (`…/bilagor/api/ladda-upp/`) – utan snedstrecket omdirigeras anropet och filen tappas på vägen.
+    - **Metod** (Method): `POST`
+    - **Rubriker** (Headers): nyckel `Authorization`, värde `Bearer ` följt av din token
+    - **Begärandetext** (Request Body): **Formulär** (Form), med ett fält av typen **Fil** (File)
+      som har **Genvägsindata** (Shortcut Input) som värde. Fältets namn spelar ingen roll, men
+      typen måste vara Fil, inte Text. Servern tar också emot filen som själva begärandetexten,
+      dvs. **Fil** i stället för Formulär.
+4. Lägg till **Visa resultat** (Show Result) med resultatet från föregående steg, så ser du
+   serverns svar direkt på skärmen.
+
+Överst i genvägen ska det nu stå **Få … från delningsblad**. Testa första gången från appen
+**Filer**: håll fingret på en PDF, välj **Dela** och sedan genvägen. Delar du från Safari kan
+genvägen få sidans adress i stället för själva filen.
 
 Därefter: tryck på dela-knappen där du ser filen och välj genvägen. Filen dyker upp i bilagelistan
 precis som en vanlig uppladdning, med miniatyr och eventuella föreslagna fält. Skickas filen som
@@ -60,10 +69,46 @@ Syns genvägen inte i delningsbladet: kontrollera att den tar emot filtypen, sl�
 **Visa i delningsblad** och starta om enheten. Du kan också ställa in **Om det inte finns någon
 indata** på **Fråga efter → Filer** och starta genvägen direkt; då väljer du filen i en filväljare.
 
-**Skanna kvitton:** använd den inbyggda skannern i **Filer** eller **Anteckningar**
-("Skanna dokument"), som rätar upp bilden och sparar en PDF, och dela sedan PDF:en till genvägen.
+### Skanna kvitton på iPhone
+
+Den inbyggda skannern i appen **Filer** rätar upp bilden och sparar en PDF som går att dela direkt:
+
+1. Öppna **Filer** och gå till mappen där du vill spara, t.ex. "På min iPhone".
+2. Tryck på **⋯** och välj **Skanna dokument**.
+3. Håll telefonen över kvittot. Bilden tas automatiskt när kanterna hittas; annars trycker du på
+   avtryckaren och drar hörnen rätt. Fler sidor hamnar i samma PDF.
+4. Tryck **Spara**, håll sedan fingret på PDF:en och välj **Dela** och genvägen.
+
+Lägg kvittot plant mot ett underlag med kontrast, använd jämnt ljus utan blixt och välj gärna
+filtret **Gråskala** eller **Svartvitt** – det ger mindre filer och tydligare text. Skannern i
+**Anteckningar** fungerar likadant, men skanningen hamnar då i en anteckning som först får delas
+som PDF.
+
 Foton tagna med kameran är som standard i HEIC-format, som inte accepteras – lägg i så fall till
 åtgärden **Konvertera bild** (Convert Image) till JPEG före uppladdningssteget.
+
+### 3. Android: appen HTTP Shortcuts
+
+Uppladdningen är densamma oavsett telefon, men på Android behövs en app som kan ta emot en delad
+fil och skicka den vidare. [HTTP Shortcuts](https://http-shortcuts.rmy.ch/) är gratis, har öppen
+källkod (MIT) och finns på Google Play och F-Droid.
+
+**Stegen nedan följer appens egen dokumentation men är inte provade mot SaldoVibe på en riktig
+Android-telefon.** Namnen är de i appens engelska gränssnitt.
+
+1. Skapa en token enligt steg 1 ovan.
+2. Skapa en ny genväg i HTTP Shortcuts och ställ in:
+    - **Method**: `POST`
+    - **URL**: adressen från bilagesidan, med avslutande `/`
+    - **Request Headers**: `Authorization` med värdet `Bearer ` följt av din token
+    - **Request Body Type**: **Parameters (form-data)**, med en parameter av typen **Single File**.
+      Alternativt **File (Picker)**, som skickar filen som själva begärandetexten.
+3. Spara genvägen. Dela sedan filen från valfri app via **Send to…** och välj HTTP Shortcuts.
+4. På Android 11 och senare: kryssa i **Direct Share target** under **Trigger & Execution
+   Settings**, så syns genvägen direkt i delningsmenyn. Har du flera genvägar som tar emot filer
+   får du annars välja vilken som ska användas.
+
+För att skanna kvitton till PDF på Android fungerar t.ex. skannern i Google Drive-appen.
 
 ### Svar och felsökning
 
@@ -75,6 +120,7 @@ Samma regler som för vanlig uppladdning gäller: PDF, PNG eller JPEG, högst 25
 | `401` "Ogiltig eller återkallad token." | Token saknas, är fel, ersatt eller återkallad – eller så har du inte längre skrivbehörighet i företaget |
 | `400` "Ingen fil togs emot. …" | Anropet innehöll ingen PDF, PNG eller JPEG. Meddelandet avslutas med vad som faktiskt kom in (innehållstyp och namnen på eventuella textfält) – ett textfält där betyder att formulärfältet har typen Text i stället för Fil |
 | `400` med annat felmeddelande | Filen har fel filtyp eller är för stor |
+| `405` utan meddelande | Adressen saknar det avslutande `/` – anropet omdirigerades och filen följde inte med |
 
 Vilken klient som helst som kan skicka ett formulär fungerar, till exempel:
 
