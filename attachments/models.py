@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 from io import BytesIO
 from pathlib import Path
 
@@ -199,3 +200,47 @@ class TransactionAttachment(models.Model):
         finally:
             if self.file and not self.file.closed:
                 self.file.close()
+
+
+class AttachmentUploadToken(models.Model):
+    """Personlig token för uppladdning utan inloggning (t.ex. en iOS-genväg i
+    delningsarket). Låst till ett företag och ger aldrig mer än vad användaren
+    själv får göra där. Bara SHA-256 av token sparas - klartexten visas en
+    gång vid skapandet."""
+
+    company = models.ForeignKey(
+        "bookkeeping.Company",
+        on_delete=models.CASCADE,
+        related_name="attachment_upload_tokens",
+        verbose_name="Företag",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attachment_upload_tokens",
+        verbose_name="Användare",
+    )
+    token_hash = models.CharField("Tokenhash", max_length=64, unique=True)
+    created_at = models.DateTimeField("Skapad", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Uppladdningstoken"
+        verbose_name_plural = "Uppladdningstoken"
+        constraints = [
+            models.UniqueConstraint(fields=["company", "user"], name="unique_upload_token_per_company_user"),
+        ]
+
+    def __str__(self):
+        return f"{self.user} – {self.company}"
+
+    @staticmethod
+    def hash_token(raw_token):
+        return hashlib.sha256(raw_token.encode()).hexdigest()
+
+    @classmethod
+    def issue(cls, company, user):
+        """Replace the user's token for the company and return the new one in clear text."""
+        raw_token = secrets.token_urlsafe(32)
+        cls.objects.filter(company=company, user=user).delete()
+        cls.objects.create(company=company, user=user, token_hash=cls.hash_token(raw_token))
+        return raw_token

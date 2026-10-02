@@ -18,12 +18,14 @@ from django.core.management import call_command
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from auditlog.models import AuditLogEntry
 from bookkeeping.company_scope import SESSION_COMPANY_KEY
+from bookkeeping.models import CompanyMembership
 from saldovibe.testing import CompanyTestCase, create_company, create_user
 
 from . import extraction_client, graph_mail
 from .email_import import import_email_attachments_for_company
-from .models import TransactionAttachment
+from .models import AttachmentUploadToken, TransactionAttachment
 from .services import _fetch_extracted_data, first_extraction_suggestion, save_attachment_with_thumbnail
 from .views import attachment_list
 
@@ -1029,3 +1031,187 @@ class AttachmentSizeLimitTests(SimpleTestCase):
         form = TransactionAttachmentForm(files={"file": big})
         self.assertFalse(form.is_valid())
         self.assertIn("för stor", str(form.errors["file"]))
+
+
+class AttachmentApiUploadTests(CompanyTestCase):
+    """Token-authenticated upload used by e.g. an iOS share-sheet shortcut."""
+
+    user_email = "dela@example.com"
+    company_name = "Delningsbolaget AB"
+    company_org_number = "556677-0033"
+    accounting_year_dates = None
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._temp_media_root = tempfile.mkdtemp(prefix="saldovibe-test-media-")
+        cls._media_override = override_settings(MEDIA_ROOT=cls._temp_media_root)
+        cls._media_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._media_override.disable()
+        shutil.rmtree(cls._temp_media_root, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+        extraction = patch("attachments.services.extract_fields", return_value=None)
+        extraction.start()
+        self.addCleanup(extraction.stop)
+        self.url = reverse("attachments:attachment_api_upload")
+        self.token = AttachmentUploadToken.issue(self.company, self.user)
+        # The API caller has no session - only the token.
+        self.client.logout()
+
+    def _upload(self, token, name="kvitto.pdf", content=b"%PDF-1.4 delat kvitto", content_type="application/pdf"):
+        headers = {"Authorization": f"Bearer {token}"} if token is not None else {}
+        return self.client.post(
+            self.url, {"file": SimpleUploadedFile(name, content, content_type=content_type)}, headers=headers
+        )
+
+    def test_valid_token_uploads_into_the_tokens_company(self):
+        response = self._upload(self.token)
+
+        self.assertEqual(response.status_code, 201)
+        attachment = TransactionAttachment.objects.get(pk=response.json()["id"])
+        self.assertEqual(attachment.company, self.company)
+        self.assertEqual(attachment.uploaded_by, self.user)
+        self.assertEqual(response.json()["file_name"], attachment.file_name)
+        # The audit trail names the token owner even though nobody is logged in.
+        self.assertTrue(
+            AuditLogEntry.objects.filter(
+                company=self.company, actor=self.user, action=AuditLogEntry.Action.CREATE
+            ).exists()
+        )
+
+    def test_missing_wrong_or_malformed_token_is_rejected(self):
+        for token in (None, "fel-token", ""):
+            with self.subTest(token=token):
+                self.assertEqual(self._upload(token).status_code, 401)
+        response = self.client.post(
+            self.url,
+            {"file": SimpleUploadedFile("kvitto.pdf", b"%PDF-1.4", content_type="application/pdf")},
+            headers={"Authorization": f"Basic {self.token}"},
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(TransactionAttachment.objects.exists())
+
+    def test_get_is_not_allowed(self):
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.token}"})
+        self.assertEqual(response.status_code, 405)
+
+    def test_only_the_token_hash_is_stored(self):
+        stored = AttachmentUploadToken.objects.get(company=self.company, user=self.user)
+        self.assertNotEqual(stored.token_hash, self.token)
+        self.assertEqual(stored.token_hash, hashlib.sha256(self.token.encode()).hexdigest())
+
+    def test_new_token_replaces_the_old_one(self):
+        new_token = AttachmentUploadToken.issue(self.company, self.user)
+
+        self.assertEqual(self._upload(self.token).status_code, 401)
+        self.assertEqual(self._upload(new_token).status_code, 201)
+        self.assertEqual(AttachmentUploadToken.objects.filter(company=self.company, user=self.user).count(), 1)
+
+    def test_token_stops_working_when_the_user_loses_write_access(self):
+        membership = CompanyMembership.objects.get(company=self.company, user=self.user)
+        membership.role = CompanyMembership.Role.VIEWER
+        membership.save()
+        self.assertEqual(self._upload(self.token).status_code, 401)
+
+        membership.delete()
+        self.assertEqual(self._upload(self.token).status_code, 401)
+
+    def test_token_stops_working_for_inactive_user_or_company(self):
+        self.user.is_active = False
+        self.user.save()
+        self.assertEqual(self._upload(self.token).status_code, 401)
+
+        self.user.is_active = True
+        self.user.save()
+        self.company.is_active = False
+        self.company.save()
+        self.assertEqual(self._upload(self.token).status_code, 401)
+
+    def test_invalid_or_missing_file_returns_400(self):
+        response = self._upload(self.token, name="notes.txt", content=b"hej", content_type="text/plain")
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(response.json()["error"])
+
+        response = self.client.post(self.url, {}, headers={"Authorization": f"Bearer {self.token}"})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(TransactionAttachment.objects.exists())
+
+    def test_endpoint_is_csrf_exempt(self):
+        from django.test import Client
+
+        client = Client(enforce_csrf_checks=True)
+        response = client.post(
+            self.url,
+            {"file": SimpleUploadedFile("kvitto.pdf", b"%PDF-1.4", content_type="application/pdf")},
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+        self.assertEqual(response.status_code, 201)
+
+
+class AttachmentUploadTokenViewTests(CompanyTestCase):
+    user_email = "token@example.com"
+    company_name = "Tokenbolaget AB"
+    company_org_number = "556677-0044"
+    accounting_year_dates = None
+
+    def setUp(self):
+        super().setUp()
+        self.token_url = reverse("attachments:attachment_upload_token")
+        self.list_url = reverse("attachments:attachment_list")
+
+    def test_created_token_is_shown_exactly_once(self):
+        response = self.client.post(self.token_url, follow=True)
+
+        self.assertRedirects(response, self.list_url)
+        raw_token = response.context["new_upload_token"]
+        stored = AttachmentUploadToken.objects.get(company=self.company, user=self.user)
+        self.assertEqual(stored.token_hash, AttachmentUploadToken.hash_token(raw_token))
+        self.assertContains(response, raw_token)
+        self.assertContains(response, reverse("attachments:attachment_api_upload"))
+
+        response = self.client.get(self.list_url)
+        self.assertIsNone(response.context["new_upload_token"])
+        self.assertNotContains(response, raw_token)
+        self.assertContains(response, "Skapa ny token")
+
+    def test_revoke_deletes_only_the_own_token_for_the_active_company(self):
+        other_user = create_user("token-other@example.com")
+        self.company.users.add(other_user)
+        AttachmentUploadToken.issue(self.company, other_user)
+        AttachmentUploadToken.issue(self.company, self.user)
+
+        response = self.client.post(self.token_url, {"revoke": "1"})
+
+        self.assertRedirects(response, self.list_url)
+        self.assertFalse(AttachmentUploadToken.objects.filter(user=self.user).exists())
+        self.assertTrue(AttachmentUploadToken.objects.filter(user=other_user).exists())
+
+    def test_token_hash_is_redacted_in_the_audit_log(self):
+        self.client.post(self.token_url)
+
+        stored = AttachmentUploadToken.objects.get(company=self.company, user=self.user)
+        entry = AuditLogEntry.objects.filter(company=self.company).latest("occurred_at")
+        dumped = json.dumps(entry.__dict__, default=str)
+        self.assertIn("[redacted:", dumped)
+        self.assertNotIn(stored.token_hash, dumped)
+
+    def test_read_only_member_cannot_create_a_token(self):
+        CompanyMembership.objects.filter(company=self.company, user=self.user).update(
+            role=CompanyMembership.Role.VIEWER
+        )
+
+        self.client.post(self.token_url)
+
+        self.assertFalse(AttachmentUploadToken.objects.exists())
+
+    def test_requires_login_and_post(self):
+        self.assertEqual(self.client.get(self.token_url).status_code, 405)
+        self.client.logout()
+        response = self.client.post(self.token_url)
+        self.assertIn(reverse("accounts:login"), response.url)

@@ -68,6 +68,11 @@ TRACKED_MODELS = {
     },
     "vat.vatclosesnapshot": {"name": "Momsstängning", "company_path": "company"},
     "attachments.transactionattachment": {"name": "Bilaga", "company_path": "company"},
+    "attachments.attachmentuploadtoken": {
+        "name": "Uppladdningstoken",
+        "company_path": "company",
+        "sensitive_fields": {"token_hash"},
+    },
     "fixed_assets.fixedassettype": {"name": "Tillgångstyp", "company_path": "company"},
     "fixed_assets.fixedasset": {"name": "Anläggningstillgång", "company_path": "company"},
     "fixed_assets.fixedassetdepreciation": {
