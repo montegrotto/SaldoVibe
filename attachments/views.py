@@ -3,22 +3,26 @@ import mimetypes
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, HttpResponseNotFound
+from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from bookkeeping.company_scope import require_company
+from auditlog.context import audit_user
+from bookkeeping.company_scope import can_access_company, is_read_only_member, require_company
 
 from .forms import TransactionAttachmentForm
-from .models import TransactionAttachment
+from .models import AttachmentUploadToken, TransactionAttachment
 from .services import is_attachment_period_locked, save_attachment_with_thumbnail
 from .utils import exclude_used_attachments, is_safe_return_to, parse_attachment_ids, replace_query_param
 
 logger = logging.getLogger(__name__)
+
+NEW_UPLOAD_TOKEN_SESSION_KEY = "new_attachment_upload_token"
 
 
 company_required = require_company(logger=logger, log_message="Active company missing in attachment flow")
@@ -68,8 +72,85 @@ def attachment_list(request, company):
         {
             "attachment_form": attachment_form,
             "attachments": attachments,
+            "upload_token": AttachmentUploadToken.objects.filter(company=company, user=request.user).first(),
+            # Klartexten finns bara i sessionen fram till den här visningen.
+            "new_upload_token": request.session.pop(NEW_UPLOAD_TOKEN_SESSION_KEY, None),
+            "upload_api_url": request.build_absolute_uri(reverse("attachments:attachment_api_upload")),
         },
     )
+
+
+@login_required
+@company_required
+@require_POST
+def attachment_upload_token(request, company):
+    if "revoke" in request.POST:
+        AttachmentUploadToken.objects.filter(company=company, user=request.user).delete()
+        messages.success(request, "Uppladdningstoken har återkallats.")
+    else:
+        request.session[NEW_UPLOAD_TOKEN_SESSION_KEY] = AttachmentUploadToken.issue(company, request.user)
+    logger.info(
+        "Attachment upload token changed",
+        extra={"company_id": company.id, "user_id": request.user.id, "revoked": "revoke" in request.POST},
+    )
+    return redirect("attachments:attachment_list")
+
+
+def _resolve_upload_token(request):
+    scheme, _, raw_token = request.headers.get("Authorization", "").partition(" ")
+    raw_token = raw_token.strip()
+    if scheme.lower() != "bearer" or not raw_token:
+        return None
+    token = (
+        AttachmentUploadToken.objects.select_related("company", "user")
+        .filter(token_hash=AttachmentUploadToken.hash_token(raw_token))
+        .first()
+    )
+    if token is None:
+        return None
+    # A token never outlives the rights of the user it was issued to.
+    company, user = token.company, token.user
+    if not (user.is_active and company.is_active and can_access_company(user, company)):
+        return None
+    if is_read_only_member(user, company):
+        return None
+    return token
+
+
+# Token-authenticated and cookie-free (called from e.g. an iOS shortcut), so
+# there is no session for CSRF to protect.
+@csrf_exempt
+@require_POST
+def attachment_api_upload(request):
+    token = _resolve_upload_token(request)
+    if token is None:
+        logger.warning("Attachment API upload rejected: invalid token")
+        return JsonResponse({"error": "Ogiltig eller återkallad token."}, status=401)
+
+    attachment_form = TransactionAttachmentForm(request.POST, request.FILES)
+    if not attachment_form.is_valid():
+        logger.warning(
+            "Attachment API upload failed validation",
+            extra={"company_id": token.company_id, "user_id": token.user_id, "errors": str(attachment_form.errors)},
+        )
+        errors = [error for field_errors in attachment_form.errors.values() for error in field_errors]
+        return JsonResponse({"error": " ".join(errors)}, status=400)
+
+    attachment = attachment_form.save(commit=False)
+    attachment.company = token.company
+    attachment.uploaded_by = token.user
+    with audit_user(token.user):
+        save_attachment_with_thumbnail(attachment)
+    logger.info(
+        "Attachment uploaded via token",
+        extra={
+            "company_id": token.company_id,
+            "user_id": token.user_id,
+            "attachment_id": attachment.id,
+            "file_name": attachment.file_name,
+        },
+    )
+    return JsonResponse({"id": attachment.id, "file_name": attachment.file_name}, status=201)
 
 
 @login_required

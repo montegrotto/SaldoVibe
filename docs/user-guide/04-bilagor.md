@@ -1,5 +1,5 @@
 ---
-description: "Bilagor och underlag i SaldoVibe: uppladdning, e-postimport, mjuk radering och legal hold enligt Bokföringslagens arkiveringskrav."
+description: "Bilagor och underlag i SaldoVibe: uppladdning, delning från mobilen, e-postimport, mjuk radering och legal hold enligt Bokföringslagens arkiveringskrav."
 ---
 
 # 4. Bilagor
@@ -15,6 +15,63 @@ direkt från flöden som leverantörsfakturaregistrering via en bilage-väljare.
    "Endast PDF, PNG eller JPEG är tillåtet."
 3. En miniatyrbild genereras automatiskt (för PDF visas en platshållarbild med filnamn om
    sidrendering inte är möjlig).
+
+## Ladda upp från mobilen (dela-knappen)
+
+Från en iPhone eller iPad kan du skicka filen du tittar på – en PDF i Safari, Filer eller Mail, eller
+ett kvitto du just skannat – direkt till bilagelistan via delningsarket. Det görs med en egen
+genväg i appen **Genvägar** och en personlig **uppladdningstoken**; ingen separat app behövs.
+
+### 1. Skapa en token
+
+1. Gå till **Bokföring → Bilagor** och fäll ut **Ladda upp från mobilen (dela-knappen)**.
+2. Klicka på **Skapa token**. Sidan visar **Adress** och **Token**. Kopiera båda direkt –
+   token visas bara den här gången (SaldoVibe sparar bara ett kontrollvärde av den).
+
+En token är personlig och **låst till det företag som var aktivt när den skapades** – filer som
+skickas med den hamnar alltid där, oavsett vilket företag du har valt i webbläsaren. Du har högst
+en token per företag: **Skapa ny token (ersätter den gamla)** gör den tidigare ogiltig, och
+**Återkalla** tar bort den helt. Token slutar också fungera om du förlorar åtkomsten till
+företaget eller bara har läsbehörighet där. Uppladdade filer står med dig som uppladdare.
+
+### 2. Bygg genvägen (en gång per företag)
+
+Menynamnen nedan är de svenska i iOS, med de engelska inom parentes.
+
+1. Öppna **Genvägar** (Shortcuts), tryck **+** och ge genvägen ett namn, t.ex. "Till SaldoVibe".
+2. Öppna genvägens informationsruta (ⓘ) och slå på **Visa i delningsark** (Show in Share Sheet).
+   Begränsa gärna det som tas emot till **PDF:er**, **bilder** och **filer**.
+3. Lägg till åtgärden **Hämta innehåll från URL** (Get Contents of URL) och ställ in:
+   - **URL**: adressen från bilagesidan (slutar på `/bilagor/api/ladda-upp/`)
+   - **Metod** (Method): `POST`
+   - **Rubriker** (Headers): nyckel `Authorization`, värde `Bearer ` följt av din token
+   - **Begärandetext** (Request Body): **Formulär** (Form), med ett fält av typen **Fil** (File)
+     som heter `file` och har **Genvägsindata** (Shortcut Input) som värde
+4. Lägg till **Visa notis** (Show Notification) med resultatet om du vill ha en kvittens.
+
+Därefter: tryck på dela-knappen där du ser filen och välj genvägen. Filen dyker upp i bilagelistan
+precis som en vanlig uppladdning, med miniatyr och eventuella föreslagna fält.
+
+**Skanna kvitton:** använd den inbyggda skannern i **Filer** eller **Anteckningar**
+("Skanna dokument"), som rätar upp bilden och sparar en PDF, och dela sedan PDF:en till genvägen.
+Foton tagna med kameran är som standard i HEIC-format, som inte accepteras – lägg i så fall till
+åtgärden **Konvertera bild** (Convert Image) till JPEG före uppladdningssteget.
+
+### Svar och felsökning
+
+Samma regler som för vanlig uppladdning gäller: PDF, PNG eller JPEG, högst 25 MB.
+
+| Svar | Betydelse |
+| --- | --- |
+| `201` med `{"id": …, "file_name": …}` | Filen är uppladdad |
+| `401` "Ogiltig eller återkallad token." | Token saknas, är fel, ersatt eller återkallad – eller så har du inte längre skrivbehörighet i företaget |
+| `400` med felmeddelande | Filen saknas (fältet måste heta `file`), har fel filtyp eller är för stor |
+
+Vilken klient som helst som kan skicka ett formulär fungerar, till exempel:
+
+```bash
+curl -H "Authorization: Bearer <token>" -F file=@kvitto.pdf https://saldovibe.example.se/bilagor/api/ladda-upp/
+```
 
 ## Använda bilage-väljaren i andra flöden
 

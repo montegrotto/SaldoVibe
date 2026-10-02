@@ -29,6 +29,35 @@
       {% endif %}
     </form>
 
+    <details class="mb-4" id="upload-token-section"{% if new_upload_token %} open{% endif %}>
+      <summary class="small text-muted">Ladda upp från mobilen (dela-knappen)</summary>
+      <div class="border rounded p-3 mt-2 small">
+        <p class="mb-2">
+          Med en personlig token kan t.ex. en iOS-genväg skicka filer direkt hit till
+          <strong>{{ active_company.name }}</strong> från delningsarket.
+          <a href="{% url 'bookkeeping:help_chapter' '04-bilagor' %}#ladda-upp-från-mobilen-dela-knappen">Så sätter du upp genvägen</a>.
+        </p>
+        {% if new_upload_token %}
+          <div class="alert alert-warning py-2 mb-2">Kopiera token nu – den visas bara den här gången.</div>
+          <label class="form-label mb-1" for="upload-api-url">Adress</label>
+          <input type="text" class="form-control form-control-sm font-monospace mb-2" id="upload-api-url" value="{{ upload_api_url }}" readonly onclick="this.select()">
+          <label class="form-label mb-1" for="upload-api-token">Token</label>
+          <input type="text" class="form-control form-control-sm font-monospace mb-2" id="upload-api-token" value="{{ new_upload_token }}" readonly onclick="this.select()">
+        {% elif upload_token %}
+          <p class="mb-2">Du har en token för det här företaget, skapad {{ upload_token.created_at|date:"Y-m-d H:i" }}.</p>
+        {% endif %}
+        <form method="post" action="{% url 'attachments:attachment_upload_token' %}" class="d-flex gap-2 mb-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-primary btn-sm">
+            {% if upload_token %}Skapa ny token (ersätter den gamla){% else %}Skapa token{% endif %}
+          </button>
+          {% if upload_token %}
+            <button type="submit" name="revoke" value="1" class="btn btn-outline-danger btn-sm">Återkalla</button>
+          {% endif %}
+        </form>
+      </div>
+    </details>
+
     {% if attachments %}
       <div class="list-group list-group-flush border rounded">
         {% for attachment in attachments %}

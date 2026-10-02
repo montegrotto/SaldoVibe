@@ -19,7 +19,7 @@ nyspårad modell tvingar fram en ROPA-uppdatering.
 - **Ändamål:** logga in applikationsanvändare, avgränsa dataåtkomst per företag.
 - **Rättslig grund:** avtal (art. 6.1 b) — användarens relation till företaget.
 - **Registrerade / kategorier:** applikationsanvändare — e-post, för-/efternamn,
-  lösenordshash, inloggningstidsstämplar.
+  lösenordshash, inloggningstidsstämplar, hash av personlig uppladdningstoken för bilagor.
 - **Mottagare/biträden:** inga (hostad drift: operatören).
 - **Bevarande:** klass B, se `retention-schedule.md`.
 
@@ -170,6 +170,7 @@ hela registret.
 | payroll.payrollreportevidence | A2 | AGI-underlag (personnummer, lönebelopp) |
 | vat.vatclosesnapshot | A8 | inga |
 | attachments.transactionattachment | A5 | dokumentinnehåll |
+| attachments.attachmentuploadtoken | A1 | koppling användare–företag (tokenhash, ingen klartext) |
 | fixed_assets.fixedassettype | A8 | inga |
 | fixed_assets.fixedasset | A8 | inga |
 | fixed_assets.fixedassetdepreciation | A8 | inga |
