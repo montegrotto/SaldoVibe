@@ -1211,6 +1211,15 @@ class AttachmentApiUploadTests(CompanyTestCase):
         self.assertIn("Ingen fil togs emot", response.json()["error"])
         self.assertFalse(TransactionAttachment.objects.exists())
 
+    def test_url_without_trailing_slash_uploads_instead_of_redirecting(self):
+        response = self.client.post(
+            self.url.rstrip("/"),
+            {"file": SimpleUploadedFile("kvitto.pdf", b"%PDF-1.4 utan snedstreck", content_type="application/pdf")},
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+
+        self.assertEqual(response.status_code, 201)
+
     def test_endpoint_is_csrf_exempt(self):
         from django.test import Client
 
