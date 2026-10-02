@@ -17,6 +17,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from auditlog.models import AuditLogEntry
 from bookkeeping.company_scope import SESSION_COMPANY_KEY
@@ -1133,13 +1134,81 @@ class AttachmentApiUploadTests(CompanyTestCase):
         self.company.save()
         self.assertEqual(self._upload(self.token).status_code, 401)
 
-    def test_invalid_or_missing_file_returns_400(self):
+    def test_invalid_file_type_returns_400(self):
         response = self._upload(self.token, name="notes.txt", content=b"hej", content_type="text/plain")
         self.assertEqual(response.status_code, 400)
-        self.assertTrue(response.json()["error"])
+        self.assertIn("Endast PDF, PNG eller JPEG", response.json()["error"])
+        self.assertFalse(TransactionAttachment.objects.exists())
 
-        response = self.client.post(self.url, {}, headers={"Authorization": f"Bearer {self.token}"})
+    def test_missing_file_says_what_was_received_without_echoing_values(self):
+        response = self.client.post(
+            self.url, {"File": "hemligt innehåll"}, headers={"Authorization": f"Bearer {self.token}"}
+        )
+
         self.assertEqual(response.status_code, 400)
+        error = response.json()["error"]
+        self.assertIn("Ingen fil togs emot", error)
+        self.assertIn("textfält: File", error)
+        self.assertNotIn("hemligt", error)
+        self.assertFalse(TransactionAttachment.objects.exists())
+
+    def test_file_is_accepted_under_any_form_field_name(self):
+        response = self.client.post(
+            self.url,
+            {"File": SimpleUploadedFile("kvitto.pdf", b"%PDF-1.4 fel faltnamn", content_type="application/pdf")},
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertRegex(response.json()["file_name"], r"^kvitto.*\.pdf$")
+
+    def test_raw_request_body_is_accepted_and_typed_by_its_content(self):
+        def image_bytes(image_format):
+            buffer = BytesIO()
+            Image.new("RGB", (8, 8), "white").save(buffer, format=image_format)
+            return buffer.getvalue()
+
+        cases = (
+            (b"%PDF-1.4 ra body", ".pdf"),
+            (image_bytes("PNG"), ".png"),
+            (image_bytes("JPEG"), ".jpg"),
+        )
+        for body, extension in cases:
+            with self.subTest(extension=extension):
+                response = self.client.post(
+                    self.url,
+                    data=body,
+                    # Shortcuts-klienter anger inte alltid rätt typ - innehållet avgör.
+                    content_type="application/octet-stream",
+                    headers={"Authorization": f"Bearer {self.token}"},
+                )
+
+                self.assertEqual(response.status_code, 201)
+                attachment = TransactionAttachment.objects.get(pk=response.json()["id"])
+                self.assertTrue(attachment.file_name.endswith(extension))
+                self.assertEqual(attachment.company, self.company)
+                with attachment.file.open("rb") as stored:
+                    self.assertEqual(stored.read(), body)
+
+    def test_raw_body_larger_than_djangos_in_memory_limit_is_accepted(self):
+        body = b"%PDF-1.4 " + b"x" * (settings.DATA_UPLOAD_MAX_MEMORY_SIZE + 1)
+
+        response = self.client.post(
+            self.url, data=body, content_type="application/pdf", headers={"Authorization": f"Bearer {self.token}"}
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_raw_body_of_unknown_type_is_rejected(self):
+        response = self.client.post(
+            self.url,
+            data=b"bara text",
+            content_type="application/octet-stream",
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Ingen fil togs emot", response.json()["error"])
         self.assertFalse(TransactionAttachment.objects.exists())
 
     def test_endpoint_is_csrf_exempt(self):

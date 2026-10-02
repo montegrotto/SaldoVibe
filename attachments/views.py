@@ -3,6 +3,7 @@ import mimetypes
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -117,6 +118,35 @@ def _resolve_upload_token(request):
     return token
 
 
+# A raw request body carries no file name or reliable content type, so the
+# file type is read off its first bytes.
+_RAW_UPLOAD_SIGNATURES = (
+    (b"%PDF", "pdf", "application/pdf"),
+    (b"\x89PNG", "png", "image/png"),
+    (b"\xff\xd8\xff", "jpg", "image/jpeg"),
+)
+
+
+def _api_uploaded_file(request):
+    """The file a token client sent, however it chose to send it.
+
+    Clients like iOS Shortcuts are configured by hand, and the two easy
+    mistakes are a form field not named exactly ``file`` and sending the file
+    as the request body itself instead of as a form. Both are unambiguous, so
+    accept them rather than answer "fältet måste fyllas i"."""
+    uploaded = request.FILES.get("file") or next(iter(request.FILES.values()), None)
+    if uploaded is not None:
+        return uploaded
+    # Empty after a parsed form; request.body would enforce
+    # DATA_UPLOAD_MAX_MEMORY_SIZE (2.5 MB), far below the attachment limit.
+    body = request.read(TransactionAttachmentForm.MAX_FILE_SIZE + 1)
+    for signature, extension, content_type in _RAW_UPLOAD_SIGNATURES:
+        if body.startswith(signature):
+            name = f"delad-{timezone.localtime():%Y%m%d-%H%M%S}.{extension}"
+            return SimpleUploadedFile(name, body, content_type=content_type)
+    return None
+
+
 # Token-authenticated and cookie-free (called from e.g. an iOS shortcut), so
 # there is no session for CSRF to protect.
 @csrf_exempt
@@ -127,14 +157,24 @@ def attachment_api_upload(request):
         logger.warning("Attachment API upload rejected: invalid token")
         return JsonResponse({"error": "Ogiltig eller återkallad token."}, status=401)
 
-    attachment_form = TransactionAttachmentForm(request.POST, request.FILES)
-    if not attachment_form.is_valid():
-        logger.warning(
-            "Attachment API upload failed validation",
-            extra={"company_id": token.company_id, "user_id": token.user_id, "errors": str(attachment_form.errors)},
+    uploaded = _api_uploaded_file(request)
+    if uploaded is None:
+        # Field names only - a mistyped text field may hold anything.
+        received = f"Content-Type {request.content_type or 'saknas'}, textfält: {', '.join(request.POST) or 'inga'}"
+        logger.warning("Attachment API upload without file (%s)", received)
+        return JsonResponse(
+            {
+                "error": "Ingen fil togs emot. Skicka filen som ett formulärfält av typen Fil "
+                f"eller som själva begärandetexten (PDF, PNG eller JPEG). Mottaget: {received}."
+            },
+            status=400,
         )
-        errors = [error for field_errors in attachment_form.errors.values() for error in field_errors]
-        return JsonResponse({"error": " ".join(errors)}, status=400)
+
+    attachment_form = TransactionAttachmentForm(files={"file": uploaded})
+    if not attachment_form.is_valid():
+        errors = " ".join(error for field_errors in attachment_form.errors.values() for error in field_errors)
+        logger.warning("Attachment API upload failed validation: %s", errors)
+        return JsonResponse({"error": errors}, status=400)
 
     attachment = attachment_form.save(commit=False)
     attachment.company = token.company

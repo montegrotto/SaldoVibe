@@ -204,7 +204,7 @@ class TransactionAttachment(models.Model):
 
 class AttachmentUploadToken(models.Model):
     """Personlig token för uppladdning utan inloggning (t.ex. en iOS-genväg i
-    delningsarket). Låst till ett företag och ger aldrig mer än vad användaren
+    delningsbladet). Låst till ett företag och ger aldrig mer än vad användaren
     själv får göra där. Bara SHA-256 av token sparas - klartexten visas en
     gång vid skapandet."""
 

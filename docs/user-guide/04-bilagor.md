@@ -19,7 +19,7 @@ direkt från flöden som leverantörsfakturaregistrering via en bilage-väljare.
 ## Ladda upp från mobilen (dela-knappen)
 
 Från en iPhone eller iPad kan du skicka filen du tittar på – en PDF i Safari, Filer eller Mail, eller
-ett kvitto du just skannat – direkt till bilagelistan via delningsarket. Det görs med en egen
+ett kvitto du just skannat – direkt till bilagelistan via delningsbladet. Det görs med en egen
 genväg i appen **Genvägar** och en personlig **uppladdningstoken**; ingen separat app behövs.
 
 ### 1. Skapa en token
@@ -39,18 +39,26 @@ företaget eller bara har läsbehörighet där. Uppladdade filer står med dig s
 Menynamnen nedan är de svenska i iOS, med de engelska inom parentes.
 
 1. Öppna **Genvägar** (Shortcuts), tryck **+** och ge genvägen ett namn, t.ex. "Till SaldoVibe".
-2. Öppna genvägens informationsruta (ⓘ) och slå på **Visa i delningsark** (Show in Share Sheet).
+2. Öppna genvägens informationsruta (ⓘ) och slå på **Visa i delningsblad** (Show in Share Sheet).
    Begränsa gärna det som tas emot till **PDF:er**, **bilder** och **filer**.
 3. Lägg till åtgärden **Hämta innehåll från URL** (Get Contents of URL) och ställ in:
    - **URL**: adressen från bilagesidan (slutar på `/bilagor/api/ladda-upp/`)
    - **Metod** (Method): `POST`
    - **Rubriker** (Headers): nyckel `Authorization`, värde `Bearer ` följt av din token
    - **Begärandetext** (Request Body): **Formulär** (Form), med ett fält av typen **Fil** (File)
-     som heter `file` och har **Genvägsindata** (Shortcut Input) som värde
+     som har **Genvägsindata** (Shortcut Input) som värde. Fältets namn spelar ingen roll, men
+     typen måste vara Fil, inte Text. Servern tar också emot filen som själva begärandetexten,
+     dvs. **Fil** i stället för Formulär.
 4. Lägg till **Visa notis** (Show Notification) med resultatet om du vill ha en kvittens.
 
 Därefter: tryck på dela-knappen där du ser filen och välj genvägen. Filen dyker upp i bilagelistan
-precis som en vanlig uppladdning, med miniatyr och eventuella föreslagna fält.
+precis som en vanlig uppladdning, med miniatyr och eventuella föreslagna fält. Skickas filen som
+själva begärandetexten följer filnamnet inte med; bilagan heter då `delad-<datum>-<tid>` med
+filändelse efter innehållet.
+
+Syns genvägen inte i delningsbladet: kontrollera att den tar emot filtypen, slå av och på
+**Visa i delningsblad** och starta om enheten. Du kan också ställa in **Om det inte finns någon
+indata** på **Fråga efter → Filer** och starta genvägen direkt; då väljer du filen i en filväljare.
 
 **Skanna kvitton:** använd den inbyggda skannern i **Filer** eller **Anteckningar**
 ("Skanna dokument"), som rätar upp bilden och sparar en PDF, och dela sedan PDF:en till genvägen.
@@ -65,7 +73,8 @@ Samma regler som för vanlig uppladdning gäller: PDF, PNG eller JPEG, högst 25
 | --- | --- |
 | `201` med `{"id": …, "file_name": …}` | Filen är uppladdad |
 | `401` "Ogiltig eller återkallad token." | Token saknas, är fel, ersatt eller återkallad – eller så har du inte längre skrivbehörighet i företaget |
-| `400` med felmeddelande | Filen saknas (fältet måste heta `file`), har fel filtyp eller är för stor |
+| `400` "Ingen fil togs emot. …" | Anropet innehöll ingen PDF, PNG eller JPEG. Meddelandet avslutas med vad som faktiskt kom in (innehållstyp och namnen på eventuella textfält) – ett textfält där betyder att formulärfältet har typen Text i stället för Fil |
+| `400` med annat felmeddelande | Filen har fel filtyp eller är för stor |
 
 Vilken klient som helst som kan skicka ett formulär fungerar, till exempel:
 
