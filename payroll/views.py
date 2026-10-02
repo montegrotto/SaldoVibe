@@ -31,7 +31,6 @@ from .forms import (
 from .models import (
     AdjustmentCategory,
     Employee,
-    MileageReport,
     PayrollReportEvidence,
     PayrollRun,
     SalaryAdjustment,
@@ -268,6 +267,16 @@ def payroll_run_detail(request, company, payroll_run_id):
         total_employer=Sum("employer_contribution_amount"),
         total_net=Sum("net_salary"),
     )
+    # Nettolönen är före utlägg – utläggen läggs ovanpå vid utbetalning.
+    totals["total_expenses"] = totals["total_mileage"] = Decimal("0.00")
+    for record in salary_records:
+        record.expense_only, record.mileage_only = _payout_split(record)
+        record.to_pay = record.net_salary + record.expense_only + record.mileage_only
+        totals["total_expenses"] += record.expense_only
+        totals["total_mileage"] += record.mileage_only
+    totals["total_to_pay"] = (
+        (totals["total_net"] or Decimal("0.00")) + totals["total_expenses"] + totals["total_mileage"]
+    )
     return render(
         request,
         "payroll/payroll_run_detail.html",
@@ -279,6 +288,32 @@ def payroll_run_detail(request, company, payroll_run_id):
             "totals": totals,
         },
     )
+
+
+@login_required
+@require_POST
+@require_company
+def payroll_run_add_expenses(request, company, payroll_run_id):
+    """Lägg alla bokförda, obetalda och ännu inte valda utlägg/körrapporter på de anställdas löneposter."""
+    payroll_run = get_object_or_404(PayrollRun, pk=payroll_run_id, company=company)
+    if payroll_run.is_finished or payroll_run.is_reported_to_skatteverket:
+        messages.error(request, "Lönekörningen är avslutad och kan inte ändras.")
+        return redirect("payroll:payroll_run_detail", payroll_run_id=payroll_run.pk)
+
+    records = {record.employee_id: record for record in payroll_run.salary_records.all()}
+    claims = ExpenseClaim.objects.filter(
+        company=company, employee_id__in=records, is_registered=True, is_paid=False, salary_record__isnull=True
+    )
+    count = 0
+    for claim in claims:
+        claim.salary_record = records[claim.employee_id]
+        claim.save(update_fields=["salary_record", "updated_at"])
+        count += 1
+    if count:
+        messages.success(request, f"{count} utlägg/körrapporter lades på löneposterna.")
+    else:
+        messages.info(request, "Inga bokförda utlägg eller körrapporter väntar på utbetalning.")
+    return redirect("payroll:payroll_run_detail", payroll_run_id=payroll_run.pk)
 
 
 @login_required
@@ -334,6 +369,13 @@ def payroll_run_remove_employee(request, company, payroll_run_id, salary_record_
     return redirect("payroll:payroll_run_detail", payroll_run_id=payroll_run.pk)
 
 
+def _payout_split(salary_record):
+    """(utlägg exkl. körrapporter, körrapporter) som betalas ut med lönen."""
+    payouts = salary_record.expense_payouts()
+    mileage_total = sum((amount for claim, amount in payouts if hasattr(claim, "mileage_report")), Decimal("0.00"))
+    return sum((amount for _claim, amount in payouts), Decimal("0.00")) - mileage_total, mileage_total
+
+
 def salary_report_pdf_context(salary_record):
     """Kontext för lönespec-PDF:en — delas med exportpaketet (bookkeeping/export_bundle.py)."""
     employee = salary_record.employee
@@ -344,11 +386,10 @@ def salary_report_pdf_context(salary_record):
         f"{employee.postal_code} {employee.city}".strip(),
     ]
     # Lönespecen visar bara summorna – enskilda utlägg/körrapporter får inte plats.
-    payouts = salary_record.expense_payouts()
-    mileage_total = sum((amount for claim, amount in payouts if hasattr(claim, "mileage_report")), Decimal("0.00"))
+    expense_total, mileage_total = _payout_split(salary_record)
     return {
         "salary_record": salary_record,
-        "expense_payout_total": sum((amount for _claim, amount in payouts), Decimal("0.00")) - mileage_total,
+        "expense_payout_total": expense_total,
         "mileage_payout_total": mileage_total,
         "employee_address_lines": [line for line in employee_address_lines if line and line.strip()],
         "logo_size": company_logo_size(company),
@@ -584,29 +625,23 @@ def payroll_run_finish(request, company, payroll_run_id):
 
 @login_required
 @require_company
-def mileage_report_list(request, company):
-    reports = MileageReport.objects.filter(company=company).select_related("employee", "expense_claim")
-    show_all = request.GET.get("visa") == "alla"
-    if not show_all:
-        reports = reports.filter(expense_claim__is_paid=False)
-    return render(request, "payroll/mileage_report_list.html", {"reports": reports, "show_all": show_all})
-
-
-@login_required
-@require_company
 def mileage_report_create(request, company):
     if request.method == "POST":
         form = MileageReportForm(request.POST, company=company)
         if form.is_valid():
             report = form.save(commit=False)
             report.company = company
+            register = "register" in request.POST
             try:
-                report.submit(request.user)
+                report.submit(request.user, register=register)
             except ValidationError as exc:
                 form.add_error(None, exc.messages[0])
             else:
-                messages.success(request, "Körrapporten har lämnats in och bokförts som utlägg.")
-                return redirect("payroll:mileage_report_list")
+                if register:
+                    messages.success(request, "Körrapporten har lämnats in och bokförts som utlägg.")
+                else:
+                    messages.success(request, "Körrapporten har sparats som utkast.")
+                return redirect("expenses:expense_list")
     else:
         form = MileageReportForm(company=company, initial={"trip_date": timezone.localdate()})
     return render(request, "payroll/mileage_report_form.html", {"form": form})

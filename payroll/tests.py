@@ -1309,6 +1309,50 @@ class ExpenseClaimPayoutTests(CompanyTestCase):
         "payroll.models.get_tax_amount_from_skatteverket",
         return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
     )
+    def test_run_page_shows_net_expenses_and_amount_to_pay(self, _api_mock):
+        self.client.post(reverse("payroll:payroll_run_add_expenses", args=[self.payroll_run.pk]))
+
+        response = self.client.get(reverse("payroll:payroll_run_detail", args=[self.payroll_run.pk]))
+
+        totals = response.context["totals"]
+        self.assertEqual(totals["total_net"], Decimal("24000.00"))
+        self.assertEqual(totals["total_expenses"], Decimal("500.00"))
+        self.assertEqual(totals["total_to_pay"], Decimal("24500.00"))
+        self.assertEqual(response.context["salary_records"][0].to_pay, Decimal("24500.00"))
+        self.assertContains(response, "24\xa0500,00")
+
+    def test_add_all_expenses_links_registered_unpaid_claims_only(self):
+        draft = ExpenseClaim.objects.get(pk=self.claim.pk)
+        draft.pk = None
+        draft.is_registered = False
+        draft.registered_transaction = None
+        draft.save()
+        other_employee = Employee.objects.create(
+            company=self.company,
+            first_name="Cia",
+            last_name="Utanlön",
+            personal_identity_number="199001011234",
+            monthly_salary=Decimal("30000.00"),
+        )
+        stranger = ExpenseClaim.objects.get(pk=self.claim.pk)
+        stranger.pk = None
+        stranger.employee = other_employee
+        stranger.registered_transaction = None
+        stranger.save()
+
+        self.client.post(reverse("payroll:payroll_run_add_expenses", args=[self.payroll_run.pk]))
+
+        self.claim.refresh_from_db()
+        draft.refresh_from_db()
+        stranger.refresh_from_db()
+        self.assertEqual(self.claim.salary_record_id, self.record.pk)
+        self.assertIsNone(draft.salary_record_id)
+        self.assertIsNone(stranger.salary_record_id)
+
+    @patch(
+        "payroll.models.get_tax_amount_from_skatteverket",
+        return_value={"tax_amount": Decimal("6000.00"), "reference": "ref"},
+    )
     def test_finish_pays_linked_claim_via_salary_liability(self, _api_mock):
         self.claim.salary_record = self.record
         self.claim.save(update_fields=["salary_record"])
@@ -1409,9 +1453,9 @@ class MileageReportTests(CompanyTestCase):
         return self.client.post(reverse("payroll:mileage_report_create"), data)
 
     def test_submit_creates_registered_expense_claim(self):
-        response = self._post()
+        response = self._post(register="1")
 
-        self.assertRedirects(response, reverse("payroll:mileage_report_list"))
+        self.assertRedirects(response, reverse("expenses:expense_list"))
         report = MileageReport.objects.get(company=self.company)
         claim = report.expense_claim
         self.assertEqual(report.amount, Decimal("308.50"))
@@ -1427,7 +1471,32 @@ class MileageReportTests(CompanyTestCase):
             JournalEntry.objects.get(transaction=claim.registered_transaction, account=self.accounts["2820"]).credit,
             Decimal("308.50"),
         )
-        self.assertContains(self.client.get(reverse("payroll:mileage_report_list")), "Stockholm–Uppsala t/r")
+        self.assertContains(self.client.get(reverse("expenses:expense_list")), "Stockholm–Uppsala t/r")
+        detail = self.client.get(reverse("expenses:expense_detail", args=[claim.pk]))
+        self.assertContains(detail, "Stockholm–Uppsala t/r")
+        self.assertContains(detail, "Kundmöte")
+
+    def test_draft_is_not_booked_until_registered_from_the_expense_list(self):
+        self._post()
+
+        report = MileageReport.objects.get(company=self.company)
+        claim = report.expense_claim
+        self.assertFalse(claim.is_registered)
+        self.assertFalse(JournalEntry.objects.exists())
+
+        self.client.post(reverse("expenses:expense_register", args=[claim.pk]))
+
+        claim.refresh_from_db()
+        self.assertTrue(claim.is_registered)
+        self.assertEqual(claim.registered_transaction.entries.count(), 2)
+
+    def test_deleting_draft_removes_the_report(self):
+        self._post()
+        claim = MileageReport.objects.get().expense_claim
+
+        self.client.post(reverse("expenses:expense_delete", args=[claim.pk]))
+
+        self.assertFalse(MileageReport.objects.exists())
 
     def test_submit_without_expense_account_saves_nothing(self):
         self.accounts["7331"].delete()
