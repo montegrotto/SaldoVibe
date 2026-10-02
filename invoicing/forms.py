@@ -184,6 +184,8 @@ class InvoiceLineForm(LineTypeCleanMixin, forms.ModelForm):
         self.fields["vat_rate"].required = False
         if company is not None:
             self.fields["article"].queryset = company.articles.filter(is_active=True).order_by("article_number", "name")
+            if not company.vat_registered and self.instance.pk is None:
+                self.initial["vat_rate"] = Decimal("0.00")
 
 
 InvoiceLineFormSet = modelformset_factory(
@@ -322,6 +324,8 @@ class RecurringInvoiceLineForm(LineTypeCleanMixin, forms.ModelForm):
         self.fields["vat_rate"].required = False
         if company is not None:
             self.fields["article"].queryset = company.articles.filter(is_active=True).order_by("article_number", "name")
+            if not company.vat_registered and self.instance.pk is None:
+                self.initial["vat_rate"] = Decimal("0.00")
 
 
 RecurringInvoiceLineFormSet = modelformset_factory(

@@ -283,6 +283,9 @@ def invoice_create(request, company):
                 "totalbelopp": "total_amount",
                 "momsbelopp": "vat_amount",
             }
+            if not company.vat_registered:
+                # Ingen avdragsrätt utan momsredovisning – momsen är en del av kostnaden.
+                del field_map["momsbelopp"]
             for source_key, form_field in field_map.items():
                 value = extraction_suggestion.get(source_key)
                 if value:

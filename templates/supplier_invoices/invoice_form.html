@@ -84,10 +84,12 @@
             <label class="form-label">Totalbelopp</label>
             {{ form.total_amount }}
           </div>
+          {% if form.vat_amount %}
           <div class="col-6">
             <label class="form-label">Moms</label>
             {{ form.vat_amount }}
           </div>
+          {% endif %}
 
           <div class="col-12">
             <label class="form-label">Kostnadsrader</label>

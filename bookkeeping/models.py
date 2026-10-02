@@ -159,6 +159,11 @@ class Company(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def vat_registered(self):
+        """Företaget redovisar moms – annars ska inga momsbelopp/momssatser föreslås."""
+        return self.vat_reporting_period not in ("", self.VatReportingPeriod.NONE)
+
 
 class CompanyMembership(models.Model):
     """Kopplar en användare till ett företag. Läsrollen (revisor) får se allt men
