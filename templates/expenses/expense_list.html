@@ -5,7 +5,10 @@
 {% block nav_expenses %}active{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-end mb-3">
+<div class="d-flex justify-content-end gap-2 mb-3">
+  <a href="{% url 'payroll:mileage_report_create' %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-car-front me-1"></i>Ny körrapport
+  </a>
   <a href="{% url 'expenses:expense_create' %}" class="btn btn-primary btn-sm">
     <i class="bi bi-plus-circle me-1"></i>Nytt utlägg
   </a>
@@ -28,7 +31,7 @@
           <a href="{% url 'expenses:expense_detail' claim.pk %}" class="list-group-item list-group-item-action py-3">
             <div class="d-flex justify-content-between align-items-start gap-2">
               <div class="overflow-hidden">
-                <div class="fw-semibold text-truncate">{{ claim.description }}</div>
+                <div class="fw-semibold text-truncate">{% if claim.mileage_report %}<i class="bi bi-car-front me-1" title="Körrapport"></i>{% endif %}{{ claim.description }}</div>
                 <small class="text-muted">{{ claim.person_display_name }} · {{ claim.expense_date }}</small>
               </div>
               <div class="text-end flex-shrink-0">
@@ -55,8 +58,10 @@
               {% for claim in claims %}
               <tr>
                 <td class="ps-3">
-                  <div class="fw-semibold">{{ claim.description }}</div>
-                  <small class="text-muted">{{ claim.expense_account.number }} {{ claim.expense_account.name }}</small>
+                  <div class="fw-semibold">{% if claim.mileage_report %}<i class="bi bi-car-front me-1" title="Körrapport"></i>{% endif %}{{ claim.description }}</div>
+                  <small class="text-muted">
+                    {% if claim.mileage_report %}{{ claim.mileage_report.distance_km|floatformat:"-1g" }} km · {{ claim.mileage_report.purpose }} · {% endif %}{{ claim.expense_account.number }} {{ claim.expense_account.name }}
+                  </small>
                 </td>
                 <td>
                   {{ claim.person_display_name }}

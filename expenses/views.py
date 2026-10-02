@@ -37,6 +37,7 @@ def expense_list(request, company):
             "payment_account",
             "registered_transaction",
             "payment_transaction",
+            "mileage_report",
         )
         .prefetch_related("attachments", "payments__transaction")
     )
@@ -106,7 +107,12 @@ def expense_create(request, company):
 def expense_detail(request, company, claim_id):
     claim = get_object_or_404(
         ExpenseClaim.objects.select_related(
-            "employee", "expense_account", "liability_account", "registered_transaction", "payment_transaction"
+            "employee",
+            "expense_account",
+            "liability_account",
+            "registered_transaction",
+            "payment_transaction",
+            "mileage_report",
         ).prefetch_related("attachments", "payments__transaction"),
         pk=claim_id,
         company=company,

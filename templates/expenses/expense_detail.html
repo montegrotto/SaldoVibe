@@ -40,6 +40,38 @@
           </div>
         </div>
 
+        {% if claim.mileage_report %}
+        {% with report=claim.mileage_report %}
+        <div class="row g-2 mb-3 border-top pt-3">
+          <div class="col-12"><span class="badge text-bg-light border"><i class="bi bi-car-front me-1"></i>Körrapport</span></div>
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Resväg</div>
+            <div>{{ report.route }}</div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="small text-muted">Syfte</div>
+            <div>{{ report.purpose }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Resdatum</div>
+            <div>{{ report.trip_date }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Sträcka</div>
+            <div>{{ report.distance_km|floatformat:"-1g" }} km</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Ersättning</div>
+            <div>{{ report.rate_per_mil|floatformat:"2g" }} kr/mil</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Inlämnad</div>
+            <div>{{ report.created_at|date:"Y-m-d" }}{% if report.created_by %} av {{ report.created_by }}{% endif %}</div>
+          </div>
+        </div>
+        {% endwith %}
+        {% endif %}
+
         <table class="table table-sm align-middle mb-0">
           <tbody>
             <tr>

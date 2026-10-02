@@ -30,6 +30,14 @@
       </button>
     </form>
     {% endif %}
+    {% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
+    <form method="post" action="{% url 'payroll:payroll_run_add_expenses' payroll_run.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-outline-primary" type="submit" title="Lägg alla bokförda, obetalda utlägg och körrapporter på löneposterna">
+        <i class="bi bi-wallet2 me-1"></i>Ta med alla utlägg
+      </button>
+    </form>
+    {% endif %}
     {% if payroll_run.is_finished %}
     <a href="{% url 'payroll:skatteverket_agi_xml_download' payroll_run.pk %}" class="btn btn-outline-primary">
       <i class="bi bi-filetype-xml me-1"></i>AGI-fil till Skatteverket (XML)
@@ -72,28 +80,44 @@
 {% endif %}
 
 <div class="row g-3 mb-3">
-  <div class="col-md-3">
-    <div class="card border-0 shadow-sm"><div class="card-body">
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
       <div class="text-muted small">Bruttolön</div>
       <div class="h5 mb-0">{{ totals.total_gross|default:0|floatformat:"2g" }} kr</div>
     </div></div>
   </div>
-  <div class="col-md-3">
-    <div class="card border-0 shadow-sm"><div class="card-body">
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
       <div class="text-muted small">Skatteavdrag</div>
       <div class="h5 mb-0">{{ totals.total_tax|default:0|floatformat:"2g" }} kr</div>
     </div></div>
   </div>
-  <div class="col-md-3">
-    <div class="card border-0 shadow-sm"><div class="card-body">
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
       <div class="text-muted small">Arbetsgivaravgift</div>
       <div class="h5 mb-0">{{ totals.total_employer|default:0|floatformat:"2g" }} kr</div>
     </div></div>
   </div>
-  <div class="col-md-3">
-    <div class="card border-0 shadow-sm"><div class="card-body">
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
       <div class="text-muted small">Nettolön</div>
       <div class="h5 mb-0">{{ totals.total_net|default:0|floatformat:"2g" }} kr</div>
+      <div class="small text-muted mt-1">Före utlägg</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="text-muted small">Utlägg och körrapporter</div>
+      <div class="h5 mb-0">{{ totals.total_expenses|add:totals.total_mileage|floatformat:"2g" }} kr</div>
+      <div class="small text-muted mt-1">
+        Utlägg {{ totals.total_expenses|floatformat:"2g" }} kr · Körrapporter {{ totals.total_mileage|floatformat:"2g" }} kr
+      </div>
+    </div></div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="text-muted small">Att utbetala</div>
+      <div class="h5 mb-0">{{ totals.total_to_pay|floatformat:"2g" }} kr</div>
       {% if payroll_run.is_finished %}
         {% if payroll_run.is_fully_paid %}
           <div class="small text-success mt-1">Utbetald {{ payroll_run.paid_amount|floatformat:"2g" }} kr</div>
@@ -103,6 +127,8 @@
             återstår {{ payroll_run.salary_payment_remaining|floatformat:"2g" }} kr
           </div>
         {% endif %}
+      {% else %}
+        <div class="small text-muted mt-1">Nettolön + utlägg</div>
       {% endif %}
     </div></div>
   </div>
@@ -119,6 +145,8 @@
           <th class="text-end">Skatt</th>
           <th class="text-end">AG-avgift</th>
           <th class="text-end">Netto</th>
+          <th class="text-end">Utlägg</th>
+          <th class="text-end">Att utbetala</th>
           <th></th>
         </tr>
       </thead>
@@ -128,7 +156,6 @@
           <td>
             {{ record.employee }}
             {% if record.vacation_days_taken %}<div class="small text-muted">{{ record.vacation_days_taken|floatformat:"-2g" }} semesterdagar</div>{% endif %}
-            {% with expense_total=record.expense_payout_total %}{% if expense_total %}<div class="small text-muted">+ {{ expense_total|floatformat:"2g" }} kr utlägg</div>{% endif %}{% endwith %}
           </td>
           <td>
             <span class="badge {% if record.tax_calculation_source == 'api' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
@@ -139,6 +166,13 @@
           <td class="text-end">{{ record.preliminary_tax_amount|floatformat:"2g" }}</td>
           <td class="text-end">{{ record.employer_contribution_amount|floatformat:"2g" }}</td>
           <td class="text-end">{{ record.net_salary|floatformat:"2g" }}</td>
+          <td class="text-end">
+            {% if record.expense_only or record.mileage_only %}
+              {{ record.expense_only|add:record.mileage_only|floatformat:"2g" }}
+              {% if record.mileage_only %}<div class="small text-muted">varav körrapporter {{ record.mileage_only|floatformat:"2g" }}</div>{% endif %}
+            {% else %}<span class="text-muted">–</span>{% endif %}
+          </td>
+          <td class="text-end fw-semibold">{{ record.to_pay|floatformat:"2g" }}</td>
           <td class="text-end">
             {% if not payroll_run.is_finished and not payroll_run.is_reported_to_skatteverket %}
             <a class="btn btn-sm btn-outline-primary" href="{% url 'payroll:salary_record_update' payroll_run.pk record.pk %}">Redigera</a>
@@ -159,12 +193,13 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">Inga löneposter för perioden.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">Inga löneposter för perioden.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+<p class="text-muted small mt-2 mb-0">Nettolönen är <strong>före</strong> utlägg och körrapporter – de är skattefria ersättningar som läggs ovanpå nettolönen vid utbetalning (Att utbetala = Netto + Utlägg).</p>
 
 {% if payroll_run.is_finished %}
 <div class="alert alert-info mt-3 mb-0">

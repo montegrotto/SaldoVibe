@@ -41,26 +41,44 @@ utbetalningen.
 
 ### Utlägg som betalas ut med lönen
 
-Har den anställde bokförda utlägg som ännu inte betalats ut visas rutan **Utlägg som väntar på
-utbetalning** överst på löneposten. Bocka i de utlägg som ska följa med löneutbetalningen och
-spara. På lönespecifikationen visas efter nettolönen en summerad rad **Utlägg** och en summerad
-rad **Körrapporter** (de enskilda posterna listas inte), följt av raden **Att utbetala**. På
-utläggets sida står att det betalas ut med lönen i den lönekörningen. Ett utlägg kan bara ligga på en lönepost i taget. Bocka ur och spara för att
-ta bort det igen, eller ta bort den anställde från körningen.
+Har den anställde bokförda utlägg eller körrapporter som ännu inte betalats ut visas rutan
+**Utlägg som väntar på utbetalning** överst på löneposten. Bocka i dem som ska följa med
+löneutbetalningen – eller kryssa i **Markera/avmarkera alla** – och spara. Preliminära (obokförda) utlägg
+visas inte, bokför dem först i utläggslistan. På lönekörningens sida lägger knappen
+**Ta med alla utlägg** alla bokförda, obetalda utlägg och körrapporter som inte redan ligger på en
+lönepost på respektive anställds lönepost, så slipper du bocka i dem en och en.
+
+**Nettolönen är före utlägg.** Utlägg och körrapporter är skattefria ersättningar som läggs ovanpå
+nettolönen vid utbetalning. Lönekörningens sida visar därför per anställd kolumnerna **Netto**,
+**Utlägg** (med delsumma för körrapporter) och **Att utbetala** (= netto + utlägg), och överst
+summorna för hela körningen: nettolön, utlägg och körrapporter samt totalt att utbetala.
+
+På lönespecifikationen visas efter nettolönen en summerad rad **Utlägg** och en summerad rad
+**Körrapporter** (de enskilda posterna listas inte), följt av raden **Att utbetala**. På utläggets
+sida står att det betalas ut med lönen i den lönekörningen. Ett utlägg kan bara ligga på en lönepost
+i taget. Bocka ur och spara för att ta bort det igen, eller ta bort den anställde från körningen.
 
 ## Körrapporter
 
-Under **Personal → Körrapporter → Ny körrapport** registrerar du en resa med egen bil: anställd,
-datum, resväg, syfte, sträcka i km och ersättning i kr/mil (förifyllt med Skatteverkets skattefria
-schablon, 25 kr/mil). Klicka **Lämna in** så skapas och bokförs ett utlägg på beloppet
-(`km / 10 × kr/mil`) med konto 7331 (Skattefria bilersättningar) mot skulden 2820. Saknas något
-av kontona i kontoplanen, eller ett räkenskapsår för resdatumet, stoppas inlämningen.
+Körrapporter finns under **Personal → Utlägg**, eftersom de är utlägg: klicka **Ny körrapport** och
+fyll i anställd, datum, resväg, syfte, sträcka i km och ersättning i kr/mil (förifyllt med
+Skatteverkets skattefria schablon, 25 kr/mil).
 
-Körrapporten betalas sedan ut precis som ett vanligt utlägg: bocka i den på löneposten (se ovan),
-matcha den mot en bankbetalning, eller markera den som betald från utläggets sida via
-**Visa utlägg** i listan. Listan visar som standard bara ej utbetalda körrapporter – växla till
-**Alla** för historiken. Ersättning över schablonen är skattepliktig och läggs i så fall som ett
-tillägg på lönebeskedet i stället.
+- **Lämna in och bokför** skapar och bokför ett utlägg på beloppet (`km / 10 × kr/mil`) med konto
+  7331 (Skattefria bilersättningar) mot skulden 2820. Saknas något av kontona i kontoplanen, eller
+  ett räkenskapsår för resdatumet, stoppas inlämningen.
+- **Spara som utkast** skapar en preliminär körrapport som inte är bokförd. Bokför den senare med
+  **Bokför** i utläggslistan, eller ta bort den medan den är ett utkast. Samma gäller vanliga
+  utlägg (**Spara som utkast** i utläggsformuläret).
+
+Körrapporter syns i utläggslistan med en bilikon och sträckan. Öppna utlägget med **Visa** för att
+i efterhand se resväg, syfte, resdatum, sträcka, ersättning per mil samt när och av vem rapporten
+lämnades in.
+
+Körrapporten betalas ut precis som ett vanligt utlägg: bocka i den på löneposten (se ovan),
+matcha den mot en bankbetalning, eller markera den som betald från utläggets sida. Utläggslistan
+visar som standard bara obetalda poster – växla till **Alla** för historiken. Ersättning över
+schablonen är skattepliktig och läggs i så fall som ett tillägg på lönebeskedet i stället.
 
 ## Semester
 

@@ -8,8 +8,7 @@ urlpatterns = [
     path("anstallda/", views.employee_list, name="employee_list"),
     path("anstallda/ny/", views.employee_create, name="employee_create"),
     path("anstallda/<int:pk>/redigera/", views.employee_update, name="employee_update"),
-    path("korrapporter/", views.mileage_report_list, name="mileage_report_list"),
-    path("korrapporter/ny/", views.mileage_report_create, name="mileage_report_create"),
+    path("utlagg/korrapport/ny/", views.mileage_report_create, name="mileage_report_create"),
     path("lon/lonekorningar/", views.payroll_run_list, name="payroll_run_list"),
     path("lon/lonekorningar/ny/", views.payroll_run_create, name="payroll_run_create"),
     path("lon/lonekorningar/<int:payroll_run_id>/", views.payroll_run_detail, name="payroll_run_detail"),
@@ -22,6 +21,11 @@ urlpatterns = [
         "lon/lonekorningar/<int:payroll_run_id>/lagg-till-anstalld/",
         views.payroll_run_add_employee,
         name="payroll_run_add_employee",
+    ),
+    path(
+        "lon/lonekorningar/<int:payroll_run_id>/lagg-till-utlagg/",
+        views.payroll_run_add_expenses,
+        name="payroll_run_add_expenses",
     ),
     path(
         "lon/lonekorningar/<int:payroll_run_id>/ta-bort-lonepost/<int:salary_record_id>/",
