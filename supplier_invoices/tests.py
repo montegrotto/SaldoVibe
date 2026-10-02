@@ -19,6 +19,7 @@ class SupplierInvoiceWorkflowTests(CompanyTestCase):
     user_email = "invoice-user@example.com"
     company_name = "Invoice Company AB"
     company_org_number = "556677-8899"
+    company_fields = {"vat_reporting_period": "quarterly"}
 
     @classmethod
     def setUpClass(cls):
@@ -488,6 +489,7 @@ class InvoiceCreateExtractionSuggestionTests(CompanyTestCase):
     user_email = "extraction-user@example.com"
     company_name = "Extraktionsbolag AB"
     company_org_number = "556677-9900"
+    company_fields = {"vat_reporting_period": "quarterly"}
 
     @classmethod
     def setUpClass(cls):
@@ -556,6 +558,22 @@ class InvoiceCreateExtractionSuggestionTests(CompanyTestCase):
         self.assertTrue(response.context["extraction_applied"])
         self.assertEqual(response.context["extraction_unmatched_vendor_name"], "")
         self.assertContains(response, "ReInvGrabber")
+
+    def test_vat_amount_is_not_suggested_when_company_does_not_report_vat(self):
+        self.company.vat_reporting_period = "none"
+        self.company.save(update_fields=["vat_reporting_period"])
+        attachment = self._attachment_with({"totalbelopp": "625.00", "momsbelopp": "125.00"})
+
+        response = self.client.get(
+            reverse("supplier_invoices:invoice_create"),
+            {"selected_attachments": str(attachment.pk)},
+        )
+
+        form = response.context["form"]
+        self.assertEqual(form.initial["total_amount"], "625.00")
+        self.assertNotIn("vat_amount", form.initial)
+        self.assertNotIn("vat_amount", form.fields)
+        self.assertNotContains(response, 'name="vat_amount"')
 
     def test_unmatched_vendor_leaves_supplier_unset_and_offers_new_supplier_link(self):
         attachment = self._attachment_with({"leverantör": "Okänd Leverantör AB", "totalbelopp": "300.00"})

@@ -59,6 +59,10 @@ class ExpenseClaimForm(forms.ModelForm):
 
         self.fields["employee"].empty_label = "Välj anställd…"
 
+        if company is not None and not company.vat_registered:
+            # Ingen avdragsrätt utan momsredovisning – momsen är en del av kostnaden.
+            del self.fields["vat_amount"]
+
     def _get_default_account(self, *numbers):
         if self.company is None:
             return None
@@ -86,7 +90,7 @@ class ExpenseClaimForm(forms.ModelForm):
         if vat_amount < Decimal("0"):
             self.add_error("vat_amount", "Moms måste vara 0 eller större.")
 
-        if vat_amount > total_amount:
+        if vat_amount > max(total_amount, Decimal("0")):
             self.add_error("vat_amount", "Moms kan inte vara större än totalbeloppet.")
 
         liability_account = self._get_default_account(*ExpenseClaim.DEFAULT_LIABILITY_ACCOUNT_NUMBERS)

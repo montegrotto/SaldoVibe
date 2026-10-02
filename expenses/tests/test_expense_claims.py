@@ -86,6 +86,32 @@ class ExpenseClaimRegistrationTests(ExpenseClaimTestCase):
         self.assertEqual(claim.liability_account, self.liability_account)
         self.assertEqual(claim.amount_ex_vat, Decimal("500.00"))
 
+    def test_vat_field_is_only_offered_when_company_reports_vat(self):
+        # Testbolaget har standardvärdet "Ingen momsredovisning".
+        response = self.client.get(reverse("expenses:expense_create"))
+        self.assertNotContains(response, 'name="vat_amount"')
+
+        # Ett postat momsbelopp ignoreras – hela beloppet blir kostnad.
+        self.client.post(
+            reverse("expenses:expense_create"),
+            {
+                "person_name": "Extern Person",
+                "description": "Kontorsmaterial",
+                "expense_date": "2026-07-05",
+                "expense_account": str(self.expense_account.pk),
+                "total_amount": "500.00",
+                "vat_amount": "100.00",
+            },
+        )
+        claim = ExpenseClaim.objects.get(company=self.company, description="Kontorsmaterial")
+        self.assertEqual(claim.vat_amount, Decimal("0.00"))
+        self.assertEqual(claim.amount_ex_vat, Decimal("500.00"))
+
+        self.company.vat_reporting_period = "quarterly"
+        self.company.save(update_fields=["vat_reporting_period"])
+        response = self.client.get(reverse("expenses:expense_create"))
+        self.assertContains(response, 'name="vat_amount"')
+
 
 class ExpenseClaimManualPaymentTests(ExpenseClaimTestCase):
     def test_register_manual_payment_posts_verification(self):

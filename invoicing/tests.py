@@ -92,6 +92,23 @@ class InvoicingWorkflowTests(CompanyTestCase):
             ),
         )
 
+    def test_vat_rate_is_only_suggested_when_company_reports_vat(self):
+        # Testbolaget har standardvärdet "Ingen momsredovisning".
+        response = self.client.get(reverse("invoicing:invoice_create"))
+        self.assertEqual(response.context["article_vat_rate_map"], {str(self.article.pk): "0.00"})
+        self.assertEqual(response.context["line_formset"].empty_form["vat_rate"].value(), Decimal("0.00"))
+        response = self.client.get(reverse("invoicing:article_create"))
+        self.assertEqual(response.context["form"]["vat_rate"].value(), Decimal("0.00"))
+
+        self.company.vat_reporting_period = "quarterly"
+        self.company.save(update_fields=["vat_reporting_period"])
+
+        response = self.client.get(reverse("invoicing:invoice_create"))
+        self.assertEqual(response.context["article_vat_rate_map"], {str(self.article.pk): "25.00"})
+        self.assertEqual(response.context["line_formset"].empty_form["vat_rate"].value(), Decimal("25.00"))
+        response = self.client.get(reverse("invoicing:article_create"))
+        self.assertEqual(response.context["form"]["vat_rate"].value(), Decimal("25.00"))
+
     def test_mixed_vat_invoice_total_matches_the_booked_receivable(self):
         # Per-line rounding: what the customer is asked to pay must equal what
         # lands on 1510, or the reskontra drifts by an öre per invoice.

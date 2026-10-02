@@ -72,6 +72,10 @@ class SupplierInvoiceForm(forms.ModelForm):
 
         self.fields["supplier"].empty_label = "Välj leverantör…"
 
+        if company is not None and not company.vat_registered:
+            # Ingen avdragsrätt utan momsredovisning – momsen är en del av kostnaden.
+            del self.fields["vat_amount"]
+
     def _get_accounting_year_for_invoice_date(self, invoice_date):
         if self.company is None or invoice_date is None:
             return None
@@ -108,7 +112,7 @@ class SupplierInvoiceForm(forms.ModelForm):
         if vat_amount < Decimal("0"):
             self.add_error("vat_amount", "Moms måste vara 0 eller större.")
 
-        if vat_amount > total_amount:
+        if vat_amount > max(total_amount, Decimal("0")):
             self.add_error("vat_amount", "Moms kan inte vara större än totalbeloppet.")
 
         if vat_amount > Decimal("0"):

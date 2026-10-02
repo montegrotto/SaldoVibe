@@ -46,8 +46,11 @@ def _build_article_context_maps(company):
         str(article.pk): format((article.unit_price or Decimal("0.00")).quantize(Decimal("0.01")), "f")
         for article in company.articles.filter(is_active=True).only("pk", "unit_price")
     }
+    # Utan momsredovisning föreslås 0 % oavsett vad artikeln har sparat.
     article_vat_rate_map = {
-        str(article.pk): format((article.vat_rate or Decimal("0.00")).quantize(Decimal("0.01")), "f")
+        str(article.pk): format(
+            (article.vat_rate if company.vat_registered else Decimal("0.00")).quantize(Decimal("0.01")), "f"
+        )
         for article in company.articles.filter(is_active=True).only("pk", "vat_rate")
     }
     article_meta_map = {
@@ -185,7 +188,11 @@ def article_create(request, company):
     else:
         form = ArticleForm(
             company=company,
-            initial={"is_active": True, "vat_rate": Decimal("25.00"), "unit": "st"},
+            initial={
+                "is_active": True,
+                "vat_rate": Decimal("25.00") if company.vat_registered else Decimal("0.00"),
+                "unit": "st",
+            },
         )
 
     return render(

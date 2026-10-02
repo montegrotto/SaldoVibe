@@ -22,7 +22,9 @@ i listans huvud för att även se betalda fakturor.
 1. Gå till **Försäljning → Kundfakturor → Ny faktura**.
 2. Välj kund (förfallodatum/betalningsvillkor förifylls från kundens standardvärden).
 3. Lägg till minst en rad: välj artikel (á-pris och moms fylls i automatiskt, men kan justeras) och
-   ange antal.
+   ange antal. Redovisar företaget inte moms (momsperiod "Ingen" under
+   [Företagsinställningar](11-foretagsinstallningar.md)) föreslås alltid 0 % moms, oavsett
+   artikelns momssats.
 4. Fakturan får ett automatiskt **fakturanummer** samt en **OCR-referens** med
    mod10-kontrollsiffra, för användning på inbetalningar.
 5. Spara antingen som **utkast** eller direkt med **Skapa och bokför**.

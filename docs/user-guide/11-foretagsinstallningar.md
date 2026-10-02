@@ -15,7 +15,9 @@ description: "Företagsuppgifter, användarroller (inklusive läsroll för revis
 - **Påminnelseavgift** – den avgift som föreslås när en betalningspåminnelse skrivs ut för en
   förfallen kundfaktura (standard: 60 kr). Se [7. Kundfakturor](07-kundfakturor.md).
 - **Momsperiod** och **momsstartdatum** – styr om/hur [Momsrapport](03-momsrapport.md) visas och
-  vilka transaktioner som räknas med.
+  vilka transaktioner som räknas med. Är momsperioden "Ingen" föreslås heller ingen moms: nya
+  artiklar och kundfakturarader får 0 %, och momsfältet visas inte på nya leverantörsfakturor och
+  utlägg.
 - **E-postimport av bilagor** – aktivera och konfigurera Gmail, en annan IMAP-server eller
   Microsoft 365 (OAuth2), inklusive vilken mapp som ska läsas av. Se [4. Bilagor](04-bilagor.md).
 - **Utgående e-post** – företagets konto för att skicka fakturor och betalningspåminnelser via

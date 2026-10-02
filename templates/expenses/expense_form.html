@@ -71,11 +71,13 @@
           {{ form.total_amount }}
           {{ form.total_amount.errors }}
         </div>
+        {% if form.vat_amount %}
         <div class="col-md-3">
           <label class="form-label fw-semibold">{{ form.vat_amount.label }}</label>
           {{ form.vat_amount }}
           {{ form.vat_amount.errors }}
         </div>
+        {% endif %}
       </div>
 
       <div class="mb-4">

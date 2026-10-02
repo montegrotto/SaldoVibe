@@ -25,7 +25,10 @@ huvud för att även se utbetalda utlägg. Där finns även knappen **Ny körrap
 
 1. Gå till **Inköp → Leverantörsfakturor → Ny faktura**.
 2. Välj leverantör, ange belopp exkl. moms per kostnadsrad (minst en rad krävs), momsbelopp och
-   totalbelopp.
+   totalbelopp. Väljs en bilaga med tolkade fält förifylls bl.a. totalbelopp och momsbelopp.
+   Redovisar företaget inte moms (momsperiod "Ingen" under
+   [Företagsinställningar](11-foretagsinstallningar.md)) visas inget momsfält – hela beloppet
+   bokförs som kostnad. Detsamma gäller formuläret för nya utlägg.
 3. **Kostnadsrader + moms måste summera exakt till totalbeloppet** – annars avvisas formuläret med
    "Summan av kostnadsrader och moms måste vara lika med totalbelopp."
 4. Bifoga underlag antingen genom att ladda upp direkt i formuläret eller via bilage-väljaren mot
