@@ -378,14 +378,11 @@ def compliance_dashboard(request, company):
         TransactionAttachment.objects.filter(company=company, deleted_at__isnull=True)
     ).count()
 
-    lock_attempt_events_30d = (
-        AuditLogEntry.objects.filter(
-            company=company,
-            occurred_at__gte=timezone.now() - timedelta(days=30),
-        )
-        .filter(Q(summary__icontains="låst") | Q(summary__icontains="period"))
-        .count()
-    )
+    period_lock_changes_30d = AuditLogEntry.objects.filter(
+        company=company,
+        model_label="bookkeeping.periodlock",
+        occurred_at__gte=timezone.now() - timedelta(days=30),
+    ).count()
 
     # This company's own hash chain (hash_version>=2, keyed by chain_key - see
     # auditlog.services.create_audit_log). Legacy hash_version=1 entries chain globally
@@ -424,7 +421,7 @@ def compliance_dashboard(request, company):
         "late_postings_count": len(late_postings),
         "supplier_invoices_without_attachments": supplier_invoices_without_attachments,
         "orphan_attachments": orphan_attachments,
-        "lock_attempt_events_30d": lock_attempt_events_30d,
+        "period_lock_changes_30d": period_lock_changes_30d,
         "chain_mismatch_count": chain_mismatch_count,
         "last_chain_anchor": last_chain_anchor,
         "vat_snapshot_drift": vat_snapshot_drift,

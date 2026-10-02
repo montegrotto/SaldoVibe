@@ -153,8 +153,8 @@ räkenskapsår:
   registreringstillfället.
 - Leverantörsfakturor som är registrerade men **saknar bilaga/underlag**.
 - **Herrelösa bilagor** – uppladdade bilagor som inte är kopplade till någon leverantörsfaktura.
-- Antal händelser senaste 30 dagarna som nämner låsning/period (indikerar t.ex. upprepade försök
-  att bokföra i låst period).
+- Antal ändringar av periodlås (nya lås och upplåsningar) senaste 30 dagarna, oberoende av valt
+  räkenskapsår.
 - **Hashkedje-avvikelser** i auditloggen – räknar poster i företagets egen hashkedja där den
   beräknade hashen inte matchar den lagrade, vilket signalerar potentiell manipulation eller
   dataintegritetsproblem.

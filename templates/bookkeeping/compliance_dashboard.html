@@ -99,7 +99,7 @@
             {% endif %}
           </li>
           <li>Orphan-bilagor (utan koppling till leverantörsfaktura): <strong>{{ orphan_attachments }}</strong></li>
-          <li>Lock/period-relaterade logghändelser senaste 30 dagar: <strong>{{ lock_attempt_events_30d }}</strong></li>
+          <li>Ändringar av periodlås (låsta/upplåsta perioder) senaste 30 dagarna: <strong>{{ period_lock_changes_30d }}</strong></li>
           <li>
             Senaste externa förankring av auditkedjan (RFC 3161):
             {% if last_chain_anchor %}

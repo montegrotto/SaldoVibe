@@ -377,3 +377,29 @@ class ComplianceDashboardVatDriftTests(CompanyTestCase):
         flagged = response.context["vat_snapshot_drift"]
         self.assertEqual([snapshot.pk for snapshot in flagged], [drifted.pk])
         self.assertContains(response, "Momsstängningar där underlaget ändrats efter stängning")
+
+    def test_period_lock_changes_counts_only_recent_period_lock_log_entries(self):
+        from datetime import date, timedelta
+        from unittest import mock
+
+        from django.utils import timezone
+
+        from bookkeeping.models import PeriodLock
+
+        def lock(start, end):
+            PeriodLock.objects.create(
+                company=self.company,
+                accounting_year=self.year,
+                period_start=start,
+                period_end=end,
+                reason="Månadsstängning",
+                locked_by=self.user,
+            )
+
+        with mock.patch("django.utils.timezone.now", return_value=timezone.now() - timedelta(days=40)):
+            lock(date(2026, 1, 1), date(2026, 1, 31))
+        lock(date(2026, 2, 1), date(2026, 2, 28))
+
+        response = self.client.get(reverse("bookkeeping:compliance_dashboard"))
+
+        self.assertEqual(response.context["period_lock_changes_30d"], 1)
