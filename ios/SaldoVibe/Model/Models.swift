@@ -329,3 +329,51 @@ enum ISODate {
         return date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "sv_SE")))
     }
 }
+
+struct ReportYear: Codable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let startDate: String
+    let endDate: String
+}
+
+struct ReportRow: Codable, Identifiable, Hashable {
+    let account: Account
+    let amount: Amount
+    var id: Int { account.id }
+}
+
+/// A heading with account rows and a sum line; without title and rows it is a result line
+/// (Rörelseresultat, Summa eget kapital och skulder).
+struct ReportSection: Codable, Hashable {
+    let title: String?
+    let rows: [ReportRow]
+    let totalLabel: String?
+    let total: Amount?
+}
+
+struct ReportResult: Codable, Hashable {
+    let label: String
+    let amount: Amount
+    let note: String?
+}
+
+struct MonthChoice: Codable, Identifiable, Hashable {
+    let value: String
+    let label: String
+    var id: String { value }
+}
+
+/// Resultat- or balansräkning as the web shows it (api: resultatrakning/, balansrakning/).
+/// The period fields only come with the income statement.
+struct Report: Codable {
+    let years: [ReportYear]
+    let selectedYear: ReportYear?
+    let sections: [ReportSection]
+    let result: ReportResult
+    let monthChoices: [MonthChoice]?
+    let fromMonth: String?
+    let toMonth: String?
+    let periodStart: String?
+    let periodEnd: String?
+}

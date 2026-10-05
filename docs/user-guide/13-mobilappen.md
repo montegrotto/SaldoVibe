@@ -1,13 +1,13 @@
 ---
-description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg och leverantörsfakturor, se läget och markera fakturor som betalda."
+description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg och leverantörsfakturor, se läget, läsa resultat- och balansräkningen och markera fakturor som betalda."
 ---
 
 # 13. Mobilappen
 
 Appen är till för det man gör på språng: fotografera kvitton och fakturor, registrera utlägg
-och leverantörsfakturor direkt från bilden, se läget i företaget och markera fakturor som
-betalda. Allt annat – verifikationer, rapporter, moms, lön, SIE, bank och inställningar – görs
-på datorn.
+och leverantörsfakturor direkt från bilden, se läget i företaget, läsa resultat- och
+balansräkningen och markera fakturor som betalda. Allt annat – verifikationer, övriga rapporter,
+moms, lön, SIE, bank och inställningar – görs på datorn.
 
 Appen finns för iPhone (iOS 18 eller senare). Den finns inte i App Store utan byggs från
 källkoden i mappen `ios/` med Xcode och installeras på telefonen via Xcode eller TestFlight;
@@ -39,6 +39,14 @@ Första fliken visar kassa/bank (samma konton som likviditetsprognosen på start
 intäkter, kostnader och resultat, summan av obetalda leverantörs- och kundfakturor, samt samma
 påminnelser som klockan uppe till höger på webben – förfallna fakturor, momsdeklaration att
 lämna, löneutbetalningar och så vidare. Dra nedåt för att uppdatera.
+
+**Resultaträkning** och **Balansräkning** i samma flik öppnar rapporterna som de ser ut under
+**Rapporter** på webben (se [Rapporter](10-rapporter.md#balansräkning-och-resultaträkning)):
+samma sektioner, konton och summor. Räkenskapsår väljs med kalenderknappen uppe till höger; i
+resultaträkningen kan perioden avgränsas till valfria månader (**Från**/**Till**). Balansräkningen
+visar ställningen per räkenskapsårets sista dag, och **Beräknat resultat** är skillnaden mellan
+tillgångar och eget kapital plus skulder – årets resultat innan det förts över till eget kapital.
+Budgetkolumner, verifikationsrader per konto och PDF-export finns bara på webben.
 
 ## Kvitton
 
