@@ -37,7 +37,7 @@ struct MoreView: View {
                 Section {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                 } footer: {
-                    Text("Verifikationer, rapporter, moms, lön och inställningar görs på datorn. Hjälp: Hjälp → Mobilappen på webben.")
+                    Text("Resultat- och balansräkning finns under Översikt. Verifikationer, övriga rapporter, moms, lön och inställningar görs på datorn. Hjälp: Hjälp → Mobilappen på webben.")
                 }
             }
             .navigationTitle("Mer")

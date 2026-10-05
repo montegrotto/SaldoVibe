@@ -24,6 +24,7 @@ from bookkeeping.company_scope import get_user_companies, is_read_only_member
 from bookkeeping.context_processors import get_topbar_alert_state_for_company
 from bookkeeping.forms import RegisterPaymentForm, payment_accounts_for
 from bookkeeping.payables import quantize_amount, register_manual_payment
+from bookkeeping.reports import build_balance_sheet_context, build_income_statement_context
 from bookkeeping.views.dashboard import dashboard_summary
 from expenses.forms import ExpenseClaimForm
 from expenses.models import ExpenseClaim
@@ -483,3 +484,143 @@ def customer_invoice_detail(request, company, pk):
 @api_view(("POST",))
 def customer_invoice_payment(request, company, pk):
     return _register_payment(request, _customer_invoice(company, pk), _customer_invoice_json)
+
+
+# --- reports ---------------------------------------------------------------------------
+
+
+def _year_json(year):
+    if year is None:
+        return None
+    return {"id": year.pk, "name": year.name, "start_date": _date(year.start_date), "end_date": _date(year.end_date)}
+
+
+def _report_json(context, sections, result, **extra):
+    """`sections` are (title, rows, total_label, total, always) in display order, mirroring
+    the web templates: a section without rows is left out unless `always`; a title-less
+    section without rows is a result line (Rörelseresultat). Rows carry the amount the web
+    shows - `amount` on the income statement, `balance` on the balance sheet."""
+    return {
+        "years": [_year_json(year) for year in context["years"]],
+        "selected_year": _year_json(context["selected_year"]),
+        "sections": [
+            {
+                "title": title,
+                "rows": [
+                    {"account": _account_json(row["account"]), "amount": _amount(row.get("amount", row.get("balance")))}
+                    for row in rows
+                ],
+                "total_label": total_label,
+                "total": None if total is None else _amount(total),
+            }
+            for title, rows, total_label, total, always in sections
+            if rows or always
+        ],
+        "result": result,
+        **extra,
+    }
+
+
+@api_view()
+def income_statement(request, company):
+    """Resultaträkningen as the web shows it; same query parameters (`year`, `from_month`,
+    `to_month`) as bookkeeping:income_statement."""
+    c = build_income_statement_context(request, company)
+    has_year_end = bool(c["year_end_rows"])
+    sections = [
+        (
+            "Rörelsens intäkter",
+            c["operating_income_rows"],
+            "Summa rörelsens intäkter",
+            c["total_operating_income"],
+            True,
+        ),
+        (
+            "Råvaror och förnödenheter",
+            c["raw_material_rows"],
+            "Summa råvaror och förnödenheter",
+            c["total_raw_material"],
+            False,
+        ),
+        (
+            "Övriga externa kostnader",
+            c["external_cost_rows"],
+            "Summa övriga externa kostnader",
+            c["total_external_costs"],
+            False,
+        ),
+        ("Personalkostnader", c["personnel_rows"], "Summa personalkostnader", c["total_personnel_costs"], True),
+        (None, [], "Rörelseresultat", c["operating_result"], True),
+        (
+            "Finansiella poster",
+            c["financial_rows"],
+            "Resultat efter finansiella poster",
+            c["result_after_financial"],
+            True,
+        ),
+        (
+            "Resultat och skatt",
+            c["year_end_rows"],
+            "Resultat efter skatt" if has_year_end else None,
+            c["result_after_taxes"] if has_year_end else None,
+            False,
+        ),
+        (None, c["results_and_tax_rows"], None, None, False),
+    ]
+    result = {
+        "label": "Årets resultat",
+        "amount": _amount(c["annual_result"]),
+        "note": "Året är avslutat – årets resultat är överfört till eget kapital via bokslutsverifikationen, "
+        "därför visar resultaträkningen 0."
+        if c["year_is_closed"]
+        else None,
+    }
+    return JsonResponse(
+        _report_json(
+            c,
+            sections,
+            result,
+            month_choices=[{"value": m["value"], "label": m["label"]} for m in c["month_choices"]],
+            from_month=c["from_month"],
+            to_month=c["to_month"],
+            period_start=_date(c["period_start"]),
+            period_end=_date(c["period_end"]),
+        )
+    )
+
+
+@api_view()
+def balance_sheet(request, company):
+    """Balansräkningen as the web shows it (`?year=` selects the year; balances are
+    cumulative up to its last day). The difference between the two sides is the result
+    not yet transferred to equity."""
+    c = build_balance_sheet_context(request, company)
+    sections = [
+        ("Tillgångar", c["assets"], "Summa tillgångar", c["total_assets"], True),
+        ("Eget kapital", c["equity"], "Summa eget kapital", c["total_equity"], False),
+        (
+            "Obeskattade reserver",
+            c["untaxed_reserves"],
+            "Summa obeskattade reserver",
+            c["total_untaxed_reserves"],
+            False,
+        ),
+        ("Avsättningar", c["provisions"], "Summa avsättningar", c["total_provisions"], False),
+        (
+            "Långfristiga skulder",
+            c["long_term_liabilities"],
+            "Summa långfristiga skulder",
+            c["total_long_term_liabilities"],
+            False,
+        ),
+        (
+            "Kortfristiga skulder",
+            c["current_liabilities"],
+            "Summa kortfristiga skulder",
+            c["total_current_liabilities"],
+            False,
+        ),
+        (None, [], "Summa eget kapital och skulder", c["total_equity_and_liabilities"], True),
+    ]
+    result = {"label": "Beräknat resultat", "amount": _amount(c["balance_difference"]), "note": None}
+    return JsonResponse(_report_json(c, sections, result))

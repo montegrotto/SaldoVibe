@@ -6,9 +6,11 @@ struct OverviewView: View {
     let openInvoices: (Int) -> Void
     @State private var overview: Overview?
     @State private var error: String?
+    /// `-report resultat|balans` opens a report straight away (simulator screenshots, DEBUG only).
+    @State private var path = [MainTabView.launchArgument("-report").flatMap(ReportView.Kind.init(rawValue:))].compactMap { $0 }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let overview {
                     Section("Kassa och bank") {
@@ -29,6 +31,8 @@ struct OverviewView: View {
                                 .fontWeight(.semibold)
                                 .foregroundStyle(overview.netResult.value < 0 ? .red : .green)
                         }
+                        NavigationLink("Resultaträkning", value: ReportView.Kind.incomeStatement)
+                        NavigationLink("Balansräkning", value: ReportView.Kind.balanceSheet)
                     }
                     Section("Obetalda fakturor") {
                         Button { openInvoices(0) } label: {
@@ -63,6 +67,7 @@ struct OverviewView: View {
                 }
             }
             .navigationTitle(session.company?.name ?? "Översikt")
+            .navigationDestination(for: ReportView.Kind.self) { ReportView(kind: $0) }
             .reloads(on: session.changeCounter) { await load() }
         }
     }

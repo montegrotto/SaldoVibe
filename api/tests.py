@@ -11,7 +11,7 @@ from django.utils import timezone
 from accounts.models import ApiToken
 from attachments.models import TransactionAttachment
 from auditlog.models import AuditLogEntry
-from bookkeeping.models import CompanyMembership, PeriodLock, Transaction
+from bookkeeping.models import CompanyMembership, JournalEntry, PeriodLock, Transaction
 from expenses.models import ExpenseClaim
 from invoicing.models import Article, Customer, Invoice, InvoiceLine
 from payroll.models import Employee
@@ -484,3 +484,68 @@ class CustomerInvoiceTests(ApiTestCase):
         self.invoice.refresh_from_db()
         self.assertTrue(self.invoice.is_paid)
         self.assertEqual(self.get("/api/v1/kundfakturor/").json(), [])
+
+
+class ReportTests(ApiTestCase):
+    """One sale in March: 1930 D 1250 / 3001 K 1000 / 2611 K 250."""
+
+    def setUp(self):
+        super().setUp()
+        voucher = Transaction.objects.create(
+            accounting_year=self.year, date=date(2026, 3, 15), description="Konsultarvode", created_by=self.user
+        )
+        for number, debit, credit in (
+            ("1930", "1250.00", "0.00"),
+            ("3001", "0.00", "1000.00"),
+            ("2611", "0.00", "250.00"),
+        ):
+            JournalEntry.objects.create(
+                transaction=voucher, account=self.account(number), debit=Decimal(debit), credit=Decimal(credit)
+            )
+
+    @staticmethod
+    def section(data, label):
+        return next(s for s in data["sections"] if label in (s["title"], s["total_label"]))
+
+    @staticmethod
+    def rows(section):
+        return [(row["account"]["number"], row["amount"]) for row in section["rows"]]
+
+    def test_income_statement_mirrors_the_web_report_and_takes_the_period_filter(self):
+        response = self.get("/api/v1/resultatrakning/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["selected_year"]["id"], self.year.pk)
+        self.assertEqual((data["from_month"], data["to_month"]), ("2026-01", "2026-12"))
+        self.assertEqual(data["month_choices"][0], {"value": "2026-01", "label": "Jan 2026"})
+        revenue = self.section(data, "Rörelsens intäkter")
+        self.assertEqual(self.rows(revenue), [("3001", "1000.00")])
+        self.assertEqual(revenue["total"], "1000.00")
+        self.assertEqual(self.section(data, "Rörelseresultat")["total"], "1000.00")
+        self.assertEqual(data["result"], {"label": "Årets resultat", "amount": "1000.00", "note": None})
+        # Empty sections are left out, as on the web - except the ones the web always shows.
+        self.assertEqual(
+            [s["title"] for s in data["sections"]],
+            ["Rörelsens intäkter", "Personalkostnader", None, "Finansiella poster"],
+        )
+
+        filtered = self.get("/api/v1/resultatrakning/", from_month="2026-04", to_month="2026-06").json()
+        self.assertEqual((filtered["period_start"], filtered["period_end"]), ("2026-04-01", "2026-06-30"))
+        self.assertEqual(self.rows(self.section(filtered, "Rörelsens intäkter")), [])
+        self.assertEqual(filtered["result"]["amount"], "0.00")
+
+    def test_balance_sheet_mirrors_the_web_report(self):
+        response = self.get("/api/v1/balansrakning/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual([s["title"] for s in data["sections"]], ["Tillgångar", "Kortfristiga skulder", None])
+        assets = self.section(data, "Tillgångar")
+        self.assertEqual(self.rows(assets), [("1930", "1250.00")])
+        self.assertEqual(assets["total"], "1250.00")
+        liabilities = self.section(data, "Kortfristiga skulder")
+        self.assertEqual(self.rows(liabilities), [("2611", "-250.00")])
+        self.assertEqual(liabilities["total"], "250.00")
+        self.assertEqual(self.section(data, "Summa eget kapital och skulder")["total"], "250.00")
+        self.assertEqual(data["result"], {"label": "Beräknat resultat", "amount": "1000.00", "note": None})
