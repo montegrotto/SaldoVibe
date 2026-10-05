@@ -76,6 +76,10 @@ nyckelringen; aktivt företag i UserDefaults. Alla anrop skickar `Authorization:
 och `X-Company-Id`. Endpoints: se `api/urls.py`; alla skrivningar går genom samma Django-formulär
 och tjänster som webben.
 
+App Transport Security släpper bara fram https till domännamn; IP-adresser, `localhost`, `.local`
+och okvalificerade namn får gå över http. Säger en QR-kod `http://` för ett domännamn provar appen
+https först. Servern bör ha `SALDOVIBE_PUBLIC_URL` satt så att QR-koden blir rätt från början.
+
 ## Utvecklingsknep (bara DEBUG-byggen)
 
 - `-tab receipts|expenses|invoices|more` och `-invoiceKind 0|1` som startargument öppnar en

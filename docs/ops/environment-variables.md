@@ -23,7 +23,7 @@ stacken oavsett `.env`.
 | `DJANGO_DEBUG` | `0` | Djangos debug-läge. Måste vara `0` i produktion. |
 | `DJANGO_SECRET_KEY` | osäkert publikt reservvärde | Djangos `SECRET_KEY`. Måste sättas till ett genererat värde i produktion. |
 | `SALDOVIBE_FIELD_ENCRYPTION_KEY` | härleds från `SECRET_KEY` | Fernet-nyckel för fältkryptering i vila (personnummer). Generera med `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Sätt den explicit i produktion — att rotera `DJANGO_SECRET_KEY` utan att den är satt gör krypterade fält oläsbara. |
-| `SALDOVIBE_PUBLIC_URL` | (tom) | Kanonisk bas-URL som webbläsaren ser, t.ex. `https://bokforing.example.se`. Används för att härleda `ALLOWED_HOSTS` och `CSRF_TRUSTED_ORIGINS` när de explicita variablerna nedan inte är satta. |
+| `SALDOVIBE_PUBLIC_URL` | (tom) | Kanonisk bas-URL som webbläsaren ser, t.ex. `https://bokforing.example.se`. Används för att härleda `ALLOWED_HOSTS` och `CSRF_TRUSTED_ORIGINS` när de explicita variablerna nedan inte är satta, samt som serveradress i mobilappens QR-kod och i uppladdningsadressen under Bilagor (annars används adressen Django ser i anropet, som bakom en proxykedja kan vara `http://`). |
 | `DJANGO_ALLOWED_HOSTS` | härleds från `SALDOVIBE_PUBLIC_URL`, annars `127.0.0.1,localhost,[::1]` | Kommaseparerad explicit överstyrning av `ALLOWED_HOSTS`. Använd vid flera domäner. |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | härleds från `SALDOVIBE_PUBLIC_URL` | Kommaseparerad explicit överstyrning av `CSRF_TRUSTED_ORIGINS`. Använd vid flera origins. |
 | `DJANGO_USE_X_FORWARDED_HOST` | `1` (sant) | Om `X-Forwarded-Host` från en reverse proxy ska litas på. |

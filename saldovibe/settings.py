@@ -86,6 +86,10 @@ FIELD_ENCRYPTION_KEY = (
 DEBUG = _env_flag("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = _allowed_hosts()
+# Canonical base URL as the browser sees it (may be empty). Used for links that leave the
+# server - the app's QR login and the mobile upload address - where the scheme Django sees
+# behind a proxy chain is not necessarily the public one.
+SALDOVIBE_PUBLIC_URL = _public_url()
 
 CSRF_TRUSTED_ORIGINS = _csrf_trusted_origins()
 

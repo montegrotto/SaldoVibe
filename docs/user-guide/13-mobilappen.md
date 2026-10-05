@@ -95,4 +95,5 @@ datorn.
 | "Du har inte tillgång till företaget." | Du har tagits bort från företaget. Välj ett annat under **Mer**. |
 | "Du har bara läsbehörighet i det här företaget." | Rollen **Endast läsa** – se [Företagsinställningar](11-foretagsinstallningar.md). |
 | "Perioden … är låst" | Datumet ligger i en låst period; se [Löpande bokföring](02-lopande-bokforing.md). |
+| "iOS tillåter bara krypterade anslutningar (https) …" | Adressen pekar på ett domännamn över `http://`. iOS släpper inte fram okrypterad trafik till domännamn; använd `https://`, eller serverns IP-adress när du är på det lokala nätverket. Säger QR-koden `http://` fast sajten är https, sätt `SALDOVIBE_PUBLIC_URL` på servern (appen provar ändå https först). |
 | Kan inte nå servern | Kontrollera serveradressen (den som visas under **Mobilappen**) och att telefonen når den – en server som bara finns på det lokala nätverket kräver att du är på samma nätverk eller VPN. |

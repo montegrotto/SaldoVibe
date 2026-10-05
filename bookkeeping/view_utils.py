@@ -7,6 +7,7 @@ so the message/redirect choreography exists once. Wording comes from the model's
 
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect
@@ -16,6 +17,17 @@ from attachments.utils import is_safe_return_to
 
 from .forms import RegisterPaymentForm
 from .payables import offset_payables, offsettable_counterparts, register_manual_payment
+
+
+def public_base_url(request):
+    """The site's base URL with a trailing slash, for links shown to other clients (the app's
+    QR code, the mobile upload address). SALDOVIBE_PUBLIC_URL when the admin has set it;
+    otherwise what Django sees, which behind a proxy that drops X-Forwarded-Proto is http
+    even on an https site."""
+    public_url = settings.SALDOVIBE_PUBLIC_URL.rstrip("/")
+    if public_url:
+        return public_url + "/"
+    return request.build_absolute_uri("/")
 
 
 def run_document_action(request, action, success_message):

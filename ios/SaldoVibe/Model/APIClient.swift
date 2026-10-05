@@ -101,6 +101,12 @@ final class APIClient {
         let response: URLResponse
         do {
             (data, response) = try await URLSession.shared.data(for: request)
+        } catch let error as URLError where error.code == .appTransportSecurityRequiresSecureConnection {
+            throw APIError(
+                message: "iOS tillåter bara krypterade anslutningar (https) till servrar med domännamn. "
+                    + "Ange adressen med https://, eller använd serverns IP-adress på det lokala nätverket.",
+                status: 0
+            )
         } catch {
             throw APIError(message: "Kunde inte nå servern: \(error.localizedDescription)", status: 0)
         }
