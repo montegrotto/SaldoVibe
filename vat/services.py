@@ -253,7 +253,19 @@ def round_to_whole_krona(value):
     return int(decimal_value.quantize(Decimal("1"), rounding=ROUND_FLOOR))
 
 
+def whole_krona_vat_boxes(vat_boxes):
+    """Boxes as reported to Skatteverket: every box floored to whole kronor, and 49/50
+    derived from the floored boxes so 49 = 10+11+12+30+31+32 - 48 holds exactly —
+    Skatteverket rejects a declaration where it doesn't."""
+    boxes = {code: round_to_whole_krona(vat_boxes.get(code, ZERO)) for code in SKATTEVERKET_FIELD_CODES}
+    net_vat = sum(boxes[code] for code in ("10", "11", "12", "30", "31", "32")) - boxes["48"]
+    boxes["49"] = max(net_vat, 0)
+    boxes["50"] = max(-net_vat, 0)
+    return boxes
+
+
 def get_skatteverket_field_groups(vat_boxes):
+    whole_krona = whole_krona_vat_boxes(vat_boxes)
     return [
         {
             "letter": letter,
@@ -262,7 +274,7 @@ def get_skatteverket_field_groups(vat_boxes):
                 {
                     "code": code,
                     "label": SKATTEVERKET_FIELD_LABELS.get(code, ""),
-                    "amount": round_to_whole_krona(vat_boxes.get(code, ZERO)),
+                    "amount": whole_krona[code],
                 }
                 for code in codes
             ],
