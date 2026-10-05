@@ -15,6 +15,7 @@ from vat.services import (
     get_skatteverket_field_groups,
     round_to_whole_krona,
     validate_eskd_export,
+    whole_krona_vat_boxes,
 )
 
 
@@ -55,13 +56,13 @@ class VatFieldGroupingTests(SimpleTestCase):
     def test_amounts_are_carried_into_the_grouped_rows_rounded_down_to_whole_krona(self):
         vat_boxes = {code: ZERO for code in SKATTEVERKET_FIELD_CODES}
         # 150.99 must round down to 150, not to nearest (151) or up.
-        vat_boxes["49"] = "150.99"
+        vat_boxes["10"] = "150.99"
 
         groups = get_skatteverket_field_groups(vat_boxes)
 
-        payable_group = next(group for group in groups if group["letter"] == "G")
-        box_49 = next(row for row in payable_group["rows"] if row["code"] == "49")
-        self.assertEqual(box_49["amount"], 150)
+        rows = {row["code"]: row["amount"] for group in groups for row in group["rows"]}
+        self.assertEqual(rows["10"], 150)
+        self.assertEqual(rows["49"], 150)
 
 
 class VatGroupCCalculationTests(TestCase):
@@ -247,8 +248,22 @@ class VatGroupCCalculationTests(TestCase):
         )
         self.assertEqual(export_response.status_code, 200)
         content = export_response.content.decode("iso-8859-1")
-        self.assertIn("<MomsBetala>0</MomsBetala>", content)
-        self.assertIn("<MomsFaTillbaka>400</MomsFaTillbaka>", content)
+        self.assertIn("<MomsBetala>-400</MomsBetala>", content)
+        self.assertNotIn("MomsFaTillbaka", content)
+
+
+class WholeKronaVatBoxesTests(SimpleTestCase):
+    def test_box_49_is_derived_from_floored_boxes(self):
+        # Unrounded net 92981.25 + 3406.00 - 9235.60 = 87151.65 would floor to 87151, but
+        # Skatteverket requires 49 = 10 + 30 - 48 on the reported (floored) boxes: 87152.
+        boxes = whole_krona_vat_boxes({"10": Decimal("92981.25"), "30": Decimal("3406.00"), "48": Decimal("9235.60")})
+        self.assertEqual((boxes["10"], boxes["30"], boxes["48"]), (92981, 3406, 9235))
+        self.assertEqual(boxes["49"], 87152)
+        self.assertEqual(boxes["50"], 0)
+
+    def test_refund_goes_to_box_50(self):
+        boxes = whole_krona_vat_boxes({"10": Decimal("100.90"), "48": Decimal("500.10")})
+        self.assertEqual((boxes["49"], boxes["50"]), (0, 400))
 
 
 class VatPeriodBuilderTests(SimpleTestCase):

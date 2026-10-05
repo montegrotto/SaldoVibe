@@ -32,8 +32,8 @@ from .services import (
     get_transaction_field_amount,
     get_vat_closing_balances,
     parse_period_key,
-    round_to_whole_krona,
     validate_eskd_export,
+    whole_krona_vat_boxes,
 )
 
 ESKD_UPLOAD_PUBLIC_ID = "-//Skatteverket, Sweden//DTD Skatteverket eSKDUpload-DTD Version 6.0//SV"
@@ -42,10 +42,6 @@ ESKD_UPLOAD_SYSTEM_ID = "https://www1.skatteverket.se/demoeskd/eSKDUpload_6p0.dt
 
 def _vat_reporting_enabled(company):
     return company.vat_reporting_period != Company.VatReportingPeriod.NONE
-
-
-def _to_whole_krona(value):
-    return str(round_to_whole_krona(value))
 
 
 def _effective_vat_start_date(company, period_start_date):
@@ -85,40 +81,39 @@ def _get_selected_period_or_redirect(company, year_id, period_key):
 def _build_eskd_moms_xml(company, selected_period, vat_boxes):
     period_value = selected_period["end_date"].strftime("%Y%m")
 
+    boxes = whole_krona_vat_boxes(vat_boxes)
     values = {
-        "ForsMomsEjAnnan": vat_boxes.get("05", Decimal("0")),
-        "UttagMoms": vat_boxes.get("06", Decimal("0")),
-        "UlagMargbesk": vat_boxes.get("07", Decimal("0")),
-        "HyrinkomstFriv": vat_boxes.get("08", Decimal("0")),
-        "InkopVaruAnnatEg": vat_boxes.get("20", Decimal("0")),
-        "InkopTjanstAnnatEg": vat_boxes.get("21", Decimal("0")),
-        "InkopTjanstUtomEg": vat_boxes.get("22", Decimal("0")),
-        "InkopVaruSverige": vat_boxes.get("23", Decimal("0")),
-        "InkopTjanstSverige": vat_boxes.get("24", Decimal("0")),
-        "MomsUlagImport": Decimal("0"),
-        "ForsVaruAnnatEg": vat_boxes.get("35", Decimal("0")),
-        "ForsVaruUtomEg": vat_boxes.get("36", Decimal("0")),
-        "InkopVaruMellan3p": vat_boxes.get("37", Decimal("0")),
-        "ForsVaruMellan3p": Decimal("0"),
-        "ForsTjSkskAnnatEg": vat_boxes.get("38", Decimal("0")),
-        "ForsTjOvrUtomEg": vat_boxes.get("39", Decimal("0")),
-        "ForsKopareSkskSverige": Decimal("0"),
-        "ForsOvrigt": Decimal("0"),
-        "MomsUtgHog": vat_boxes.get("10", Decimal("0")),
-        "MomsUtgMedel": vat_boxes.get("11", Decimal("0")),
-        "MomsUtgLag": vat_boxes.get("12", Decimal("0")),
-        "MomsInkopUtgHog": vat_boxes.get("30", Decimal("0")),
-        "MomsInkopUtgMedel": vat_boxes.get("31", Decimal("0")),
-        "MomsInkopUtgLag": vat_boxes.get("32", Decimal("0")),
-        "MomsImportUtgHog": Decimal("0"),
-        "MomsImportUtgMedel": Decimal("0"),
-        "MomsImportUtgLag": Decimal("0"),
-        "MomsIngAvdr": vat_boxes.get("48", Decimal("0")),
-        "MomsBetala": vat_boxes.get("49", Decimal("0")),
-        # Best-effort element name for box 50 (Moms att få tillbaka), mirroring the
-        # box-per-element pattern used throughout this file — unverified against a live
-        # schema (see the "MomsFaTillbaka" note where this key is used below).
-        "MomsFaTillbaka": vat_boxes.get("50", Decimal("0")),
+        "ForsMomsEjAnnan": boxes["05"],
+        "UttagMoms": boxes["06"],
+        "UlagMargbesk": boxes["07"],
+        "HyrinkomstFriv": boxes["08"],
+        "InkopVaruAnnatEg": boxes["20"],
+        "InkopTjanstAnnatEg": boxes["21"],
+        "InkopTjanstUtomEg": boxes["22"],
+        "InkopVaruSverige": boxes["23"],
+        "InkopTjanstSverige": boxes["24"],
+        "MomsUlagImport": 0,
+        "ForsVaruAnnatEg": boxes["35"],
+        "ForsVaruUtomEg": boxes["36"],
+        "InkopVaruMellan3p": boxes["37"],
+        "ForsVaruMellan3p": 0,
+        "ForsTjSkskAnnatEg": boxes["38"],
+        "ForsTjOvrUtomEg": boxes["39"],
+        "ForsKopareSkskSverige": 0,
+        "ForsOvrigt": 0,
+        "MomsUtgHog": boxes["10"],
+        "MomsUtgMedel": boxes["11"],
+        "MomsUtgLag": boxes["12"],
+        "MomsInkopUtgHog": boxes["30"],
+        "MomsInkopUtgMedel": boxes["31"],
+        "MomsInkopUtgLag": boxes["32"],
+        "MomsImportUtgHog": 0,
+        "MomsImportUtgMedel": 0,
+        "MomsImportUtgLag": 0,
+        "MomsIngAvdr": boxes["48"],
+        # eSKDUpload 6.0 has no separate box-50 element: MomsBetala is signed, negative
+        # when VAT is to be refunded.
+        "MomsBetala": boxes["49"] - boxes["50"],
     }
 
     lines = [
@@ -160,9 +155,8 @@ def _build_eskd_moms_xml(company, selected_period, vat_boxes):
         "MomsImportUtgLag",
         "MomsIngAvdr",
         "MomsBetala",
-        "MomsFaTillbaka",
     ]:
-        lines.append(f"    <{key}>{_to_whole_krona(values[key])}</{key}>")
+        lines.append(f"    <{key}>{values[key]}</{key}>")
 
     lines.extend(
         [
