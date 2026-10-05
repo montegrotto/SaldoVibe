@@ -39,7 +39,7 @@ inloggningen (status -34018), så appen glömmer sessionen vid varje start.
 Engångsförberedelser:
 
 1. Xcode → Settings → Accounts: logga in med det Apple-ID som är med i utvecklarteamet
-   `Y4XHJ3DYSS` (projektets `DEVELOPMENT_TEAM`). Ett "Personal Team" räcker inte – det kan inte
+   `7MV2FUVY65` (projektets `DEVELOPMENT_TEAM`). Ett "Personal Team" räcker inte – det kan inte
    ladda upp till App Store Connect. Är det ett annat team, byt `DEVELOPMENT_TEAM` i
    `project.pbxproj` och `teamID` i `ExportOptions.plist`.
 2. [App Store Connect](https://appstoreconnect.apple.com) → Appar → **+** → Ny app: iOS, namn
