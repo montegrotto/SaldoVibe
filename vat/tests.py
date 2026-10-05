@@ -628,6 +628,48 @@ class VatReportingTests(TestCase):
             message_texts,
         )
 
+    def test_vat_close_books_declared_whole_krona_to_2650_and_ore_to_3740(self):
+        company = create_company(
+            "VAT Ore AB",
+            "556100-0016",
+            vat_reporting_period=Company.VatReportingPeriod.MONTHLY,
+        )
+        company.users.add(self.user)
+        self._set_active_company(company)
+        accounting_year = AccountingYear.objects.create(company=company, start_date="2026-01-01", end_date="2026-12-31")
+
+        def account(number, vat_field_code="", account_class=AccountClass.EQUITY_LIABILITY):
+            return Account.objects.create(
+                company=company,
+                number=number,
+                name=number,
+                account_class=account_class,
+                vat_field_code=vat_field_code,
+                is_active=True,
+            )
+
+        output_vat = account("2611", "10")
+        input_vat = account("2641", "48")
+        settlement = account("2650")
+        rounding = account("3740", account_class=AccountClass.REVENUE)
+        bank = account("1930", account_class=AccountClass.ASSET)
+
+        txn = Transaction.objects.create(
+            accounting_year=accounting_year, date="2026-01-15", description="Ören", created_by=self.user
+        )
+        # Booked net 250.25 - 100.50 = 149.75, but declared box 49 = 250 - 100 = 150.
+        JournalEntry.objects.create(transaction=txn, account=output_vat, debit="0.00", credit="250.25")
+        JournalEntry.objects.create(transaction=txn, account=input_vat, debit="100.50", credit="0.00")
+        JournalEntry.objects.create(transaction=txn, account=bank, debit="149.75", credit="0.00")
+
+        self.client.post(reverse("vat:close_period"), {"year": accounting_year.pk, "period": "2026-01-01:2026-01-31"})
+
+        closing_txn = Transaction.objects.get(reference="VATCLOSE:2026-01-01:2026-01-31")
+        settlement_entry = closing_txn.entries.get(account=settlement)
+        self.assertEqual((settlement_entry.debit, settlement_entry.credit), (0, Decimal("150.00")))
+        rounding_entry = closing_txn.entries.get(account=rounding)
+        self.assertEqual((rounding_entry.debit, rounding_entry.credit), (Decimal("0.25"), 0))
+
     def test_skatteverket_export_is_blocked_when_org_number_is_invalid(self):
         company = create_company(
             "Invalid Org AB",

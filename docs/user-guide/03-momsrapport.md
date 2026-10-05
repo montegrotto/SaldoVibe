@@ -38,7 +38,9 @@ stängning:
 2. Kontot 2650 måste finnas och vara aktivt i kontoplanen – annars avbryts stängningen med ett
    felmeddelande.
 3. Systemet skapar en stängningsverifikation daterad periodens slutdatum, med momsrutorna bokförda
-   mot 2650.
+   mot 2650. 2650 får exakt det deklarerade beloppet i hela kronor (ruta 49) – samma belopp som
+   Skatteverket drar på skattekontot – och öresskillnaden mot momskontona bokförs på **3740**
+   (öres- och kronutjämning). Finns det en öresskillnad måste 3740 finnas och vara aktivt.
 4. En redan stängd period går inte att stänga igen ("Momsperioden är redan stängd.").
 5. Är periodens slutdatum redan periodlåst avbryts stängningen ("Perioden för stängningsdatumet
    är låst. Lås upp perioden innan momsperioden stängs.").
