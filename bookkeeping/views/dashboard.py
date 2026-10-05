@@ -64,11 +64,9 @@ def _is_included_in_liquidity_forecast(account, balance):
     return account.number.startswith("193") and balance != Decimal("0")
 
 
-@login_required
-@company_required
-def dashboard(request, company):
-
-    today = timezone.localdate()
+def dashboard_summary(company, today):
+    """The headline numbers shared by the start page and the mobile overview (api/):
+    P&L for the accounting year covering `today` and the liquidity-forecast cash balance."""
     current_year = (
         AccountingYear.objects.filter(company=company, start_date__lte=today, end_date__gte=today)
         .order_by("-start_date", "-id")
@@ -105,6 +103,25 @@ def dashboard(request, company):
         else:
             excluded_liquidity_account_count += 1
     cash_balance = sum((row["balance"] for row in account_balances), Decimal("0"))
+
+    return {
+        "current_year": current_year,
+        "rev_total": rev_total,
+        "cost_total": cost_total,
+        "net_result": net_result,
+        "cash_balance": cash_balance,
+        "account_balances": account_balances,
+        "excluded_liquidity_account_count": excluded_liquidity_account_count,
+    }
+
+
+@login_required
+@company_required
+def dashboard(request, company):
+
+    today = timezone.localdate()
+    summary = dashboard_summary(company, today)
+    cash_balance = summary["cash_balance"]
 
     # Liquidity forecast: weekly closing balance from current week and 10 weeks ahead.
     current_week_start = today - timedelta(days=today.weekday())
@@ -261,12 +278,7 @@ def dashboard(request, company):
             supplier_unpaid_series[week_index] += invoice.total_amount or Decimal("0.00")
 
     context = {
-        "rev_total": rev_total,
-        "cost_total": cost_total,
-        "net_result": net_result,
-        "cash_balance": cash_balance,
-        "account_balances": account_balances,
-        "excluded_liquidity_account_count": excluded_liquidity_account_count,
+        **summary,
         "incoming_total": incoming_total,
         "supplier_total": supplier_total,
         "salary_total": salary_total,

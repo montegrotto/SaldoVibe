@@ -3,6 +3,7 @@ import mimetypes
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
@@ -18,7 +19,7 @@ from bookkeeping.company_scope import can_access_company, is_read_only_member, r
 
 from .forms import TransactionAttachmentForm
 from .models import AttachmentUploadToken, TransactionAttachment
-from .services import is_attachment_period_locked, save_attachment_with_thumbnail
+from .services import is_attachment_period_locked, save_attachment_with_thumbnail, save_uploaded_attachment
 from .utils import exclude_used_attachments, is_safe_return_to, parse_attachment_ids, replace_query_param
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ _RAW_UPLOAD_SIGNATURES = (
 )
 
 
-def _api_uploaded_file(request):
+def uploaded_file_from_request(request):
     """The file a token client sent, however it chose to send it.
 
     Clients like iOS Shortcuts are configured by hand, and the two easy
@@ -157,7 +158,7 @@ def attachment_api_upload(request):
         logger.warning("Attachment API upload rejected: invalid token")
         return JsonResponse({"error": "Ogiltig eller återkallad token."}, status=401)
 
-    uploaded = _api_uploaded_file(request)
+    uploaded = uploaded_file_from_request(request)
     if uploaded is None:
         # Field names only - a mistyped text field may hold anything.
         received = f"Content-Type {request.content_type or 'saknas'}, textfält: {', '.join(request.POST) or 'inga'}"
@@ -170,17 +171,12 @@ def attachment_api_upload(request):
             status=400,
         )
 
-    attachment_form = TransactionAttachmentForm(files={"file": uploaded})
-    if not attachment_form.is_valid():
-        errors = " ".join(error for field_errors in attachment_form.errors.values() for error in field_errors)
-        logger.warning("Attachment API upload failed validation: %s", errors)
-        return JsonResponse({"error": errors}, status=400)
-
-    attachment = attachment_form.save(commit=False)
-    attachment.company = token.company
-    attachment.uploaded_by = token.user
-    with audit_user(token.user):
-        save_attachment_with_thumbnail(attachment)
+    try:
+        with audit_user(token.user):
+            attachment = save_uploaded_attachment(uploaded, company=token.company, user=token.user)
+    except ValidationError as exc:
+        logger.warning("Attachment API upload failed validation: %s", exc.messages[0])
+        return JsonResponse({"error": exc.messages[0]}, status=400)
     logger.info(
         "Attachment uploaded via token",
         extra={
@@ -296,19 +292,8 @@ def attachment_delete(request, company, attachment_id):
     return redirect(return_to)
 
 
-@login_required
-@company_required
-@xframe_options_sameorigin
-def attachment_preview(request, company, attachment_id):
-
-    attachment = TransactionAttachment.objects.filter(
-        pk=attachment_id,
-        company=company,
-        deleted_at__isnull=True,
-    ).first()
-    if attachment is None:
-        return HttpResponseNotFound("Bilagan hittades inte.")
-
+def attachment_file_response(attachment):
+    """The attachment's file, inline. Shared by the web preview and the mobile API."""
     file_name = attachment.file_name
     content_type, _ = mimetypes.guess_type(file_name)
     if not content_type:
@@ -320,18 +305,9 @@ def attachment_preview(request, company, attachment_id):
     return response
 
 
-@login_required
-@company_required
-def attachment_thumbnail(request, company, attachment_id):
-
-    attachment = TransactionAttachment.objects.filter(
-        pk=attachment_id,
-        company=company,
-        deleted_at__isnull=True,
-    ).first()
-    if attachment is None:
-        return HttpResponseNotFound("Bilagan hittades inte.")
-
+def attachment_thumbnail_response(attachment):
+    """The attachment's JPEG thumbnail, generated on first request (or regenerated for the
+    legacy PDF placeholder). 404 when none can be made."""
     if not attachment.thumbnail:
         if attachment.generate_thumbnail():
             attachment.save(update_fields=["thumbnail", "thumbnail_generated_at"])
@@ -345,3 +321,32 @@ def attachment_thumbnail(request, company, attachment_id):
     response["Content-Disposition"] = f'inline; filename="{attachment.thumbnail_name}"'
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+@login_required
+@company_required
+@xframe_options_sameorigin
+def attachment_preview(request, company, attachment_id):
+
+    attachment = TransactionAttachment.objects.filter(
+        pk=attachment_id,
+        company=company,
+        deleted_at__isnull=True,
+    ).first()
+    if attachment is None:
+        return HttpResponseNotFound("Bilagan hittades inte.")
+    return attachment_file_response(attachment)
+
+
+@login_required
+@company_required
+def attachment_thumbnail(request, company, attachment_id):
+
+    attachment = TransactionAttachment.objects.filter(
+        pk=attachment_id,
+        company=company,
+        deleted_at__isnull=True,
+    ).first()
+    if attachment is None:
+        return HttpResponseNotFound("Bilagan hittades inte.")
+    return attachment_thumbnail_response(attachment)

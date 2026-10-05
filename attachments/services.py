@@ -1,8 +1,11 @@
 import logging
 
+from django.core.exceptions import ValidationError
+
 from bookkeeping.period_locking import is_date_locked
 
 from .extraction_client import extract_fields
+from .forms import TransactionAttachmentForm
 
 logger = logging.getLogger(__name__)
 
@@ -74,3 +77,17 @@ def first_extraction_suggestion(attachments):
         if data and any(value not in (None, "") for value in data.values()):
             return data
     return None
+
+
+def save_uploaded_attachment(uploaded, *, company, user):
+    """Validate an uploaded file the way the web form does and store it as a new attachment
+    (thumbnail + ReInvGrabber suggestion included). Raises ValidationError with the form's
+    message. Shared by the token upload endpoint and the mobile API."""
+    form = TransactionAttachmentForm(files={"file": uploaded})
+    if not form.is_valid():
+        raise ValidationError(" ".join(error for field_errors in form.errors.values() for error in field_errors))
+    attachment = form.save(commit=False)
+    attachment.company = company
+    attachment.uploaded_by = user
+    save_attachment_with_thumbnail(attachment)
+    return attachment

@@ -118,6 +118,7 @@ INSTALLED_APPS = [
     "payroll",
     "vat",
     "fixed_assets",
+    "api",
 ]
 
 AUTH_USER_MODEL = "accounts.CustomUser"

@@ -422,7 +422,10 @@
         </div>
       </div>
 
-      <a class="nav-link mt-2 {% block nav_help %}{% endblock %}" href="{% url 'bookkeeping:help_index' %}">
+      <a class="nav-link mt-2 {% block nav_app %}{% endblock %}" href="{% url 'accounts:app' %}">
+        <i class="bi bi-phone" aria-hidden="true"></i>Mobilappen
+      </a>
+      <a class="nav-link {% block nav_help %}{% endblock %}" href="{% url 'bookkeeping:help_index' %}">
         <i class="bi bi-question-circle" aria-hidden="true"></i>Hjälp
       </a>
     </div>

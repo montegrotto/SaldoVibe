@@ -614,6 +614,16 @@ class AccountChoiceField(forms.ModelChoiceField):
         return f"{account.number} {account.name}"
 
 
+def payment_accounts_for(company):
+    """Betalkonto: kassa/bank (19xx) samt ägarens privata betalning — 2018 (egna
+    insättningar, EF) och 2893 (avräkning aktieägare, AB). Inte t.ex. kundfordringar."""
+    return (
+        company.accounts.filter(is_active=True)
+        .filter(Q(number__startswith="19") | Q(number__in=["2018", "2893"]))
+        .order_by("number")
+    )
+
+
 class RegisterPaymentForm(forms.Form):
     """Register a manual payment and/or write-off against a payable, posting a verifikation.
 
@@ -664,9 +674,7 @@ class RegisterPaymentForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.payable = payable
         accounts = payable.company.accounts.filter(is_active=True).order_by("number")
-        # Betalkonto: kassa/bank (19xx) samt ägarens privata betalning — 2018 (egna
-        # insättningar, EF) och 2893 (avräkning aktieägare, AB). Inte t.ex. kundfordringar.
-        payment_accounts = accounts.filter(Q(number__startswith="19") | Q(number__in=["2018", "2893"]))
+        payment_accounts = payment_accounts_for(payable.company)
         # Avskrivningskonto: inte balanskonton (reskontra, kassa/bank) som redan täcks av
         # betalningen/regleringen — bara resultatkonton (öresavrundning, kundförlust, rabatt ...).
         write_off_accounts = accounts.exclude(account_class__in=[AccountClass.ASSET, AccountClass.EQUITY_LIABILITY])

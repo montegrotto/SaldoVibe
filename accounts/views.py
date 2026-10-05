@@ -1,13 +1,20 @@
+import qrcode
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout
+from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.shortcuts import redirect, render
+from django.utils.http import urlencode
+from qrcode.image.svg import SvgPathImage
 
 from attachments.utils import is_safe_return_to
 
 from .forms import LoginForm, RegisterForm
+from .models import ApiToken
 
 User = get_user_model()
+
+NEW_APP_TOKEN_SESSION_KEY = "new_api_token"
 
 
 def login_view(request):
@@ -27,6 +34,42 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect("accounts:login")
+
+
+@login_required
+def app_view(request):
+    """Mobilappen: a one-time QR code that logs the iPhone app in, and the list of the
+    user's app logins (accounts.ApiToken) with revocation. The clear-text token lives in
+    the session only until the page that shows the QR code has rendered."""
+    if request.method == "POST":
+        revoke_id = request.POST.get("revoke", "")
+        if revoke_id.isdigit():
+            deleted, _ = request.user.api_tokens.filter(pk=int(revoke_id)).delete()
+            if deleted:
+                messages.success(request, "Appinloggningen har återkallats.")
+        else:
+            request.session[NEW_APP_TOKEN_SESSION_KEY] = ApiToken.issue(request.user, name="QR-kod")
+        return redirect("accounts:app")
+
+    server_url = request.build_absolute_uri("/")
+    login_link = qr_svg = None
+    raw_token = request.session.pop(NEW_APP_TOKEN_SESSION_KEY, None)
+    if raw_token:
+        login_link = f"saldovibe://login?{urlencode({'server': server_url, 'token': raw_token})}"
+        qr_svg = qrcode.make(login_link, image_factory=SvgPathImage, box_size=10, border=1).to_string(
+            encoding="unicode"
+        )
+    return render(
+        request,
+        "accounts/app.html",
+        {
+            "server_url": server_url,
+            "login_link": login_link,
+            "qr_svg": qr_svg,
+            "qr_lifetime_minutes": int(ApiToken.UNUSED_LIFETIME.total_seconds() // 60),
+            "tokens": request.user.api_tokens.all(),
+        },
+    )
 
 
 def register_view(request):

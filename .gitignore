@@ -49,3 +49,11 @@ htmlcov/
 .DS_Store
 # Restore dry-run copies (compliance_restore_dry_run writes here by default) – real data, never commit
 docs/**/*.sqlite3
+
+# Xcode (ios/)
+xcuserdata/
+*.xcuserstate
+ios/DerivedData/
+
+# Archive/export output
+ios/build/
