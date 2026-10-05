@@ -117,6 +117,14 @@ configs:
           server web:8000;
       }
 
+      # Behind a TLS-terminating proxy in front of this stack, nginx's own $$scheme is always
+      # http; pass on the proto that proxy reported instead, so Django builds https links
+      # (the app's QR code, e-post) and treats the request as secure.
+      map $$http_x_forwarded_proto $$saldovibe_forwarded_proto {
+          default $$scheme;
+          https   https;
+      }
+
       server {
           listen 80;
           server_name _;
@@ -147,7 +155,7 @@ configs:
               proxy_http_version 1.1;
               proxy_set_header Host $$http_host;
               proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Proto $$saldovibe_forwarded_proto;
               proxy_set_header X-Forwarded-Host $$http_host;
               proxy_set_header X-Real-IP $$remote_addr;
               proxy_redirect off;

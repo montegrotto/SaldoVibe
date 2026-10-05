@@ -8,6 +8,7 @@ from django.utils.http import urlencode
 from qrcode.image.svg import SvgPathImage
 
 from attachments.utils import is_safe_return_to
+from bookkeeping.view_utils import public_base_url
 
 from .forms import LoginForm, RegisterForm
 from .models import ApiToken
@@ -51,7 +52,7 @@ def app_view(request):
             request.session[NEW_APP_TOKEN_SESSION_KEY] = ApiToken.issue(request.user, name="QR-kod")
         return redirect("accounts:app")
 
-    server_url = request.build_absolute_uri("/")
+    server_url = public_base_url(request)
     login_link = qr_svg = None
     raw_token = request.session.pop(NEW_APP_TOKEN_SESSION_KEY, None)
     if raw_token:

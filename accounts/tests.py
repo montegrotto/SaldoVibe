@@ -145,7 +145,9 @@ class AppPageTests(CompanyTestCase):
         self.assertRedirects(response, self.url, fetch_redirect_response=False)
         self.assertEqual(ApiToken.objects.get(user=self.user).name, "QR-kod")
 
-        page = self.client.get(self.url)
+        # No configured public URL (a local .env may set one): the link falls back to the request's host.
+        with self.settings(SALDOVIBE_PUBLIC_URL=""):
+            page = self.client.get(self.url)
         self.assertContains(page, "<svg")
         query = self._login_link_query(page.content.decode())
         self.assertEqual(query["server"], ["http://testserver/"])
@@ -156,6 +158,14 @@ class AppPageTests(CompanyTestCase):
         again = self.client.get(self.url)
         self.assertNotContains(again, "<svg")
         self.assertContains(again, "QR-kod")
+
+    def test_qr_uses_the_configured_public_url_rather_than_what_django_sees(self):
+        # Behind a proxy chain the request may look like http even on an https site.
+        with self.settings(SALDOVIBE_PUBLIC_URL="https://bokforing.example.se/"):
+            self.client.post(self.url, {})
+            page = self.client.get(self.url)
+        self.assertEqual(self._login_link_query(page.content.decode())["server"], ["https://bokforing.example.se/"])
+        self.assertContains(page, "https://bokforing.example.se/")
 
     def test_revoke_deletes_the_token_and_logs_the_app_out(self):
         raw_token = ApiToken.issue(self.user, name="iPhone")

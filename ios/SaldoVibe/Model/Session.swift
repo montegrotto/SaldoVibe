@@ -80,12 +80,35 @@ final class Session {
         else {
             return "Länken gick inte att tolka."
         }
-        do {
-            try await login(server: server, token: token)
-            return nil
-        } catch {
-            return error.localizedDescription
+        var lastError: Error?
+        for candidate in Session.serverCandidates(for: server) {
+            do {
+                try await login(server: candidate, token: token)
+                return nil
+            } catch {
+                lastError = error
+                if (error as? APIError)?.isUnauthorized == true { break }
+            }
         }
+        return lastError?.localizedDescription
+    }
+
+    /// A QR code made behind a proxy that drops X-Forwarded-Proto says http although the site
+    /// is https, and iOS refuses plain http to domain names anyway. For a domain name, try
+    /// https first and fall back to what the code said; IP addresses, localhost, .local and
+    /// unqualified names (which iOS allows over http) are used as given.
+    static func serverCandidates(for url: URL) -> [URL] {
+        guard url.scheme == "http", let host = url.host(), !isLocalNetworkHost(host),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { return [url] }
+        components.scheme = "https"
+        if components.port == 80 { components.port = nil }
+        return [components.url, url].compactMap { $0 }
+    }
+
+    static func isLocalNetworkHost(_ host: String) -> Bool {
+        host == "localhost" || host.hasSuffix(".local") || !host.contains(".") || host.contains(":")
+            || host.allSatisfy { $0.isNumber || $0 == "." }
     }
 
     func logout() async {

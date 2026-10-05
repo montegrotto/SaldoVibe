@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from auditlog.context import audit_user
 from bookkeeping.company_scope import can_access_company, is_read_only_member, require_company
+from bookkeeping.view_utils import public_base_url
 
 from .forms import TransactionAttachmentForm
 from .models import AttachmentUploadToken, TransactionAttachment
@@ -77,7 +78,7 @@ def attachment_list(request, company):
             "upload_token": AttachmentUploadToken.objects.filter(company=company, user=request.user).first(),
             # Klartexten finns bara i sessionen fram till den här visningen.
             "new_upload_token": request.session.pop(NEW_UPLOAD_TOKEN_SESSION_KEY, None),
-            "upload_api_url": request.build_absolute_uri(reverse("attachments:attachment_api_upload")),
+            "upload_api_url": public_base_url(request) + reverse("attachments:attachment_api_upload").lstrip("/"),
         },
     )
 
