@@ -54,3 +54,6 @@ docs/**/*.sqlite3
 xcuserdata/
 *.xcuserstate
 ios/DerivedData/
+
+# Archive/export output
+ios/build/

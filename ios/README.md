@@ -17,8 +17,7 @@ Vad appen gör och hur den används står i användarhandboken: `docs/user-guide
 - **Egen iPhone:** välj ditt team under *Signing & Capabilities* (projektet lämnar
   `DEVELOPMENT_TEAM` tomt), anslut telefonen och kör. Första gången: lita på utvecklaren under
   Inställningar → Allmänt → VPN och enhetshantering.
-- **TestFlight:** Product → Archive → Distribute App. Bundle-id är `se.saldovibe.app`; byt i
-  projektinställningarna om du registrerar ett annat i App Store Connect.
+- **TestFlight:** se nedan.
 
 Kamerafunktionerna (dokumentskannern och QR-läsaren) finns bara på en riktig enhet; i
 simulatorn erbjuds **Välj foto** och lösenordsinloggning.
@@ -34,6 +33,39 @@ xcodebuild -project SaldoVibe.xcodeproj -scheme SaldoVibe \
 Signering får inte stängas av (`CODE_SIGNING_ALLOWED=NO`) för simulatorbyggen som ska köras:
 utan "Sign to Run Locally" saknar appen entitlements och nyckelringen vägrar spara
 inloggningen (status -34018), så appen glömmer sessionen vid varje start.
+
+## TestFlight
+
+Engångsförberedelser:
+
+1. Xcode → Settings → Accounts: logga in med det Apple-ID som är med i utvecklarteamet
+   `Y4XHJ3DYSS` (projektets `DEVELOPMENT_TEAM`). Ett "Personal Team" räcker inte – det kan inte
+   ladda upp till App Store Connect. Är det ett annat team, byt `DEVELOPMENT_TEAM` i
+   `project.pbxproj` och `teamID` i `ExportOptions.plist`.
+2. [App Store Connect](https://appstoreconnect.apple.com) → Appar → **+** → Ny app: iOS, namn
+   *SaldoVibe*, primärt språk svenska, bundle-id `se.saldovibe.app` (dyker upp i listan efter
+   första arkiveringen, då Xcode registrerar App-ID:t; annars registrera det under Certificates,
+   Identifiers & Profiles), valfritt SKU t.ex. `saldovibe-ios`.
+3. Under appens flik **TestFlight** → Intern testning: skapa en grupp och lägg till dig själv
+   (App Store Connect-användare). Interna testare behöver ingen granskning; externa gör det.
+
+Sedan, varje gång:
+
+```bash
+ios/scripts/testflight.sh
+```
+
+Skriptet arkiverar i Release, låter automatisk signering skapa distributionscertifikat och
+profil (`-allowProvisioningUpdates`) och laddar upp med `ExportOptions.plist`
+(`app-store-connect`, `destination upload`). Byggnumret blir aktuell minut (`yyyymmddHHMM`) så
+att varje uppladdning är unik; versionen är `MARKETING_VERSION` i projektet. Efter några
+minuters bearbetning finns bygget under TestFlight i App Store Connect och i TestFlight-appen
+på telefonen. Samma sak från Xcode: Product → Archive → Distribute App → TestFlight & App Store.
+
+Redan på plats för uppladdningen: 1024-pixelsikon (`Assets.xcassets/AppIcon.appiconset`, rendrerad
+från `static/brand/saldovibe-mark.svg`), `PrivacyInfo.xcprivacy` (UserDefaults, skäl CA92.1, ingen
+spårning, ingen insamling) och `ITSAppUsesNonExemptEncryption = NO` (bara vanlig HTTPS), så
+exportfrågan ställs inte per bygge.
 
 ## Inloggning och API
 
