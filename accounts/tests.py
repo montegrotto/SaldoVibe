@@ -1,9 +1,15 @@
+import html
 import re
+from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
+
+from saldovibe.testing import CompanyTestCase
+
+from .models import ApiToken
 
 
 class RegistrationTests(TestCase):
@@ -107,3 +113,56 @@ class LoginRedirectTests(TestCase):
                 self.client.logout()
                 response = self._login(evil)
                 self.assertRedirects(response, reverse("bookkeeping:dashboard"), fetch_redirect_response=False)
+
+
+class AppPageTests(CompanyTestCase):
+    """/konton/appen/: the one-time QR login for the mobile app and the token list."""
+
+    user_email = "appsida@example.com"
+    company_name = "Appsidan AB"
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("accounts:app")
+
+    def _login_link_query(self, html_text):
+        match = re.search(r'href="(saldovibe://login\?[^"]+)"', html_text)
+        self.assertIsNotNone(match, "QR-sidan saknar inloggningslänk")
+        return parse_qs(urlsplit(html.unescape(match.group(1))).query)
+
+    def test_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertRedirects(response, f"{reverse('accounts:login')}?next={self.url}", fetch_redirect_response=False)
+
+    def test_page_without_tokens_says_the_app_is_not_logged_in(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, "Appen är inte inloggad")
+        self.assertNotContains(response, "<svg")
+
+    def test_post_shows_a_one_time_qr_whose_token_logs_the_app_in(self):
+        response = self.client.post(self.url, {})
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+        self.assertEqual(ApiToken.objects.get(user=self.user).name, "QR-kod")
+
+        page = self.client.get(self.url)
+        self.assertContains(page, "<svg")
+        query = self._login_link_query(page.content.decode())
+        self.assertEqual(query["server"], ["http://testserver/"])
+        me = Client().get("/api/v1/me/", headers={"Authorization": f"Bearer {query['token'][0]}"})
+        self.assertEqual(me.status_code, 200)
+        self.assertEqual(me.json()["user"]["email"], self.user_email)
+
+        again = self.client.get(self.url)
+        self.assertNotContains(again, "<svg")
+        self.assertContains(again, "QR-kod")
+
+    def test_revoke_deletes_the_token_and_logs_the_app_out(self):
+        raw_token = ApiToken.issue(self.user, name="iPhone")
+        token = ApiToken.objects.get(user=self.user)
+
+        response = self.client.post(self.url, {"revoke": str(token.pk)})
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+        self.assertFalse(ApiToken.objects.filter(pk=token.pk).exists())
+        me = Client().get("/api/v1/me/", headers={"Authorization": f"Bearer {raw_token}"})
+        self.assertEqual(me.status_code, 401)

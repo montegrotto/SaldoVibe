@@ -18,6 +18,10 @@ direkt från flöden som leverantörsfakturaregistrering via en bilage-väljare.
 
 ## Ladda upp från mobilen (dela-knappen)
 
+Har du en iPhone är [appen](13-mobilappen.md) det enklaste sättet: den fotograferar kvittot
+med iOS egen dokumentskanner och laddar upp det direkt. Genvägen nedan behövs bara om du vill
+dela filer från andra appar eller använder Android.
+
 Från mobilen kan du skicka filen du tittar på – en PDF i Filer eller Mail, eller ett kvitto du just
 skannat – direkt till bilagelistan via dela-knappen. Det bygger på en personlig
 **uppladdningstoken** och en genväg som du sätter upp en gång:

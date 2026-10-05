@@ -90,6 +90,7 @@ COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
 COPY --from=builder --chown=appuser:appuser /app/manage.py /app/manage.py
 COPY --from=builder --chown=appuser:appuser /app/saldovibe /app/saldovibe
 COPY --from=builder --chown=appuser:appuser /app/accounts /app/accounts
+COPY --from=builder --chown=appuser:appuser /app/api /app/api
 COPY --from=builder --chown=appuser:appuser /app/attachments /app/attachments
 COPY --from=builder --chown=appuser:appuser /app/auditlog /app/auditlog
 COPY --from=builder --chown=appuser:appuser /app/banking /app/banking

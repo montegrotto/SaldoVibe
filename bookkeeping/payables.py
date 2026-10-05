@@ -182,7 +182,7 @@ class PayableMixin(models.Model):
         else:
             key = "draft"
         label, css_class = self.PAYMENT_STATUS_BADGES[key]
-        return {"label": label, "css_class": css_class}
+        return {"key": key, "label": label, "css_class": css_class}
 
     @property
     def settled_total(self):

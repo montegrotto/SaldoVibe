@@ -26,6 +26,7 @@ Kapitlen är ordnade efter menyn i vänsterkolumnen i appen.
 10. [Rapporter](10-rapporter.md) – balans, resultat, SRU, händelselogg, compliance-översikt
 11. [Företagsinställningar](11-foretagsinstallningar.md) – företagsuppgifter, roller, borttagning
 12. [Integritetspolicy](12-integritetspolicy.md) – vad som lagras om dig, kakor, dina rättigheter
+13. [Mobilappen](13-mobilappen.md) – iPhone-appen: logga in, fotografera kvitton, utlägg, fakturor
 
 Allt innehåll är verifierat mot faktisk kod (views/forms/models), inte bara mot
 `docs/system-replication-spec.md` som är en aspirationsspec för att bygga om systemet – texten

@@ -22,6 +22,7 @@ from django.views.static import serve
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/v1/", include("api.urls", namespace="api")),
     path("konton/", include("accounts.urls", namespace="accounts")),
     path("", include("auditlog.urls", namespace="auditlog")),
     path("", include("attachments.urls", namespace="attachments")),

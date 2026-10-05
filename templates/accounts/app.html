@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Mobilappen – SaldoVibe{% endblock %}
+{% block page_title %}Mobilappen{% endblock %}
+{% block nav_app %}active{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-phone me-2"></i>Logga in i appen</h6>
+      </div>
+      <div class="card-body">
+        <p>
+          Med SaldoVibe-appen för iPhone fotograferar du kvitton och fakturor, registrerar utlägg och
+          leverantörsfakturor direkt från bilden, ser läget i företaget och markerar fakturor som betalda.
+          <a href="{% url 'bookkeeping:help_chapter' '13-mobilappen' %}">Så fungerar appen</a>.
+        </p>
+        <p class="mb-2">Logga in på två sätt:</p>
+        <ul class="mb-3">
+          <li><strong>QR-kod</strong> – klicka på knappen nedan och skanna koden i appen.</li>
+          <li><strong>Lösenord</strong> – ange serveradressen
+            <code id="app-server-url">{{ server_url }}</code>, din e-postadress och ditt lösenord.</li>
+        </ul>
+        {% if qr_svg %}
+          <div class="alert alert-warning py-2 mb-3">
+            Skanna koden inom {{ qr_lifetime_minutes }} minuter – den visas bara den här gången.
+          </div>
+          <div class="app-login-qr mx-auto mb-3 border rounded p-2 bg-white" id="app-login-qr">{{ qr_svg|safe }}</div>
+          <p class="small text-muted">
+            Läser du det här på telefonen? <a href="{{ login_link }}">Öppna i appen</a>.
+          </p>
+        {% endif %}
+        <form method="post" class="mb-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-qr-code me-1"></i>{% if qr_svg %}Visa en ny QR-kod{% else %}Visa QR-kod för inloggning{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-check me-2"></i>Inloggade enheter</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if tokens %}
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">Enhet</th>
+                  <th>Skapad</th>
+                  <th>Senast använd</th>
+                  <th class="text-end pe-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for token in tokens %}
+                <tr>
+                  <td class="ps-3">{{ token.name|default:"App" }}</td>
+                  <td>{{ token.created_at|date:"Y-m-d H:i" }}</td>
+                  <td>{% if token.last_used_at %}{{ token.last_used_at|date:"Y-m-d H:i" }}{% else %}<span class="text-muted">Aldrig</span>{% endif %}</td>
+                  <td class="text-end pe-3">
+                    <form method="post" class="d-inline">
+                      {% csrf_token %}
+                      <button type="submit" name="revoke" value="{{ token.pk }}" class="btn btn-outline-danger btn-sm">Återkalla</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted p-3 mb-0">Appen är inte inloggad på någon enhet.</p>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-white small text-muted">
+        Att återkalla en enhet loggar ut appen där direkt. <strong>Logga ut</strong> i appen tar bort raden här.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .app-login-qr { max-width: 280px; }
+  .app-login-qr svg { display: block; width: 100%; height: auto; }
+</style>
+{% endblock %}
