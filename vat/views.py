@@ -400,8 +400,24 @@ def vat_close_period(request, company):
         messages.info(request, "Det finns inga momsbalanser att stänga för vald period.")
         return redirect(redirect_url)
 
-    settlement_debit = Decimal("0.00")
-    settlement_credit = Decimal("0.00")
+    vat_boxes = calculate_vat_boxes(
+        company=company,
+        start_date=effective_start_date,
+        end_date=selected_period["end_date"],
+    )
+    # 2650 tar det deklarerade heltalsbeloppet (ruta 49/50, det som debiteras/krediteras
+    # skattekontot); öresskillnaden mot de bokförda momssaldona går till 3740.
+    declared = whole_krona_vat_boxes(vat_boxes)
+    declared_net = Decimal(declared["49"] - declared["50"])
+    booked_net = sum(-row["balance"] if row["field_code"] == "48" else row["balance"] for row in closing_balances)
+    rounding_difference = declared_net - booked_net
+    rounding_account = company.accounts.filter(number="3740", is_active=True).first()
+    if rounding_difference and rounding_account is None:
+        messages.error(
+            request,
+            "Kontot 3740 saknas eller är inaktivt. Lägg upp kontot för öresutjämning innan momsperioden stängs.",
+        )
+        return redirect(redirect_url)
 
     with db_transaction.atomic():
         # Lås räkenskapsåret så två samtidiga "stäng period" inte skapar dubbla stängningsverifikationer.
@@ -426,19 +442,11 @@ def vat_close_period(request, company):
             credit = Decimal("0.00")
 
             if balance_row["field_code"] == "48":
-                if amount > 0:
-                    credit = amount
-                    settlement_debit += amount
-                else:
-                    debit = -amount
-                    settlement_credit += -amount
+                amount = -amount
+            if amount > 0:
+                debit = amount
             else:
-                if amount > 0:
-                    debit = amount
-                    settlement_credit += amount
-                else:
-                    credit = -amount
-                    settlement_debit += -amount
+                credit = -amount
 
             JournalEntry.objects.create(
                 transaction=closing_transaction,
@@ -448,33 +456,26 @@ def vat_close_period(request, company):
                 description="Stängning av momsperiod",
             )
 
-        net_settlement = settlement_credit - settlement_debit
-        if net_settlement > Decimal("0.00"):
-            settlement_entry_debit = Decimal("0.00")
-            settlement_entry_credit = net_settlement
-        elif net_settlement < Decimal("0.00"):
-            settlement_entry_debit = -net_settlement
-            settlement_entry_credit = Decimal("0.00")
-        else:
-            settlement_entry_debit = Decimal("0.00")
-            settlement_entry_credit = Decimal("0.00")
+        if rounding_difference:
+            JournalEntry.objects.create(
+                transaction=closing_transaction,
+                account=rounding_account,
+                debit=max(rounding_difference, Decimal("0.00")),
+                credit=max(-rounding_difference, Decimal("0.00")),
+                description="Öresutjämning momsperiod",
+            )
 
-        if settlement_entry_debit > Decimal("0.00") or settlement_entry_credit > Decimal("0.00"):
+        if declared_net:
             JournalEntry.objects.create(
                 transaction=closing_transaction,
                 account=settlement_account,
-                debit=settlement_entry_debit,
-                credit=settlement_entry_credit,
+                debit=max(-declared_net, Decimal("0.00")),
+                credit=max(declared_net, Decimal("0.00")),
                 description="Motkonto momsperiod",
             )
 
         closing_transaction.validate_balanced()
 
-        vat_boxes = calculate_vat_boxes(
-            company=company,
-            start_date=effective_start_date,
-            end_date=selected_period["end_date"],
-        )
         source_fingerprint, source_transaction_ids = build_vat_source_fingerprint(
             company=company,
             start_date=effective_start_date,
