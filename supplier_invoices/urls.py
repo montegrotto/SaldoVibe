@@ -41,6 +41,11 @@ urlpatterns = [
         name="invoice_register",
     ),
     path(
+        "leverantorsfakturor/<int:invoice_id>/ta-bort/",
+        views.invoice_delete,
+        name="invoice_delete",
+    ),
+    path(
         "leverantorsfakturor/<int:invoice_id>/registrera-betalning/",
         views.invoice_register_payment,
         name="invoice_register_payment",

@@ -127,6 +127,12 @@
               <i class="bi bi-journal-check me-1"></i>Bokför faktura
             </button>
           </form>
+          <form method="post" action="{% url 'supplier_invoices:invoice_delete' invoice.pk %}" class="mb-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Är du säker på att du vill ta bort utkastet?');">
+              <i class="bi bi-trash me-1"></i>Ta bort utkast
+            </button>
+          </form>
         {% elif not invoice.is_paid %}
           {% url 'supplier_invoices:invoice_register_payment' invoice.pk as register_payment_url %}
           {% url 'supplier_invoices:invoice_offset' invoice.pk as offset_url %}

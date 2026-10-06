@@ -70,11 +70,15 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
     let path: String
     let title: String
     let canRegister: Bool
+    /// Drafts (not yet bookkept) can be deleted.
+    var canDelete = false
     @ViewBuilder let rows: (P) -> Rows
     @State private var item: P?
     @State private var error: String?
     @State private var paying = false
     @State private var busy = false
+    @State private var confirmingDelete = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
@@ -127,6 +131,14 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                                 Label("Registrera betalning", systemImage: "banknote")
                             }
                         }
+                        if canDelete && !item.isBookkept {
+                            Button(role: .destructive) {
+                                confirmingDelete = true
+                            } label: {
+                                Label("Ta bort utkast", systemImage: "trash")
+                            }
+                            .disabled(busy)
+                        }
                     }
                 }
             } else if let error {
@@ -145,6 +157,9 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                 }
             }
         }
+        .confirmationDialog("Ta bort utkastet?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Ta bort", role: .destructive) { Task { await delete() } }
+        }
         .task { await load() }
         .refreshable { await load() }
     }
@@ -154,6 +169,19 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
         do {
             item = try await api.get(path)
             error = nil
+        } catch {
+            self.error = session.describe(error)
+        }
+    }
+
+    private func delete() async {
+        guard let api = session.api else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.delete(path)
+            session.didChange()
+            dismiss()
         } catch {
             self.error = session.describe(error)
         }

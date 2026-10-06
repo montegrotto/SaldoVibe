@@ -37,6 +37,9 @@ huvud för att även se utbetalda utlägg. Där finns även knappen **Ny körrap
    redan uppladdade [bilagor](04-bilagor.md).
 5. Spara som **utkast**, eller välj **Registrera** för att spara och bokföra i samma steg.
 
+Ett utkast kan tas bort med **Ta bort utkast** i fakturans detaljvy. En registrerad (bokförd)
+faktura kan inte tas bort ("Bokförda fakturor kan inte tas bort.").
+
 ## Registrera (bokföra) en faktura
 
 Registrering bokför automatiskt:

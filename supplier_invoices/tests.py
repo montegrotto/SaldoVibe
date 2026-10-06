@@ -224,6 +224,39 @@ class SupplierInvoiceWorkflowTests(CompanyTestCase):
         self.assertTrue(invoice.is_registered)
         self.assertIsNotNone(invoice.registered_transaction_id)
 
+    def test_draft_can_be_deleted_but_not_a_registered_invoice(self):
+        invoice = SupplierInvoice.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            supplier=self.supplier,
+            supplier_name=self.supplier.name,
+            invoice_number="INV-2026-003",
+            invoice_date="2026-06-26",
+            due_date="2026-07-26",
+            expense_account=self.expense_account,
+            vat_account=self.vat_account,
+            payable_account=self.payable_account,
+            amount_ex_vat=Decimal("500.00"),
+            total_amount=Decimal("625.00"),
+            vat_amount=Decimal("125.00"),
+            created_by=self.user,
+        )
+        invoice.cost_lines.create(expense_account=self.expense_account, debit=Decimal("500.00"))
+        invoice.attachments.add(self.attachment)
+        delete_url = reverse("supplier_invoices:invoice_delete", args=[invoice.pk])
+        self.assertContains(self.client.get(reverse("supplier_invoices:invoice_detail", args=[invoice.pk])), delete_url)
+
+        invoice.register_and_bookkeep(self.user)
+        response = self.client.post(delete_url)
+        self.assertRedirects(response, reverse("supplier_invoices:invoice_detail", args=[invoice.pk]))
+        self.assertTrue(SupplierInvoice.objects.filter(pk=invoice.pk).exists())
+
+        SupplierInvoice.objects.filter(pk=invoice.pk).update(is_registered=False)
+        response = self.client.post(delete_url)
+        self.assertRedirects(response, reverse("supplier_invoices:invoice_list"))
+        self.assertFalse(SupplierInvoice.objects.filter(pk=invoice.pk).exists())
+        self.assertTrue(TransactionAttachment.objects.filter(pk=self.attachment.pk).exists())
+
     def test_registered_invoice_can_be_paid_via_register_payment(self):
         invoice = SupplierInvoice.objects.create(
             company=self.company,

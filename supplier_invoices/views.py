@@ -401,6 +401,21 @@ def invoice_register(request, company, invoice_id):
 @login_required
 @require_POST
 @require_company
+def invoice_delete(request, company, invoice_id):
+    invoice = get_object_or_404(SupplierInvoice, pk=invoice_id, company=company)
+
+    if invoice.is_registered:
+        messages.error(request, "Bokförda fakturor kan inte tas bort.")
+        return redirect("supplier_invoices:invoice_detail", invoice_id=invoice.pk)
+
+    invoice.delete()
+    messages.success(request, "Utkastet har tagits bort.")
+    return redirect("supplier_invoices:invoice_list")
+
+
+@login_required
+@require_POST
+@require_company
 def invoice_register_payment(request, company, invoice_id):
     invoice = get_object_or_404(SupplierInvoice, pk=invoice_id, company=company)
     return register_payable_payment_view(request, invoice, fallback="supplier_invoices:invoice_list")

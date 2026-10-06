@@ -475,9 +475,19 @@ def supplier_invoices(request, company):
     return JsonResponse([_supplier_invoice_json(i) for i in invoices[:LIST_LIMIT]], safe=False)
 
 
-@api_view()
+def _delete_draft(invoice, is_booked):
+    if is_booked:
+        raise ApiError("Bokförda fakturor kan inte tas bort.")
+    invoice.delete()
+    return HttpResponse(status=204)
+
+
+@api_view(("GET", "DELETE"))
 def supplier_invoice_detail(request, company, pk):
-    return JsonResponse(_supplier_invoice_json(_supplier_invoice(company, pk), detail=True))
+    invoice = _supplier_invoice(company, pk)
+    if request.method == "DELETE":
+        return _delete_draft(invoice, invoice.is_registered)
+    return JsonResponse(_supplier_invoice_json(invoice, detail=True))
 
 
 @api_view(("POST",))
@@ -510,9 +520,12 @@ def customer_invoices(request, company):
     return JsonResponse([_customer_invoice_json(i) for i in invoices[:LIST_LIMIT]], safe=False)
 
 
-@api_view()
+@api_view(("GET", "DELETE"))
 def customer_invoice_detail(request, company, pk):
-    return JsonResponse(_customer_invoice_json(_customer_invoice(company, pk), detail=True))
+    invoice = _customer_invoice(company, pk)
+    if request.method == "DELETE":
+        return _delete_draft(invoice, invoice.is_booked)
+    return JsonResponse(_customer_invoice_json(invoice, detail=True))
 
 
 @api_view(("POST",))
