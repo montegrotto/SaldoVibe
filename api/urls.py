@@ -19,6 +19,7 @@ urlpatterns = [
     path("utlagg/<int:pk>/", views.expense_detail, name="expense_detail"),
     path("utlagg/<int:pk>/bokfor/", views.expense_register, name="expense_register"),
     path("utlagg/<int:pk>/betalning/", views.expense_payment, name="expense_payment"),
+    path("korrapporter/", views.mileage_reports, name="mileage_reports"),
     path("leverantorsfakturor/", views.supplier_invoices, name="supplier_invoices"),
     path("leverantorsfakturor/<int:pk>/", views.supplier_invoice_detail, name="supplier_invoice_detail"),
     path("leverantorsfakturor/<int:pk>/bokfor/", views.supplier_invoice_register, name="supplier_invoice_register"),
