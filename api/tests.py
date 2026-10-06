@@ -542,6 +542,18 @@ class SupplierInvoiceTests(ApiTestCase):
         everything = self.get("/api/v1/leverantorsfakturor/", visa="alla").json()
         self.assertEqual([(i["id"], i["is_paid"]) for i in everything], [(invoice_id, True)])
 
+    def test_draft_can_be_deleted_but_not_a_booked_invoice(self):
+        draft_id = self.post("/api/v1/leverantorsfakturor/", self._payload(register=False)).json()["id"]
+        booked_id = self.post("/api/v1/leverantorsfakturor/", self._payload(invoice_number="F-1002")).json()["id"]
+
+        response = self.client.delete(f"/api/v1/leverantorsfakturor/{booked_id}/", headers=self.headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Bokförda fakturor kan inte tas bort.")
+
+        response = self.client.delete(f"/api/v1/leverantorsfakturor/{draft_id}/", headers=self.headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(list(SupplierInvoice.objects.values_list("pk", flat=True)), [booked_id])
+
 
 class CustomerInvoiceTests(ApiTestCase):
     def setUp(self):
@@ -598,6 +610,20 @@ class CustomerInvoiceTests(ApiTestCase):
         credit.is_booked = True
         credit.save(update_fields=["is_booked"])
         self.assertFalse(self.get(f"/api/v1/kundfakturor/{credit.pk}/").json()["is_overdue"])
+
+    def test_draft_can_be_deleted_but_not_a_booked_invoice(self):
+        draft = Invoice.objects.create(
+            company=self.company,
+            customer=self.invoice.customer,
+            invoice_date=date(2026, 9, 1),
+            due_date=date(2026, 9, 30),
+        )
+        response = self.client.delete(f"/api/v1/kundfakturor/{self.invoice.pk}/", headers=self.headers)
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.delete(f"/api/v1/kundfakturor/{draft.pk}/", headers=self.headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(list(Invoice.objects.values_list("pk", flat=True)), [self.invoice.pk])
 
 
 class ReportTests(ApiTestCase):

@@ -29,6 +29,9 @@ i listans huvud för att även se betalda fakturor.
    mod10-kontrollsiffra, för användning på inbetalningar.
 5. Spara antingen som **utkast** eller direkt med **Skapa och bokför**.
 
+Ett utkast kan tas bort med **Ta bort faktura** i fakturans detaljvy. En bokförd faktura kan inte
+tas bort – den krediteras i stället med en kreditfaktura.
+
 ## Bokföra en faktura
 
 Bokföring kan göras direkt vid skapande eller senare från fakturans detaljvy (**Bokför**). Vid

@@ -95,13 +95,13 @@ konton registreras fakturan på datorn, där kostnadsrader kan läggas till.
 
 Listan visar obetalda fakturor med förfallna markerade i rött; **Visa alla** tar med betalda.
 Betalning registreras med datum, belopp och betalkonto precis som på webben – ett belopp som
-avviker upp till 1 kr skrivs av som öresavrundning.
+avviker upp till 1 kr skrivs av som öresavrundning. Ett utkast kan tas bort med **Ta bort utkast**.
 
 ## Kundfakturor
 
 Obetalda kundfakturor med förfallna markerade, detaljer med fakturarader och bilagor, och
-**Registrera betalning** när pengarna kommit in. Kundfakturor skapas, skickas och krediteras på
-datorn.
+**Registrera betalning** när pengarna kommit in. Ett obokfört utkast kan tas bort med **Ta bort
+utkast**. Kundfakturor skapas, skickas och krediteras på datorn.
 
 ## Felsökning
 
