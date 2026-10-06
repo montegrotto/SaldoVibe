@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -105,6 +106,15 @@ class LoginTests(ApiTestCase):
         self.user.save()
         self.assertEqual(self._login(DEFAULT_PASSWORD).status_code, 400)
         self.assertEqual(ApiToken.objects.filter(user=self.user).count(), 1)  # only setUp's
+
+    def test_repeated_wrong_passwords_lock_the_address(self):
+        self.addCleanup(cache.clear)
+        for _ in range(10):
+            self.assertEqual(self._login("fel-lösenord").status_code, 400)
+        self.assertEqual(self._login(DEFAULT_PASSWORD).status_code, 400)
+
+        cache.clear()  # the lockout has expired
+        self.assertEqual(self._login(DEFAULT_PASSWORD).status_code, 200)
 
 
 class TokenTests(TestCase):
@@ -303,6 +313,22 @@ class AttachmentTests(ApiTestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json(), {"error": "Hittades inte."})
 
+    def test_file_missing_on_disk_is_404(self):
+        attachment = self.create_attachment()
+        attachment.file.storage.delete(attachment.file.name)
+        response = self.get(f"/api/v1/bilagor/{attachment.pk}/fil/")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {"error": "Hittades inte."})
+
+    def test_swedish_file_name_is_encoded_in_content_disposition(self):
+        attachment = TransactionAttachment.objects.create(
+            company=self.company,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("kvitto_åäö.pdf", PDF, content_type="application/pdf"),
+        )
+        response = self.get(f"/api/v1/bilagor/{attachment.pk}/fil/")
+        self.assertEqual(response["Content-Disposition"], "inline; filename*=utf-8''kvitto_%C3%A5%C3%A4%C3%B6.pdf")
+
 
 class ExpenseTests(ApiTestCase):
     def _payload(self, **overrides):
@@ -484,6 +510,19 @@ class SupplierInvoiceTests(ApiTestCase):
         self.assertEqual(Supplier.objects.filter(company=self.company).count(), 1)
         self.assertEqual(first["supplier_id"], second["supplier_id"])
 
+    def test_invoice_number_is_unique_per_supplier(self):
+        self.assertEqual(self.post("/api/v1/leverantorsfakturor/", self._payload()).status_code, 201)
+
+        duplicate = self.post("/api/v1/leverantorsfakturor/", self._payload())
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(
+            duplicate.json()["errors"]["invoice_number"],
+            ["Leverantören har redan en faktura med det här fakturanumret."],
+        )
+
+        other_supplier = self.post("/api/v1/leverantorsfakturor/", self._payload(new_supplier_name="Tele2"))
+        self.assertEqual(other_supplier.status_code, 201)
+
     def test_missing_expense_account_is_rejected(self):
         response = self.post("/api/v1/leverantorsfakturor/", self._payload(expense_account=None))
         self.assertEqual(response.status_code, 400)
@@ -545,6 +584,20 @@ class CustomerInvoiceTests(ApiTestCase):
         self.invoice.refresh_from_db()
         self.assertTrue(self.invoice.is_paid)
         self.assertEqual(self.get("/api/v1/kundfakturor/").json(), [])
+
+    def test_drafts_and_credit_invoices_are_never_overdue(self):
+        credit = Invoice.objects.create(
+            company=self.company,
+            customer=self.invoice.customer,
+            invoice_date=date(2026, 9, 1),
+            due_date=date(2026, 9, 30),
+        )
+        InvoiceLine.objects.create(invoice=credit, description="Kreditering", unit_price=Decimal("-1000.00"))
+        self.assertTrue(credit.is_credit_invoice)
+        self.assertFalse(self.get(f"/api/v1/kundfakturor/{credit.pk}/").json()["is_overdue"])  # draft and credit
+        credit.is_booked = True
+        credit.save(update_fields=["is_booked"])
+        self.assertFalse(self.get(f"/api/v1/kundfakturor/{credit.pk}/").json()["is_overdue"])
 
 
 class ReportTests(ApiTestCase):
@@ -610,3 +663,7 @@ class ReportTests(ApiTestCase):
         self.assertEqual(liabilities["total"], "250.00")
         self.assertEqual(self.section(data, "Summa eget kapital och skulder")["total"], "250.00")
         self.assertEqual(data["result"], {"label": "Beräknat resultat", "amount": "1000.00", "note": None})
+
+    def test_non_numeric_year_falls_back_to_the_current_year(self):
+        for path in ("/api/v1/resultatrakning/", "/api/v1/balansrakning/"):
+            self.assertEqual(self.get(path, year="abc").json(), self.get(path).json())

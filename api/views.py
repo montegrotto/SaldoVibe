@@ -167,7 +167,10 @@ def _customer_invoice_json(invoice, detail=False):
         ocr_code=invoice.ocr_code,
         invoice_date=_date(invoice.invoice_date),
         due_date=_date(invoice.due_date),
-        is_overdue=not invoice.is_paid and invoice.due_date < timezone.localdate(),
+        is_overdue=invoice.is_booked
+        and not invoice.is_paid
+        and not invoice.is_credit_invoice
+        and invoice.due_date < timezone.localdate(),
         is_credit_invoice=invoice.is_credit_invoice,
         vat_amount=_amount(invoice.vat_amount),
         amount_ex_vat=_amount(invoice.subtotal_ex_vat),

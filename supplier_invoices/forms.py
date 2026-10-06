@@ -125,6 +125,10 @@ class SupplierInvoiceForm(forms.ModelForm):
 
         if not supplier:
             self.add_error("supplier", "Leverantör måste anges.")
+        elif (invoice_number := cleaned_data.get("invoice_number")) and SupplierInvoice.objects.filter(
+            company=self.company, supplier=supplier, invoice_number=invoice_number
+        ).exists():
+            self.add_error("invoice_number", "Leverantören har redan en faktura med det här fakturanumret.")
 
         if invoice_date:
             accounting_year = self._get_accounting_year_for_invoice_date(invoice_date)
