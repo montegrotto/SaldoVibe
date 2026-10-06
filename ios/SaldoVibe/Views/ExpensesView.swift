@@ -7,6 +7,7 @@ struct ExpensesView: View {
     @State private var loaded = false
     @State private var showAll = false
     @State private var creating = false
+    @State private var creatingMileage = MainTabView.launchArgument("-new") == "korrapport"
 
     var body: some View {
         NavigationStack {
@@ -27,7 +28,10 @@ struct ExpensesView: View {
                 }
                 if !(session.company?.readOnly ?? false) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Nytt utlägg", systemImage: "plus") { creating = true }
+                        Menu("Nytt", systemImage: "plus") {
+                            Button("Nytt utlägg", systemImage: "creditcard") { creating = true }
+                            Button("Ny körrapport", systemImage: "car") { creatingMileage = true }
+                        }
                     }
                 }
             }
@@ -44,6 +48,9 @@ struct ExpensesView: View {
             }
             .sheet(isPresented: $creating) {
                 ExpenseFormView()
+            }
+            .sheet(isPresented: $creatingMileage) {
+                MileageFormView()
             }
             .onChange(of: showAll) { Task { await load() } }
             .reloads(on: session.changeCounter) { await load() }
@@ -76,6 +83,14 @@ struct ExpenseDetailView: View {
                 }
                 LabeledContent("Exkl. moms", value: expense.amountExVat.formatted)
                 LabeledContent("Moms", value: expense.vatAmount.formatted)
+            }
+            if let mileage = expense.mileage {
+                Section("Körrapport") {
+                    LabeledContent("Resväg", value: mileage.route)
+                    LabeledContent("Syfte", value: mileage.purpose)
+                    LabeledContent("Sträcka", value: "\(mileage.distanceKm.replacingOccurrences(of: ".", with: ",")) km")
+                    LabeledContent("Ersättning", value: "\(mileage.ratePerMil.formatted)/mil")
+                }
             }
         }
     }
@@ -193,6 +208,110 @@ struct ExpenseFormView: View {
             ]))
             session.didChange()
             onSaved()
+            dismiss()
+        } catch {
+            self.error = session.describe(error)
+        }
+    }
+}
+
+/// Körrapport: same fields and rules as Personal → Utlägg → Ny körrapport on the web. The
+/// server turns it into an expense on 7331 for the employee.
+struct MileageFormView: View {
+    @Environment(Session.self) private var session
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var choices: FormChoices?
+    @State private var employee: NamedItem?
+    @State private var date = Date()
+    @State private var route = ""
+    @State private var purpose = ""
+    @State private var distance = ""
+    @State private var rate = ""
+    @State private var error: String?
+    @State private var busy = false
+
+    private var reimbursement: Decimal? {
+        guard let km = Amount.parse(distance), let perMil = Amount.parse(rate), km > 0, perMil > 0 else { return nil }
+        return km / 10 * perMil
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Resa") {
+                    Picker("Anställd", selection: $employee) {
+                        Text("Välj…").tag(nil as NamedItem?)
+                        ForEach(choices?.employees ?? []) { employee in
+                            Text(employee.name).tag(Optional(employee))
+                        }
+                    }
+                    DatePicker("Datum", selection: $date, displayedComponents: .date)
+                    TextField("Resväg, t.ex. Stockholm–Uppsala t/r", text: $route)
+                    TextField("Syfte, t.ex. Kundmöte", text: $purpose)
+                }
+                Section {
+                    LabeledContent("Sträcka (km)") {
+                        TextField("0", text: $distance)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
+                    }
+                    AmountField("Ersättning (kr/mil)", text: $rate)
+                    LabeledContent("Att ersätta", value: Amount(reimbursement ?? 0).formatted)
+                } footer: {
+                    Text("Förifyllt med Skatteverkets skattefria schablon. Bokförs på 7331 mot 2820.")
+                }
+                if let error {
+                    Section { Text(error).foregroundStyle(.red) }
+                }
+                Section {
+                    Button {
+                        Task { await save(register: true) }
+                    } label: {
+                        Label("Lämna in och bokför", systemImage: "checkmark.seal")
+                    }
+                    Button {
+                        Task { await save(register: false) }
+                    } label: {
+                        Label("Spara som utkast", systemImage: "tray")
+                    }
+                }
+                .disabled(busy || employee == nil || route.isEmpty || purpose.isEmpty || reimbursement == nil)
+            }
+            .navigationTitle("Ny körrapport")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }
+            }
+            .task {
+                do {
+                    choices = try await session.loadChoices()
+                } catch {
+                    self.error = session.describe(error)
+                }
+                if rate.isEmpty { rate = Amount.apiString(choices?.mileageRatePerMil?.value ?? 25).replacingOccurrences(of: ".", with: ",") }
+                if employee == nil, choices?.employees.count == 1 { employee = choices?.employees.first }
+            }
+        }
+    }
+
+    private func save(register: Bool) async {
+        guard let api = session.api, let km = Amount.parse(distance), let perMil = Amount.parse(rate) else { return }
+        busy = true
+        defer { busy = false }
+        error = nil
+        do {
+            let _: Expense = try await api.post("korrapporter/", json: jsonObject([
+                "employee": employee?.id,
+                "trip_date": ISODate.string(date),
+                "route": route,
+                "purpose": purpose,
+                "distance_km": "\(km)",
+                "rate_per_mil": Amount.apiString(perMil),
+                "register": register,
+            ]))
+            session.didChange()
             dismiss()
         } catch {
             self.error = session.describe(error)

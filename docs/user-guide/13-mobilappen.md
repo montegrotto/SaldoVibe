@@ -1,5 +1,5 @@
 ---
-description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg och leverantörsfakturor, se läget, läsa resultat- och balansräkningen och markera fakturor som betalda."
+description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg, körrapporter och leverantörsfakturor, se läget, läsa resultat- och balansräkningen och markera fakturor som betalda."
 ---
 
 # 13. Mobilappen
@@ -74,6 +74,15 @@ bokföra; **Bokför** registrerar det direkt med samma konton och kontroller som
 
 Listan visar obetalda utlägg; **Visa alla** tar med utbetalda. Ett bokfört utlägg betalas ut med
 **Registrera betalning**: datum, belopp och betalkonto (förvalt 1930).
+
+### Körrapporter
+
+Plusknappen i fliken **Utlägg** har två val: **Nytt utlägg** och **Ny körrapport**. Körrapporten
+har samma fält som på webben (se [Körrapporter](06-loner.md#körrapporter)): anställd, datum,
+resväg, syfte, sträcka i km och ersättning i kr/mil, förifylld med Skatteverkets skattefria
+schablon. Beloppet att ersätta räknas ut medan du skriver. **Lämna in och bokför** skapar och
+bokför utlägget på 7331 mot 2820; **Spara som utkast** sparar det obokfört. Körrapporten hamnar
+sedan i utläggslistan, och utläggets sida visar resväg, syfte, sträcka och ersättning per mil.
 
 ## Leverantörsfakturor
 

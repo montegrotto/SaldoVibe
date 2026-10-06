@@ -137,6 +137,8 @@ struct FormChoices: Codable {
     let defaultPaymentAccountId: Int?
     let suppliers: [NamedItem]
     let employees: [NamedItem]
+    /// Optional so the app still decodes an older server without körrapporter.
+    let mileageRatePerMil: Amount?
 
     var paymentAccounts: [Account] { accounts.filter { paymentAccountIds.contains($0.id) } }
     var defaultPaymentAccount: Account? { accounts.first { $0.id == defaultPaymentAccountId } }
@@ -232,11 +234,21 @@ struct Expense: Payable, Codable {
     let amountExVat: Amount
     let expenseAccount: Account?
     let attachments: [Attachment]?
+    let mileage: Mileage?
 
     var title: String { description }
     var subtitle: String { person }
     var dateLabel: String { expenseDate }
     var isOverdue: Bool { false }
+}
+
+/// The körrapport behind an expense, on the detail endpoint only.
+struct Mileage: Codable, Hashable {
+    let route: String
+    let purpose: String
+    let tripDate: String
+    let distanceKm: String
+    let ratePerMil: Amount
 }
 
 struct CostLine: Codable, Hashable {

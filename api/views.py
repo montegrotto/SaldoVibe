@@ -1,8 +1,8 @@
 """JSON endpoints behind the iPhone app (ios/).
 
 Token auth and company scoping live in auth.py. Every write goes through the same forms
-and services as the web views (ExpenseClaimForm, SupplierInvoiceForm, RegisterPaymentForm,
-register_and_bookkeep, register_manual_payment), so the two clients cannot disagree on
+and services as the web views (ExpenseClaimForm, SupplierInvoiceForm, MileageReportForm,
+RegisterPaymentForm, register_and_bookkeep, MileageReport.submit, register_manual_payment), so the two clients cannot disagree on
 validation, default accounts or what gets posted to the ledger.
 """
 
@@ -29,6 +29,8 @@ from bookkeeping.views.dashboard import dashboard_summary
 from expenses.forms import ExpenseClaimForm
 from expenses.models import ExpenseClaim
 from invoicing.models import Invoice
+from payroll.forms import MileageReportForm
+from payroll.models import MileageReport
 from supplier_invoices.forms import SupplierInvoiceForm
 from supplier_invoices.models import Supplier, SupplierInvoice, SupplierInvoiceCostLine
 
@@ -118,7 +120,21 @@ def _expense_json(claim, detail=False):
         amount_ex_vat=_amount(claim.amount_ex_vat),
         expense_account=_account_json(claim.expense_account),
     )
-    return _with_attachments(data, claim) if detail else data
+    if not detail:
+        return data
+    report = getattr(claim, "mileage_report", None)
+    data["mileage"] = (
+        {
+            "route": report.route,
+            "purpose": report.purpose,
+            "trip_date": _date(report.trip_date),
+            "distance_km": str(report.distance_km),
+            "rate_per_mil": _amount(report.rate_per_mil),
+        }
+        if report
+        else None
+    )
+    return _with_attachments(data, claim)
 
 
 def _supplier_invoice_json(invoice, detail=False):
@@ -273,6 +289,7 @@ def form_choices(request, company):
             "suppliers": [
                 {"id": s.pk, "name": s.name} for s in company.suppliers.filter(is_active=True).order_by("name")
             ],
+            "mileage_rate_per_mil": _amount(MileageReport.DEFAULT_RATE_PER_MIL),
             "employees": [
                 {"id": e.pk, "name": str(e)}
                 for e in company.employees.filter(is_active=True).order_by("first_name", "last_name")
@@ -390,6 +407,20 @@ def expense_register(request, company, pk):
 @api_view(("POST",))
 def expense_payment(request, company, pk):
     return _register_payment(request, _expense(company, pk), _expense_json)
+
+
+@api_view(("POST",))
+def mileage_reports(request, company):
+    """Körrapport, as payroll:mileage_report_create: submit() creates the expense claim
+    (7331 against 2820) and books it when `register`. Answers with that claim."""
+    data = json_body(request)
+    form = MileageReportForm(form_data(data), company=company)
+    if not form.is_valid():
+        raise form_error(form)
+    report = form.save(commit=False)
+    report.company = company
+    claim = report.submit(request.user, register=bool(data.get("register")))
+    return JsonResponse(_expense_json(claim, detail=True), status=201)
 
 
 # --- supplier invoices -----------------------------------------------------------------

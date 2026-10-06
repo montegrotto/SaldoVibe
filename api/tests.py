@@ -242,6 +242,7 @@ class FormChoicesTests(ApiTestCase):
         self.assertEqual(data["default_payment_account_id"], self.account("1930").pk)
         self.assertEqual(data["suppliers"], [{"id": supplier.pk, "name": "Telia"}])
         self.assertEqual(data["employees"], [{"id": employee.pk, "name": "Anna Andersson"}])
+        self.assertEqual(data["mileage_rate_per_mil"], "25.00")
 
 
 class AttachmentTests(ApiTestCase):
@@ -383,6 +384,66 @@ class ExpenseTests(ApiTestCase):
         self.assertIn("låst", response.json()["error"])
         self.assertEqual(ExpenseClaim.objects.count(), 1)
         self.assertFalse(Transaction.objects.exists())
+
+
+class MileageReportTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.employee = Employee.objects.create(
+            company=self.company,
+            first_name="Anna",
+            last_name="Andersson",
+            personal_identity_number="199001011234",
+            monthly_salary=Decimal("40000.00"),
+        )
+
+    def _payload(self, **overrides):
+        return {
+            "employee": self.employee.pk,
+            "trip_date": "2026-09-15",
+            "route": "Stockholm–Uppsala t/r",
+            "purpose": "Kundmöte",
+            "distance_km": "142,5",
+            "rate_per_mil": "25.00",
+            "register": True,
+            **overrides,
+        }
+
+    def test_submit_books_an_expense_on_7331(self):
+        response = self.post("/api/v1/korrapporter/", self._payload())
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["status"], "bookkept")
+        self.assertEqual(data["total_amount"], "356.25")
+        self.assertEqual(data["expense_account"]["number"], "7331")
+        self.assertEqual(data["mileage"]["route"], "Stockholm–Uppsala t/r")
+        self.assertEqual(data["mileage"]["distance_km"], "142.5")
+        claim = ExpenseClaim.objects.get(pk=data["id"])
+        self.assertEqual(claim.mileage_report.employee, self.employee)
+        self.assertTrue(claim.is_registered)
+        self.assertEqual(self.get(f"/api/v1/utlagg/{claim.pk}/").json()["mileage"]["purpose"], "Kundmöte")
+
+    def test_draft_is_not_booked(self):
+        data = self.post("/api/v1/korrapporter/", self._payload(register=False)).json()
+        self.assertEqual(data["status"], "draft")
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_validation_error_names_the_field(self):
+        response = self.post("/api/v1/korrapporter/", self._payload(distance_km="0"))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("distance_km", response.json()["errors"])
+        self.assertFalse(ExpenseClaim.objects.exists())
+
+    def test_trip_outside_accounting_years_is_rejected(self):
+        response = self.post("/api/v1/korrapporter/", self._payload(trip_date="2001-01-01"))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Inget räkenskapsår matchar resdatumet.")
+        self.assertFalse(ExpenseClaim.objects.exists())
+
+    def test_plain_expense_detail_has_no_mileage(self):
+        data = self.post("/api/v1/utlagg/", ExpenseTests._payload(self)).json()
+        self.assertIsNone(data["mileage"])
 
 
 class SupplierInvoiceTests(ApiTestCase):
