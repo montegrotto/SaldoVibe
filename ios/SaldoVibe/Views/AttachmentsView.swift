@@ -80,12 +80,7 @@ struct AttachmentDetailView: View {
     var allowRegister = true
     @State private var fileURL: URL?
     @State private var error: String?
-    @State private var form: FormKind?
-
-    enum FormKind: String, Identifiable {
-        case expense, supplierInvoice
-        var id: String { rawValue }
-    }
+    @State private var registering = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -105,12 +100,9 @@ struct AttachmentDetailView: View {
                         Text("Läst från bilden: \([suggestion.vendor, Amount(total).formatted, suggestion.date].compactMap { $0 }.joined(separator: " · "))")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
-                    HStack {
-                        Button("Utlägg", systemImage: "creditcard") { form = .expense }
-                        Button("Leverantörsfaktura", systemImage: "doc.text") { form = .supplierInvoice }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    Button("Registrera som utlägg", systemImage: "creditcard") { registering = true }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -120,13 +112,8 @@ struct AttachmentDetailView: View {
         .navigationTitle(attachment.fileName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await download() }
-        .sheet(item: $form) { kind in
-            switch kind {
-            case .expense:
-                ExpenseFormView(prefill: attachment) { dismiss() }
-            case .supplierInvoice:
-                SupplierInvoiceFormView(prefill: attachment) { dismiss() }
-            }
+        .sheet(isPresented: $registering) {
+            ExpenseFormView(prefill: attachment) { dismiss() }
         }
     }
 

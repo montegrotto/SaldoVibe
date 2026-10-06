@@ -73,7 +73,7 @@ struct ExpenseDetailView: View {
     let id: Int
 
     var body: some View {
-        DocumentDetailView<Expense, _>(path: "utlagg/\(id)/", title: "Utlägg", canRegister: true) { expense in
+        DocumentDetailView<Expense, _>(path: "utlagg/\(id)/", title: "Utlägg") { expense in
             Section("Utlägg") {
                 LabeledContent("Beskrivning", value: expense.description)
                 LabeledContent("Datum", value: ISODate.display(expense.expenseDate))

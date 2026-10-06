@@ -1,13 +1,13 @@
 ---
-description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg, körrapporter och leverantörsfakturor, se läget, läsa resultat- och balansräkningen och markera fakturor som betalda."
+description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg och körrapporter, se läget, läsa resultat- och balansräkningen och se leverantörs- och kundfakturor."
 ---
 
 # 13. Mobilappen
 
 Appen är till för det man gör på språng: fotografera kvitton och fakturor, registrera utlägg
-och leverantörsfakturor direkt från bilden, se läget i företaget, läsa resultat- och
-balansräkningen och markera fakturor som betalda. Allt annat – verifikationer, övriga rapporter,
-moms, lön, SIE, bank och inställningar – görs på datorn.
+direkt från bilden, se läget i företaget, läsa resultat- och balansräkningen och se leverantörs-
+och kundfakturor. Allt annat – att skapa, bokföra och betala fakturor, verifikationer, övriga
+rapporter, moms, lön, SIE, bank och inställningar – görs på datorn.
 
 Appen finns för iPhone (iOS 18 eller senare). Den finns inte i App Store utan byggs från
 källkoden i mappen `ios/` med Xcode och installeras på telefonen via Xcode eller TestFlight;
@@ -58,11 +58,11 @@ Fliken **Kvitton** visar bilagor som ännu inte kopplats till något, alltså sa
 - **Välj foto** tar en bild ur bildbiblioteket.
 
 Filen laddas upp direkt och går genom samma fältigenkänning som en uppladdning på webben.
-Förslagen (datum, totalbelopp, moms, leverantör, fakturanummer, förfallodatum) fylls i när du
-registrerar något från bilagan – de är bara förslag och kan ändras innan du sparar.
+Förslagen (datum, totalbelopp, moms, leverantör) fylls i när du registrerar ett utlägg från
+bilagan – de är bara förslag och kan ändras innan du sparar. En fotograferad leverantörsfaktura
+ligger kvar i listan tills den registrerats på datorn under **Leverantörsfakturor**.
 
-Tryck på en bilaga för att se den i full storlek. Därifrån: **Registrera som utlägg** eller
-**Registrera som leverantörsfaktura**.
+Tryck på en bilaga för att se den i full storlek. Därifrån: **Registrera som utlägg**.
 
 ## Utlägg
 
@@ -84,24 +84,14 @@ schablon. Beloppet att ersätta räknas ut medan du skriver. **Lämna in och bok
 bokför utlägget på 7331 mot 2820; **Spara som utkast** sparar det obokfört. Körrapporten hamnar
 sedan i utläggslistan, och utläggets sida visar resväg, syfte, sträcka och ersättning per mil.
 
-## Leverantörsfakturor
+## Fakturor
 
-Fotografera fakturan eller välj en uppladdad bilaga. Leverantör, fakturanummer, OCR, fakturadatum,
-förfallodatum, totalbelopp och moms föreslås från bilden. Hittas inte leverantören i
-leverantörsregistret erbjuder appen att skapa den med namnet från fakturan.
+Fliken visar leverantörs- och kundfakturor – bara för att läsa. Listan visar obetalda fakturor
+med förfallna markerade i rött; **Visa alla** tar med betalda. En faktura öppnas med sina
+uppgifter, kostnadskonton respektive fakturarader, betalningsstatus och bilagor.
 
-Hela beloppet exklusive moms bokförs på **ett** kostnadskonto. Ska kostnaden delas på flera
-konton registreras fakturan på datorn, där kostnadsrader kan läggas till.
-
-Listan visar obetalda fakturor med förfallna markerade i rött; **Visa alla** tar med betalda.
-Betalning registreras med datum, belopp och betalkonto precis som på webben – ett belopp som
-avviker upp till 1 kr skrivs av som öresavrundning. Ett utkast kan tas bort med **Ta bort utkast**.
-
-## Kundfakturor
-
-Obetalda kundfakturor med förfallna markerade, detaljer med fakturarader och bilagor, och
-**Registrera betalning** när pengarna kommit in. Ett obokfört utkast kan tas bort med **Ta bort
-utkast**. Kundfakturor skapas, skickas och krediteras på datorn.
+Fakturor skapas, bokförs, betalas, krediteras och tas bort på datorn – i appen går det inte,
+inte heller som utkast.
 
 ## Felsökning
 

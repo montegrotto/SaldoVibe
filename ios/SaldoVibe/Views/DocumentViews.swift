@@ -64,21 +64,18 @@ struct AccountRow: View {
 }
 
 /// Detail page for an expense, supplier invoice or customer invoice: document rows from the
-/// caller, then payment state, attachments and the actions the role allows.
+/// caller, then payment state, attachments and the actions the role allows. Invoices pass
+/// `actions: false` – the app only shows them; booking and payment happen on the web.
 struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
     @Environment(Session.self) private var session
     let path: String
     let title: String
-    let canRegister: Bool
-    /// Drafts (not yet bookkept) can be deleted.
-    var canDelete = false
+    var actions = true
     @ViewBuilder let rows: (P) -> Rows
     @State private var item: P?
     @State private var error: String?
     @State private var paying = false
     @State private var busy = false
-    @State private var confirmingDelete = false
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
@@ -114,9 +111,9 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
                 }
-                if !(session.company?.readOnly ?? false) && (!item.isBookkept || !item.isPaid) {
+                if actions && !(session.company?.readOnly ?? false) && (!item.isBookkept || !item.isPaid) {
                     Section {
-                        if canRegister && !item.isBookkept {
+                        if !item.isBookkept {
                             Button {
                                 Task { await register() }
                             } label: {
@@ -130,14 +127,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                             } label: {
                                 Label("Registrera betalning", systemImage: "banknote")
                             }
-                        }
-                        if canDelete && !item.isBookkept {
-                            Button(role: .destructive) {
-                                confirmingDelete = true
-                            } label: {
-                                Label("Ta bort utkast", systemImage: "trash")
-                            }
-                            .disabled(busy)
                         }
                     }
                 }
@@ -157,9 +146,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                 }
             }
         }
-        .confirmationDialog("Ta bort utkastet?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Ta bort", role: .destructive) { Task { await delete() } }
-        }
         .task { await load() }
         .refreshable { await load() }
     }
@@ -169,19 +155,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
         do {
             item = try await api.get(path)
             error = nil
-        } catch {
-            self.error = session.describe(error)
-        }
-    }
-
-    private func delete() async {
-        guard let api = session.api else { return }
-        busy = true
-        defer { busy = false }
-        do {
-            try await api.delete(path)
-            session.didChange()
-            dismiss()
         } catch {
             self.error = session.describe(error)
         }
