@@ -110,20 +110,7 @@
                     </a>
                   {% endif %}
 
-                  {% if not claim.is_registered %}
-                    <form method="post" action="{% url 'expenses:expense_register' claim.pk %}" class="d-inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-primary btn-sm mt-1">
-                        <i class="bi bi-journal-check me-1"></i>Bokför
-                      </button>
-                    </form>
-                    <form method="post" action="{% url 'expenses:expense_delete' claim.pk %}" class="d-inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-outline-danger btn-sm mt-1">
-                        <i class="bi bi-trash me-1"></i>Ta bort
-                      </button>
-                    </form>
-                  {% elif claim.is_registered and not claim.is_paid %}
+                  {% if claim.is_registered and not claim.is_paid %}
                     <a href="{% url 'expenses:expense_detail' claim.pk %}" class="btn btn-outline-success btn-sm mt-1">
                       <i class="bi bi-cash-coin me-1"></i>Registrera betalning
                     </a>

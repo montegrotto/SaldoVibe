@@ -124,14 +124,7 @@
                     </a>
                   {% endif %}
 
-                  {% if not invoice.is_registered %}
-                    <form method="post" action="{% url 'supplier_invoices:invoice_register' invoice.pk %}" class="d-inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-primary btn-sm mt-1">
-                        <i class="bi bi-journal-check me-1"></i>Bokför
-                      </button>
-                    </form>
-                  {% elif invoice.is_registered and not invoice.is_paid %}
+                  {% if invoice.is_registered and not invoice.is_paid %}
                     <a href="{% url 'supplier_invoices:invoice_detail' invoice.pk %}" class="btn btn-outline-success btn-sm mt-1">
                       <i class="bi bi-cash-coin me-1"></i>Registrera betalning
                     </a>

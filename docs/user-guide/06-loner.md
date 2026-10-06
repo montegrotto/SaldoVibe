@@ -44,7 +44,7 @@ utbetalningen.
 Har den anställde bokförda utlägg eller körrapporter som ännu inte betalats ut visas rutan
 **Utlägg som väntar på utbetalning** överst på löneposten. Bocka i dem som ska följa med
 löneutbetalningen – eller kryssa i **Markera/avmarkera alla** – och spara. Preliminära (obokförda) utlägg
-visas inte, bokför dem först i utläggslistan. På lönekörningens sida lägger knappen
+visas inte, bokför dem först från utläggets sida. På lönekörningens sida lägger knappen
 **Ta med alla utlägg** alla bokförda, obetalda utlägg och körrapporter som inte redan ligger på en
 lönepost på respektive anställds lönepost, så slipper du bocka i dem en och en.
 
@@ -69,8 +69,9 @@ Skatteverkets skattefria schablon, 25 kr/mil). Samma sak går att göra i
   7331 (Skattefria bilersättningar) mot skulden 2820. Saknas något av kontona i kontoplanen, eller
   ett räkenskapsår för resdatumet, stoppas inlämningen.
 - **Spara som utkast** skapar en preliminär körrapport som inte är bokförd. Bokför den senare med
-  **Bokför** i utläggslistan, eller ta bort den medan den är ett utkast. Samma gäller vanliga
-  utlägg (**Spara som utkast** i utläggsformuläret).
+  **Bokför utlägg** på utläggets sida (öppna det med **Visa** i utläggslistan), eller ta bort den
+  där med **Ta bort utlägg** medan den är ett utkast. Samma gäller vanliga utlägg (**Spara som
+  utkast** i utläggsformuläret).
 
 Körrapporter syns i utläggslistan med en bilikon och sträckan. Öppna utlägget med **Visa** för att
 i efterhand se resväg, syfte, resdatum, sträcka, ersättning per mil samt när och av vem rapporten
