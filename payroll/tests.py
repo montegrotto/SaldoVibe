@@ -1476,15 +1476,23 @@ class MileageReportTests(CompanyTestCase):
         self.assertContains(detail, "Stockholm–Uppsala t/r")
         self.assertContains(detail, "Kundmöte")
 
-    def test_draft_is_not_booked_until_registered_from_the_expense_list(self):
+    def test_draft_is_not_booked_until_registered_from_the_expense_detail(self):
         self._post()
 
         report = MileageReport.objects.get(company=self.company)
         claim = report.expense_claim
         self.assertFalse(claim.is_registered)
         self.assertFalse(JournalEntry.objects.exists())
+        register_url = reverse("expenses:expense_register", args=[claim.pk])
+        delete_url = reverse("expenses:expense_delete", args=[claim.pk])
+        listing = self.client.get(reverse("expenses:expense_list"))
+        self.assertNotContains(listing, register_url)
+        self.assertNotContains(listing, delete_url)
+        detail = self.client.get(reverse("expenses:expense_detail", args=[claim.pk]))
+        self.assertContains(detail, register_url)
+        self.assertContains(detail, delete_url)
 
-        self.client.post(reverse("expenses:expense_register", args=[claim.pk]))
+        self.client.post(register_url)
 
         claim.refresh_from_db()
         self.assertTrue(claim.is_registered)

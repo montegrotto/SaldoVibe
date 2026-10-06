@@ -213,10 +213,13 @@ class SupplierInvoiceWorkflowTests(CompanyTestCase):
             created_by=self.user,
         )
         invoice.cost_lines.create(expense_account=self.expense_account, debit=Decimal("500.00"))
-
-        response = self.client.post(
-            reverse("supplier_invoices:invoice_register", args=[invoice.pk]),
+        register_url = reverse("supplier_invoices:invoice_register", args=[invoice.pk])
+        self.assertNotContains(self.client.get(reverse("supplier_invoices:invoice_list")), register_url)
+        self.assertContains(
+            self.client.get(reverse("supplier_invoices:invoice_detail", args=[invoice.pk])), register_url
         )
+
+        response = self.client.post(register_url)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("supplier_invoices:invoice_list"))
