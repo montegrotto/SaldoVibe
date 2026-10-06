@@ -229,8 +229,7 @@ class OverviewTests(ApiTestCase):
 
 
 class FormChoicesTests(ApiTestCase):
-    def test_form_choices_lists_accounts_payment_accounts_suppliers_and_employees(self):
-        supplier = Supplier.objects.create(company=self.company, name="Telia")
+    def test_form_choices_lists_accounts_payment_accounts_and_employees(self):
         employee = Employee.objects.create(
             company=self.company,
             first_name="Anna",
@@ -250,7 +249,6 @@ class FormChoicesTests(ApiTestCase):
         self.assertIn(self.account("2893").pk, data["payment_account_ids"])
         self.assertNotIn(self.account("1510").pk, data["payment_account_ids"])
         self.assertEqual(data["default_payment_account_id"], self.account("1930").pk)
-        self.assertEqual(data["suppliers"], [{"id": supplier.pk, "name": "Telia"}])
         self.assertEqual(data["employees"], [{"id": employee.pk, "name": "Anna Andersson"}])
         self.assertEqual(data["mileage_rate_per_mil"], "25.00")
 
@@ -473,86 +471,52 @@ class MileageReportTests(ApiTestCase):
 
 
 class SupplierInvoiceTests(ApiTestCase):
-    def _payload(self, **overrides):
-        return {
-            "new_supplier_name": "Telia",
-            "invoice_number": "F-1001",
-            "invoice_date": "2026-09-10",
-            "due_date": "2026-10-10",
-            "total_amount": "1250.00",
-            "vat_amount": "250.00",
-            "expense_account": self.account("6110").pk,
-            "register": True,
-            **overrides,
-        }
-
-    def test_create_with_new_supplier_books_one_cost_line(self):
-        response = self.post("/api/v1/leverantorsfakturor/", self._payload())
-
-        self.assertEqual(response.status_code, 201)
-        data = response.json()
-        self.assertEqual(data["status"], "bookkept")
-        self.assertEqual(data["supplier_name"], "Telia")
-        self.assertEqual(data["amount_ex_vat"], "1000.00")
-        supplier = Supplier.objects.get(company=self.company, name="Telia")
-        invoice = SupplierInvoice.objects.get(pk=data["id"])
-        self.assertEqual(invoice.supplier, supplier)
-        line = SupplierInvoiceCostLine.objects.get(invoice=invoice)
-        self.assertEqual(line.expense_account, self.account("6110"))
-        self.assertEqual(line.debit, Decimal("1000.00"))
-        self.assertTrue(invoice.is_registered)
-
-    def test_new_supplier_name_is_matched_case_insensitively(self):
-        first = self.post("/api/v1/leverantorsfakturor/", self._payload()).json()
-        second = self.post(
-            "/api/v1/leverantorsfakturor/", self._payload(new_supplier_name="telia", invoice_number="F-1002")
-        ).json()
-        self.assertEqual(Supplier.objects.filter(company=self.company).count(), 1)
-        self.assertEqual(first["supplier_id"], second["supplier_id"])
-
-    def test_invoice_number_is_unique_per_supplier(self):
-        self.assertEqual(self.post("/api/v1/leverantorsfakturor/", self._payload()).status_code, 201)
-
-        duplicate = self.post("/api/v1/leverantorsfakturor/", self._payload())
-        self.assertEqual(duplicate.status_code, 400)
-        self.assertEqual(
-            duplicate.json()["errors"]["invoice_number"],
-            ["Leverantören har redan en faktura med det här fakturanumret."],
+    def setUp(self):
+        super().setUp()
+        supplier = Supplier.objects.create(company=self.company, name="Telia")
+        self.invoice = SupplierInvoice.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            supplier=supplier,
+            supplier_name="Telia",
+            invoice_number="F-1001",
+            invoice_date=date(2026, 9, 10),
+            due_date=date(2026, 10, 10),
+            total_amount=Decimal("1250.00"),
+            vat_amount=Decimal("250.00"),
+            amount_ex_vat=Decimal("1000.00"),
+            payable_account=self.account("2440"),
+            vat_account=self.account("2640"),
+        )
+        SupplierInvoiceCostLine.objects.create(
+            invoice=self.invoice, expense_account=self.account("6110"), debit=Decimal("1000.00"), credit=Decimal("0")
         )
 
-        other_supplier = self.post("/api/v1/leverantorsfakturor/", self._payload(new_supplier_name="Tele2"))
-        self.assertEqual(other_supplier.status_code, 201)
+    def test_list_and_detail_describe_the_invoice(self):
+        (row,) = self.get("/api/v1/leverantorsfakturor/").json()
+        self.assertEqual(row["id"], self.invoice.pk)
+        self.assertEqual(row["supplier_name"], "Telia")
 
-    def test_missing_expense_account_is_rejected(self):
-        response = self.post("/api/v1/leverantorsfakturor/", self._payload(expense_account=None))
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["error"], "Välj ett kostnadskonto.")
-        self.assertFalse(SupplierInvoice.objects.exists())
+        detail = self.get(f"/api/v1/leverantorsfakturor/{self.invoice.pk}/").json()
+        self.assertEqual(detail["amount_ex_vat"], "1000.00")
+        self.assertEqual(len(detail["cost_lines"]), 1)
 
-    def test_payment_marks_the_invoice_paid_and_hides_it_from_the_list(self):
-        invoice_id = self.post("/api/v1/leverantorsfakturor/", self._payload()).json()["id"]
-        self.assertEqual([i["id"] for i in self.get("/api/v1/leverantorsfakturor/").json()], [invoice_id])
-
-        response = self.pay(f"/api/v1/leverantorsfakturor/{invoice_id}/betalning/", "1250.00")
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["is_paid"])
-        self.assertTrue(SupplierInvoice.objects.get(pk=invoice_id).is_paid)
-
+        self.invoice.is_paid = True
+        self.invoice.save(update_fields=["is_paid"])
         self.assertEqual(self.get("/api/v1/leverantorsfakturor/").json(), [])
-        everything = self.get("/api/v1/leverantorsfakturor/", visa="alla").json()
-        self.assertEqual([(i["id"], i["is_paid"]) for i in everything], [(invoice_id, True)])
+        self.assertEqual(len(self.get("/api/v1/leverantorsfakturor/", visa="alla").json()), 1)
 
-    def test_draft_can_be_deleted_but_not_a_booked_invoice(self):
-        draft_id = self.post("/api/v1/leverantorsfakturor/", self._payload(register=False)).json()["id"]
-        booked_id = self.post("/api/v1/leverantorsfakturor/", self._payload(invoice_number="F-1002")).json()["id"]
-
-        response = self.client.delete(f"/api/v1/leverantorsfakturor/{booked_id}/", headers=self.headers)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["error"], "Bokförda fakturor kan inte tas bort.")
-
-        response = self.client.delete(f"/api/v1/leverantorsfakturor/{draft_id}/", headers=self.headers)
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(list(SupplierInvoice.objects.values_list("pk", flat=True)), [booked_id])
+    def test_invoices_cannot_be_created_or_changed_from_the_app(self):
+        self.assertEqual(self.post("/api/v1/leverantorsfakturor/", {"new_supplier_name": "Tele2"}).status_code, 405)
+        path = f"/api/v1/leverantorsfakturor/{self.invoice.pk}/"
+        self.assertEqual(self.client.delete(path, headers=self.headers).status_code, 405)
+        self.assertEqual(self.post(path).status_code, 405)
+        self.assertEqual(self.post(path + "bokfor/").status_code, 404)
+        self.assertEqual(self.pay(path + "betalning/", "1250.00").status_code, 404)
+        self.assertEqual(SupplierInvoice.objects.count(), 1)
+        self.invoice.refresh_from_db()
+        self.assertFalse(self.invoice.is_registered)
+        self.assertFalse(self.invoice.is_paid)
 
 
 class CustomerInvoiceTests(ApiTestCase):
@@ -588,15 +552,6 @@ class CustomerInvoiceTests(ApiTestCase):
         self.assertEqual(detail["lines"][0]["description"], "Konsultarbete")
         self.assertEqual(detail["lines"][0]["total_ex_vat"], "1000.00")
 
-    def test_payment_marks_the_invoice_paid(self):
-        response = self.pay(f"/api/v1/kundfakturor/{self.invoice.pk}/betalning/", "1250.00")
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["is_paid"])
-        self.assertEqual(response.json()["status"], "paid")
-        self.invoice.refresh_from_db()
-        self.assertTrue(self.invoice.is_paid)
-        self.assertEqual(self.get("/api/v1/kundfakturor/").json(), [])
-
     def test_drafts_and_credit_invoices_are_never_overdue(self):
         credit = Invoice.objects.create(
             company=self.company,
@@ -611,19 +566,13 @@ class CustomerInvoiceTests(ApiTestCase):
         credit.save(update_fields=["is_booked"])
         self.assertFalse(self.get(f"/api/v1/kundfakturor/{credit.pk}/").json()["is_overdue"])
 
-    def test_draft_can_be_deleted_but_not_a_booked_invoice(self):
-        draft = Invoice.objects.create(
-            company=self.company,
-            customer=self.invoice.customer,
-            invoice_date=date(2026, 9, 1),
-            due_date=date(2026, 9, 30),
-        )
-        response = self.client.delete(f"/api/v1/kundfakturor/{self.invoice.pk}/", headers=self.headers)
-        self.assertEqual(response.status_code, 400)
-
-        response = self.client.delete(f"/api/v1/kundfakturor/{draft.pk}/", headers=self.headers)
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(list(Invoice.objects.values_list("pk", flat=True)), [self.invoice.pk])
+    def test_invoices_cannot_be_changed_from_the_app(self):
+        path = f"/api/v1/kundfakturor/{self.invoice.pk}/"
+        self.assertEqual(self.post("/api/v1/kundfakturor/").status_code, 405)
+        self.assertEqual(self.client.delete(path, headers=self.headers).status_code, 405)
+        self.assertEqual(self.pay(path + "betalning/", "1250.00").status_code, 404)
+        self.invoice.refresh_from_db()
+        self.assertFalse(self.invoice.is_paid)
 
 
 class ReportTests(ApiTestCase):

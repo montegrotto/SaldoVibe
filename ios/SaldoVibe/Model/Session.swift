@@ -145,7 +145,7 @@ final class Session {
         }
     }
 
-    /// Accounts, suppliers and employees for the forms; fetched once per company.
+    /// Accounts and employees for the forms; fetched once per company.
     func loadChoices() async throws -> FormChoices {
         if let choices { return choices }
         guard let api else { throw APIError(message: "Inte inloggad.", status: 401) }

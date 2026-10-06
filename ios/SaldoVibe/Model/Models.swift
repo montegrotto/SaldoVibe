@@ -75,20 +75,13 @@ struct Suggestion: Codable, Hashable {
     var leverantör: LossyString?
     var totalbelopp: LossyString?
     var momsbelopp: LossyString?
-    var fakturanummer: LossyString?
-    var förfallodatum: LossyString?
-    var ocrReferens: LossyString?
 
-    // The decoder's convertFromSnakeCase already turns "ocr_referens" into ocrReferens;
-    // the Swedish keys have no underscores and pass through unchanged.
+    // The Swedish keys have no underscores and pass through the decoder's convertFromSnakeCase unchanged.
 
     var date: String? { datum?.text }
     var vendor: String? { leverantör?.text }
     var total: Decimal? { totalbelopp?.text.flatMap(Amount.parse) }
     var vat: Decimal? { momsbelopp?.text.flatMap(Amount.parse) }
-    var invoiceNumber: String? { fakturanummer?.text }
-    var dueDate: String? { förfallodatum?.text }
-    var ocr: String? { ocrReferens?.text }
 }
 
 struct User: Codable, Hashable {
@@ -135,18 +128,12 @@ struct FormChoices: Codable {
     let accounts: [Account]
     let paymentAccountIds: [Int]
     let defaultPaymentAccountId: Int?
-    let suppliers: [NamedItem]
     let employees: [NamedItem]
     /// Optional so the app still decodes an older server without körrapporter.
     let mileageRatePerMil: Amount?
 
     var paymentAccounts: [Account] { accounts.filter { paymentAccountIds.contains($0.id) } }
     var defaultPaymentAccount: Account? { accounts.first { $0.id == defaultPaymentAccountId } }
-
-    func supplier(matching name: String?) -> NamedItem? {
-        guard let name, !name.isEmpty else { return nil }
-        return suppliers.first { $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
-    }
 }
 
 struct OverviewAlert: Codable, Identifiable, Hashable {

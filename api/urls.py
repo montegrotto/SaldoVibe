@@ -22,9 +22,6 @@ urlpatterns = [
     path("korrapporter/", views.mileage_reports, name="mileage_reports"),
     path("leverantorsfakturor/", views.supplier_invoices, name="supplier_invoices"),
     path("leverantorsfakturor/<int:pk>/", views.supplier_invoice_detail, name="supplier_invoice_detail"),
-    path("leverantorsfakturor/<int:pk>/bokfor/", views.supplier_invoice_register, name="supplier_invoice_register"),
-    path("leverantorsfakturor/<int:pk>/betalning/", views.supplier_invoice_payment, name="supplier_invoice_payment"),
     path("kundfakturor/", views.customer_invoices, name="customer_invoices"),
     path("kundfakturor/<int:pk>/", views.customer_invoice_detail, name="customer_invoice_detail"),
-    path("kundfakturor/<int:pk>/betalning/", views.customer_invoice_payment, name="customer_invoice_payment"),
 ]

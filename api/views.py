@@ -1,9 +1,10 @@
 """JSON endpoints behind the iPhone app (ios/).
 
 Token auth and company scoping live in auth.py. Every write goes through the same forms
-and services as the web views (ExpenseClaimForm, SupplierInvoiceForm, MileageReportForm,
-RegisterPaymentForm, register_and_bookkeep, MileageReport.submit, register_manual_payment), so the two clients cannot disagree on
-validation, default accounts or what gets posted to the ledger.
+and services as the web views (ExpenseClaimForm, MileageReportForm, RegisterPaymentForm,
+register_and_bookkeep, MileageReport.submit, register_manual_payment), so the two clients cannot
+disagree on validation, default accounts or what gets posted to the ledger. Supplier and customer
+invoices are read-only here: they are created, booked, paid and deleted on the web.
 """
 
 from decimal import Decimal
@@ -31,15 +32,14 @@ from expenses.models import ExpenseClaim
 from invoicing.models import Invoice
 from payroll.forms import MileageReportForm
 from payroll.models import MileageReport
-from supplier_invoices.forms import SupplierInvoiceForm
-from supplier_invoices.models import Supplier, SupplierInvoice, SupplierInvoiceCostLine
+from supplier_invoices.models import SupplierInvoice
 
 from .auth import ApiError, api_view, form_data, form_error, json_body
 
 LIST_LIMIT = 200
 
 # Same wording as templates/bookkeeping/_topbar_alert_bell.html. `target` is the app tab
-# that can act on the alert; None means "handled on the web".
+# that shows the alert's documents; None means "handled on the web".
 ALERTS = (
     ("overdue_supplier_invoices_count", "Förfallna leverantörsfakturor", "supplier_invoices"),
     ("supplier_invoices_due_soon_count", "Leverantörsfakturor förfaller inom 3 dagar", "supplier_invoices"),
@@ -289,9 +289,6 @@ def form_choices(request, company):
             "accounts": [_account_json(a) for a in company.accounts.filter(is_active=True).order_by("number")],
             "payment_account_ids": list(payment_accounts.values_list("pk", flat=True)),
             "default_payment_account_id": default_payment.pk if default_payment else None,
-            "suppliers": [
-                {"id": s.pk, "name": s.name} for s in company.suppliers.filter(is_active=True).order_by("name")
-            ],
             "mileage_rate_per_mil": _amount(MileageReport.DEFAULT_RATE_PER_MIL),
             "employees": [
                 {"id": e.pk, "name": str(e)}
@@ -319,7 +316,7 @@ def _link_attachments(document, company, data):
 def attachments(request, company):
     """Unlinked attachments (what the web's Bilagor list shows), or upload one (multipart
     field `file`; PDF, PNG or JPEG). The upload answer carries ReInvGrabber's suggestion
-    so the app can prefill an expense or supplier invoice straight away."""
+    so the app can prefill an expense straight away."""
     if request.method == "POST":
         uploaded = uploaded_file_from_request(request)
         if uploaded is None:
@@ -433,74 +430,17 @@ def _supplier_invoice(company, pk):
     return get_object_or_404(SupplierInvoice.objects.select_related("supplier"), pk=pk, company=company)
 
 
-def _create_supplier_invoice(request, company):
-    """One cost line on `expense_account`; `new_supplier_name` creates the supplier the OCR
-    found when it isn't in the register yet (matched case-insensitively first)."""
-    data = dict(json_body(request))
-    with db_transaction.atomic():
-        new_supplier_name = str(data.get("new_supplier_name") or "").strip()
-        if not data.get("supplier") and new_supplier_name:
-            supplier = company.suppliers.filter(name__iexact=new_supplier_name).first()
-            data["supplier"] = (supplier or Supplier.objects.create(company=company, name=new_supplier_name)).pk
-        form = SupplierInvoiceForm(form_data(data), company=company)
-        if not form.is_valid():
-            raise form_error(form)
-        expense_account = company.accounts.filter(is_active=True, pk=_int(data.get("expense_account"))).first()
-        if expense_account is None:
-            raise ApiError("Välj ett kostnadskonto.", errors={"expense_account": ["Välj ett kostnadskonto."]})
-        invoice = form.save(commit=False)
-        invoice.company = company
-        invoice.created_by = request.user
-        invoice.supplier_name = invoice.supplier.name
-        invoice.amount_ex_vat = form.cleaned_data["total_amount"] - (
-            form.cleaned_data.get("vat_amount") or Decimal("0.00")
-        )
-        invoice.save()
-        SupplierInvoiceCostLine.objects.create(
-            invoice=invoice, expense_account=expense_account, debit=invoice.amount_ex_vat, credit=Decimal("0.00")
-        )
-        _link_attachments(invoice, company, data)
-        if data.get("register"):
-            invoice.register_and_bookkeep(request.user)
-    return JsonResponse(_supplier_invoice_json(invoice, detail=True), status=201)
-
-
-@api_view(("GET", "POST"))
+@api_view()
 def supplier_invoices(request, company):
-    if request.method == "POST":
-        return _create_supplier_invoice(request, company)
     invoices = SupplierInvoice.objects.filter(company=company).select_related("supplier")
     if request.GET.get("visa") != "alla":
         invoices = invoices.filter(is_paid=False)
     return JsonResponse([_supplier_invoice_json(i) for i in invoices[:LIST_LIMIT]], safe=False)
 
 
-def _delete_draft(invoice, is_booked):
-    if is_booked:
-        raise ApiError("Bokförda fakturor kan inte tas bort.")
-    invoice.delete()
-    return HttpResponse(status=204)
-
-
-@api_view(("GET", "DELETE"))
+@api_view()
 def supplier_invoice_detail(request, company, pk):
-    invoice = _supplier_invoice(company, pk)
-    if request.method == "DELETE":
-        return _delete_draft(invoice, invoice.is_registered)
-    return JsonResponse(_supplier_invoice_json(invoice, detail=True))
-
-
-@api_view(("POST",))
-def supplier_invoice_register(request, company, pk):
-    invoice = _supplier_invoice(company, pk)
-    if not invoice.is_registered:
-        invoice.register_and_bookkeep(request.user)
-    return JsonResponse(_supplier_invoice_json(invoice, detail=True))
-
-
-@api_view(("POST",))
-def supplier_invoice_payment(request, company, pk):
-    return _register_payment(request, _supplier_invoice(company, pk), _supplier_invoice_json)
+    return JsonResponse(_supplier_invoice_json(_supplier_invoice(company, pk), detail=True))
 
 
 # --- customer invoices -----------------------------------------------------------------
@@ -520,17 +460,9 @@ def customer_invoices(request, company):
     return JsonResponse([_customer_invoice_json(i) for i in invoices[:LIST_LIMIT]], safe=False)
 
 
-@api_view(("GET", "DELETE"))
+@api_view()
 def customer_invoice_detail(request, company, pk):
-    invoice = _customer_invoice(company, pk)
-    if request.method == "DELETE":
-        return _delete_draft(invoice, invoice.is_booked)
-    return JsonResponse(_customer_invoice_json(invoice, detail=True))
-
-
-@api_view(("POST",))
-def customer_invoice_payment(request, company, pk):
-    return _register_payment(request, _customer_invoice(company, pk), _customer_invoice_json)
+    return JsonResponse(_customer_invoice_json(_customer_invoice(company, pk), detail=True))
 
 
 # --- reports ---------------------------------------------------------------------------

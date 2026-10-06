@@ -28,7 +28,7 @@ struct CustomerInvoicesList: View {
                 ContentUnavailableView(
                     showAll ? "Inga kundfakturor" : "Inga obetalda kundfakturor",
                     systemImage: "doc.text",
-                    description: Text("Kundfakturor skapas och skickas från datorn.")
+                    description: Text("Kundfakturor skapas, skickas och betalas in på datorn.")
                 )
             } else if let error, invoices.isEmpty {
                 ContentUnavailableView("Kunde inte hämta fakturor", systemImage: "wifi.exclamationmark", description: Text(error))
@@ -54,7 +54,7 @@ struct CustomerInvoiceDetailView: View {
     let id: Int
 
     var body: some View {
-        DocumentDetailView<CustomerInvoice, _>(path: "kundfakturor/\(id)/", title: "Kundfaktura", canRegister: false, canDelete: true) { invoice in
+        DocumentDetailView<CustomerInvoice, _>(path: "kundfakturor/\(id)/", title: "Kundfaktura", actions: false) { invoice in
             Section("Faktura") {
                 LabeledContent("Kund", value: invoice.customerName)
                 if !invoice.invoiceNumber.isEmpty {
