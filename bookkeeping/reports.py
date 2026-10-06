@@ -39,7 +39,7 @@ def get_year_context(request, company):
     years = AccountingYear.objects.filter(company=company).order_by("-start_date", "-id")
     selected_year = None
     year_id = request.GET.get("year")
-    if year_id:
+    if year_id and year_id.isdigit():
         selected_year = years.filter(pk=year_id).first()
     if selected_year is None:
         selected_year = default_accounting_year(years)

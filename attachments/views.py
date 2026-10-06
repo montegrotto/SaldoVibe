@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.http import FileResponse, HttpResponseNotFound, JsonResponse
+from django.http import FileResponse, Http404, HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -300,8 +300,10 @@ def attachment_file_response(attachment):
     if not content_type:
         content_type = "application/octet-stream"
 
-    response = FileResponse(attachment.file.open("rb"), content_type=content_type)
-    response["Content-Disposition"] = f'inline; filename="{file_name}"'
+    try:
+        response = FileResponse(attachment.file.open("rb"), content_type=content_type, filename=file_name)
+    except FileNotFoundError:
+        raise Http404("Bilagans fil saknas.") from None
     response["X-Content-Type-Options"] = "nosniff"
     return response
 
@@ -318,8 +320,12 @@ def attachment_thumbnail_response(attachment):
         if attachment.generate_thumbnail():
             attachment.save(update_fields=["thumbnail", "thumbnail_generated_at"])
 
-    response = FileResponse(attachment.thumbnail.open("rb"), content_type="image/jpeg")
-    response["Content-Disposition"] = f'inline; filename="{attachment.thumbnail_name}"'
+    try:
+        response = FileResponse(
+            attachment.thumbnail.open("rb"), content_type="image/jpeg", filename=attachment.thumbnail_name
+        )
+    except FileNotFoundError:
+        return HttpResponseNotFound("Miniatyr saknas.")
     response["X-Content-Type-Options"] = "nosniff"
     return response
 

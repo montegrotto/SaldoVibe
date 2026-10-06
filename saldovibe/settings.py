@@ -126,6 +126,7 @@ INSTALLED_APPS = [
 ]
 
 AUTH_USER_MODEL = "accounts.CustomUser"
+AUTHENTICATION_BACKENDS = ["accounts.backends.ThrottledModelBackend"]
 
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "bookkeeping:dashboard"

@@ -152,9 +152,9 @@ class SupplierInvoice(PayableMixin):
         ordering = ["-invoice_date", "-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["company", "invoice_number"],
+                fields=["company", "supplier", "invoice_number"],
                 condition=~Q(invoice_number=""),
-                name="uniq_supplier_invoice_number_per_company",
+                name="uniq_supplier_invoice_number_per_supplier",
             )
         ]
         verbose_name = "Leverantörsfaktura"

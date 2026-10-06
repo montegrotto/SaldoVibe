@@ -107,7 +107,7 @@ datorn.
 
 | Meddelande i appen | Betydelse |
 | --- | --- |
-| "Fel e-postadress eller lösenord." | Samma kontroll som webbinloggningen. |
+| "Fel e-postadress eller lösenord." | Samma kontroll som webbinloggningen, inklusive spärren i 15 minuter efter tio felaktiga lösenord (se [Komma igång](01-komma-igang.md#registrera-konto-och-logga-in)). |
 | "Ogiltig eller återkallad inloggning." | Inloggningen är återkallad under **Mobilappen**, användaren är avaktiverad, eller QR-koden hann gå ut innan den skannades. Logga in på nytt. |
 | "Du har inte tillgång till företaget." | Du har tagits bort från företaget. Välj ett annat under **Mer**. |
 | "Du har bara läsbehörighet i det här företaget." | Rollen **Endast läsa** – se [Företagsinställningar](11-foretagsinstallningar.md). |

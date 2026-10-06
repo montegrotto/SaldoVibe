@@ -12,7 +12,9 @@ SaldoVibe använder e-postadress som inloggnings-id, inte användarnamn.
 2. Fyll i e-postadress, förnamn, efternamn och lösenord (bekräfta lösenordet en gång till).
 3. Efter registrering loggas du in automatiskt och skickas till **Översikt**.
 
-Nästa gång loggar du in via **Logga in** med e-post och lösenord.
+Nästa gång loggar du in via **Logga in** med e-post och lösenord. Efter tio felaktiga lösenord
+spärras e-postadressen i 15 minuter – under spärren avvisas även rätt lösenord, med samma
+felmeddelande. Spärren gäller webben, [mobilappen](13-mobilappen.md) och adminpanelen gemensamt.
 
 ### Glömt lösenord
 

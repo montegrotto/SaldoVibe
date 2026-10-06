@@ -31,6 +31,8 @@ huvud för att även se utbetalda utlägg. Där finns även knappen **Ny körrap
    bokförs som kostnad. Detsamma gäller formuläret för nya utlägg.
 3. **Kostnadsrader + moms måste summera exakt till totalbeloppet** – annars avvisas formuläret med
    "Summan av kostnadsrader och moms måste vara lika med totalbelopp."
+   Fakturanumret måste vara unikt per leverantör – samma nummer från en annan leverantör går bra,
+   men en dubblett avvisas med "Leverantören har redan en faktura med det här fakturanumret."
 4. Bifoga underlag antingen genom att ladda upp direkt i formuläret eller via bilage-väljaren mot
    redan uppladdade [bilagor](04-bilagor.md).
 5. Spara som **utkast**, eller välj **Registrera** för att spara och bokföra i samma steg.
