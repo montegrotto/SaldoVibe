@@ -4,13 +4,14 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
 from django.db.models import Sum
 from django.utils import timezone
 
 from bookkeeping.balances import build_account_balances as _build_account_balances
 from bookkeeping.models import Account, AccountClass, AccountingYear, JournalEntry, Transaction, TransactionSource
-from bookkeeping.payables import AbstractPayment, add_journal_entry, reapply_payment_state
+from bookkeeping.payables import AbstractPayment, add_journal_entry, reapply_payment_state, record_payment
 
 from .models import BankAccount, BankAccountType, BankProfile, BankTransaction
 
@@ -515,45 +516,22 @@ def _allocation_failed(message, strict):
 
 
 def _settle_payable_from_bank_booking(
-    *,
-    payable,
-    payment_model,
-    bank_tx,
-    booked_transaction,
-    booked_amount,
-    settlement_difference,
-    strict,
-    update_fields,
+    *, payable, bank_tx, booked_transaction, booked_amount, settlement_difference, strict
 ):
-    if payable is None or payable.is_paid:
+    """Settle a payable from a booked bank row through the shared `record_payment` path."""
+    if payable is None:
         return _allocation_failed("Posten är inte längre valbar för betalning.", strict)
-
-    if not has_sufficient_amount(payable.remaining_amount, booked_amount):
-        return _allocation_failed("Beloppet är större än återstående belopp på posten.", strict)
-
-    new_paid_amount = (payable.paid_amount + booked_amount).quantize(Decimal("0.01"))
-    effective_paid_amount = (new_paid_amount + settlement_difference).quantize(Decimal("0.01"))
-    total_amount = abs(payable.total_amount or Decimal("0.00")).quantize(Decimal("0.01"))
-    if effective_paid_amount > total_amount:
-        return _allocation_failed("Betalningen skulle överstiga fakturans totalbelopp.", strict)
-
-    is_fully_paid = amounts_equal(effective_paid_amount, total_amount)
-    payable.paid_amount = new_paid_amount
-    payable.is_paid = is_fully_paid
-    payable.paid_at = timezone.now() if is_fully_paid else None
-    payable.payment_date = bank_tx.date
-    payable.payment_account = bank_tx.bank_account.bookkeeping_account
-    payable.payment_transaction = booked_transaction
-    payable.save(update_fields=update_fields)
-
-    payment_model.objects.create(
-        payable=payable,
-        transaction=booked_transaction,
-        amount=booked_amount,
-        write_off_amount=settlement_difference,
-        payment_date=bank_tx.date,
-        payment_account=bank_tx.bank_account.bookkeeping_account,
-    )
+    try:
+        record_payment(
+            payable,
+            transaction=booked_transaction,
+            amount=booked_amount,
+            write_off_amount=settlement_difference,
+            payment_date=bank_tx.date,
+            payment_account=bank_tx.bank_account.bookkeeping_account,
+        )
+    except ValidationError as exc:
+        return _allocation_failed(exc.messages[0], strict)
     return True
 
 
@@ -598,97 +576,40 @@ def apply_invoice_payment_allocation(*, allocation, bank_tx, booked_transaction)
         return True
 
     if source_type == "expense_claim":
-        from expenses.models import ExpenseClaim, ExpenseClaimPayment
+        from expenses.models import ExpenseClaim
 
-        claim = (
-            ExpenseClaim.objects.select_for_update()
-            .filter(
-                pk=invoice_id,
-                company=bank_tx.company,
-                is_registered=True,
-                registered_transaction__isnull=False,
-            )
-            .first()
-        )
-        return _settle_payable_from_bank_booking(
-            payable=claim,
-            payment_model=ExpenseClaimPayment,
-            bank_tx=bank_tx,
-            booked_transaction=booked_transaction,
-            booked_amount=booked_amount,
-            settlement_difference=settlement_difference,
-            strict=strict,
-            update_fields=[
-                "paid_amount",
-                "is_paid",
-                "paid_at",
-                "payment_date",
-                "payment_account",
-                "payment_transaction",
-                "updated_at",
-            ],
-        )
+        payable = ExpenseClaim.objects.filter(
+            pk=invoice_id,
+            company=bank_tx.company,
+            is_registered=True,
+            registered_transaction__isnull=False,
+        ).first()
+    elif source_type == "supplier_invoice":
+        from supplier_invoices.models import SupplierInvoice
 
-    if source_type == "supplier_invoice":
-        from supplier_invoices.models import SupplierInvoice, SupplierInvoicePayment
+        payable = SupplierInvoice.objects.filter(
+            pk=invoice_id,
+            company=bank_tx.company,
+            is_registered=True,
+            registered_transaction__isnull=False,
+        ).first()
+    else:
+        from invoicing.models import Invoice
 
-        invoice = (
-            SupplierInvoice.objects.select_for_update()
-            .filter(
-                pk=invoice_id,
-                company=bank_tx.company,
-                is_registered=True,
-                registered_transaction__isnull=False,
-            )
-            .first()
-        )
-        return _settle_payable_from_bank_booking(
-            payable=invoice,
-            payment_model=SupplierInvoicePayment,
-            bank_tx=bank_tx,
-            booked_transaction=booked_transaction,
-            booked_amount=booked_amount,
-            settlement_difference=settlement_difference,
-            strict=strict,
-            update_fields=[
-                "paid_amount",
-                "is_paid",
-                "paid_at",
-                "payment_date",
-                "payment_account",
-                "payment_transaction",
-                "updated_at",
-            ],
-        )
-
-    from invoicing.models import Invoice, InvoicePayment
-
-    invoice = (
-        Invoice.objects.select_for_update()
-        .filter(
+        payable = Invoice.objects.filter(
             pk=invoice_id,
             company=bank_tx.company,
             is_booked=True,
             booked_transaction__isnull=False,
-        )
-        .first()
-    )
+        ).first()
+
     return _settle_payable_from_bank_booking(
-        payable=invoice,
-        payment_model=InvoicePayment,
+        payable=payable,
         bank_tx=bank_tx,
         booked_transaction=booked_transaction,
         booked_amount=booked_amount,
         settlement_difference=settlement_difference,
         strict=strict,
-        update_fields=[
-            "paid_amount",
-            "is_paid",
-            "paid_at",
-            "payment_date",
-            "payment_account",
-            "payment_transaction",
-        ],
     )
 
 

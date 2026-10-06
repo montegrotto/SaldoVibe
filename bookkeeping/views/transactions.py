@@ -125,11 +125,16 @@ def sie_export(request, company):
 def transaction_add(request, company):
     from banking.services import get_managed_bank_accounts
 
+    from ..payables import reskontra_account_ids
+
     verification_templates = _get_active_verification_templates(company)
     bank_managed_accounts = {
         str(account_id): {"bank_account_id": bank_account.pk}
         for account_id, bank_account in get_managed_bank_accounts(company).items()
     }
+    # Payments on reskontrakonton belong to a document (Registrera betalning / Bank-vyn);
+    # a bare voucher row there drifts the reskontra from the ledger — warn, don't block.
+    reskontra_accounts = {str(account_id): True for account_id in reskontra_account_ids(company)}
 
     if not AccountingYear.objects.filter(company=company).exists():
         messages.error(request, "Skapa minst ett räkenskapsår innan du registrerar verifikationer.")
@@ -250,6 +255,7 @@ def transaction_add(request, company):
             "formset": formset,
             "account_balances": account_balances,
             "bank_managed_accounts": bank_managed_accounts,
+            "reskontra_accounts": reskontra_accounts,
             "verification_templates": verification_templates,
             "selected_template": selected_template,
             "verification_templates_payload": {

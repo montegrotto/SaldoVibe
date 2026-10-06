@@ -57,11 +57,26 @@ Betalningar som syns på banken bokförs normalt via bankimportens snabbbokföri
 på fakturans detaljvy (fakturalistan länkar dit):
 
 - Ange **betalningsdatum**, **betalt belopp** och **betalkonto** – detta bokför minskningen av
-  leverantörsskulden mot valt betalkonto. Delbetalningar stöds.
-- **Avskrivet belopp** låter dig samtidigt skriva av en rest som inte kommer att betalas, till
-  valfritt **avskrivningskonto** – t.ex. öresavrundning (3740) eller erhållen rabatt.
-- Betalning och avskrivning bokförs som en verifikation; perioden för betalningsdatumet får inte
+  leverantörsskulden mot valt betalkonto. Betalkontot kan vara vilket balanskonto som helst utom
+  reskontrakontona: bank eller kassa, ägarens privata betalning (2893 i aktiebolag, 2018 i enskild
+  firma), en anställds utlägg (2820), en kortskuld som betalas vid månadsskiftet eller ett tidigare
+  bokfört förskott till leverantören (1480). Delbetalningar stöds.
+- **Avvikelse** är skillnaden mellan det som regleras på fakturan och det som betalas. Ett
+  positivt belopp skrivs av mot valt **avvikelsekonto** – t.ex. öresavrundning (3740), erhållen
+  rabatt eller valutakursvinst (3960). Ett negativt belopp har betalats utöver fakturan:
+  påminnelseavgift (6990), dröjsmålsränta (8422), bankavgift (6570) eller valutakursförlust
+  (7960). Betalt belopp plus avvikelse är det som regleras på fakturan.
+- Betalning och avvikelse bokförs som en verifikation; perioden för betalningsdatumet får inte
   vara låst. Betalningen kan ångras via **Ångra betalning**.
+
+### Faktura i utländsk valuta betald med kort
+
+Registrera fakturan i kronor med det belopp kortet drog – det syns på kortets eller bankens
+kontoutdrag inom någon dag och får användas som kurs för fakturadagen (BFNAR 2013:2 punkt 2.5).
+Då matchar banktransaktionen fakturan exakt. Är fakturan redan registrerad till ett annat
+kronbelopp bokförs skillnaden som avvikelse: valutakursförlust (7960, negativ avvikelse) om kortet
+drog mer, valutakursvinst (3960, positiv avvikelse) om det drog mindre – eller som en extrarad när
+transaktionen bokförs i Bank-vyn.
 
 ## QR-betalningsunderlag
 

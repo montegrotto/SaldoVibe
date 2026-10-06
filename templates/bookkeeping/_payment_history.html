@@ -4,7 +4,7 @@
   <ul class="list-group list-group-flush">
     {% for payment in payments %}
     <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center small">
-      <span>{{ payment.payment_date }}{% if payment.write_off_amount > 0 %} · avskrivet {{ payment.write_off_amount|floatformat:"2g" }} kr{% endif %}</span>
+      <span>{{ payment.payment_date }}{% if payment.write_off_amount > 0 %} · avskrivet {{ payment.write_off_amount|floatformat:"2g" }} kr{% elif payment.write_off_amount < 0 %} · avvikelse {{ payment.write_off_amount|floatformat:"2g" }} kr{% endif %}</span>
       <span>
         {{ payment.amount|floatformat:"2g" }} kr
         {% if payment.transaction %}

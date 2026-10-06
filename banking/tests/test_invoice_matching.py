@@ -1068,7 +1068,8 @@ class InvoiceMatchingTests(BankingTestCase):
         invoice.refresh_from_db()
         bank_tx.refresh_from_db()
         self.assertTrue(invoice.is_paid)
-        self.assertEqual(invoice.paid_amount, Decimal("1249.00"))
+        # Settled amount: 1 249 paid plus 1 kr written off to 3740.
+        self.assertEqual(invoice.paid_amount, Decimal("1250.00"))
         self.assertEqual(invoice.remaining_amount, Decimal("0.00"))
         entries = bank_tx.booked_transaction.entries.select_related("account")
         self.assertTrue(entries.filter(account__number="1930", debit=Decimal("1249.00")).exists())

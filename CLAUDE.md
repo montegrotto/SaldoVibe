@@ -142,9 +142,11 @@ Grep before writing anything generic-feeling. Confirmed shared building blocks:
   `initSelectionList({ viewerEvents: true })`).
 - `attachments.utils.is_safe_return_to` — the `return_to` safe-redirect check.
 - `bookkeeping/balances.py` — shared account-balance calculation.
-- `bookkeeping/payables.py` — payment state + öresavrundning write-offs.
-- `bookkeeping/forms.py::ManualPaymentForm` — the payment-date form behind every "markera som
-  betald" action.
+- `bookkeeping/payables.py` — payment state, `record_payment` (the single settlement write path
+  for manual, bank and kvittning) and the signed avvikelse (öresavrundning, kundförlust, avgifter,
+  kursdifferens).
+- `bookkeeping/forms.py::RegisterPaymentForm` + `payment_accounts_for` — the form behind every
+  "registrera betalning" action, web and API.
 
 ## Cross-App Change Checklist
 
