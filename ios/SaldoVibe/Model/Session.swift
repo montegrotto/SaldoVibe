@@ -68,9 +68,6 @@ final class Session {
     }
 
     func handle(url: URL) async -> String? {
-        // saldovibe://utlagg: the share extension bringing the app forward; the hand-over itself
-        // is in the keychain (takePendingExpense), so activating is all that is needed.
-        if url.scheme == "saldovibe", url.host() == "utlagg" { return nil }
         guard url.scheme == "saldovibe", url.host() == "login",
               let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
               let server = items.first(where: { $0.name == "server" })?.value.flatMap(URL.init(string:)),
@@ -156,19 +153,6 @@ final class Session {
     func invalidateChoices() { choices = nil }
 
     func didChange() { changeCounter += 1 }
-
-    /// What the share extension uploaded with "Registrera som utlägg": the first attachment that
-    /// is still unlinked opens the expense form; the list is cleared either way.
-    func takePendingExpense() async -> Attachment? {
-        guard let api, company != nil, let pending = Keychain.readPendingExpense() else { return nil }
-        Keychain.writePendingExpense(nil)
-        if pending.companyId != company?.id {
-            guard let target = companies.first(where: { $0.id == pending.companyId }) else { return nil }
-            select(company: target)
-        }
-        let attachments: [Attachment] = (try? await api.get("bilagor/")) ?? []
-        return attachments.first { pending.attachmentIds.contains($0.id) }
-    }
 
     // MARK: - helpers
 

@@ -11,12 +11,10 @@ struct StoredSession: Codable {
     var companyId: Int?
 }
 
-/// Two blobs in the keychain: the signed-in session (server, token, company) and the share
-/// extension's hand-over list for "Registrera som utlägg".
+/// One blob in the keychain: the signed-in session (server, token, company).
 enum Keychain {
     private static let service = "se.saldovibe.app"
     private static let sessionAccount = "session"
-    private static let pendingExpenseAccount = "pending-expense"
 
     private static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
@@ -29,25 +27,6 @@ enum Keychain {
     static func write(_ session: StoredSession) {
         if let data = try? JSONEncoder().encode(session) {
             write(data)
-        }
-    }
-
-    /// What the share extension uploaded for an expense; the app switches to that company and
-    /// turns the first attachment into an expense form the next time it is in front.
-    struct PendingExpense: Codable {
-        var companyId: Int
-        var attachmentIds: [Int]
-    }
-
-    static func readPendingExpense() -> PendingExpense? {
-        read(account: pendingExpenseAccount).flatMap { try? JSONDecoder().decode(PendingExpense.self, from: $0) }
-    }
-
-    static func writePendingExpense(_ pending: PendingExpense?) {
-        if let pending, let data = try? JSONEncoder().encode(pending) {
-            write(data, account: pendingExpenseAccount)
-        } else {
-            delete(account: pendingExpenseAccount)
         }
     }
 
