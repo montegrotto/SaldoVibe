@@ -58,6 +58,7 @@ struct ShareView: View {
                             .foregroundStyle(.secondary).multilineTextAlignment(.center)
                         if companies.count > 1 {
                             Picker("Företag", selection: $companyId) {
+                                Text("Välj företag…").tag(Int?.none)
                                 ForEach(companies) { Text($0.name).tag(Optional($0.id)) }
                             }
                             .pickerStyle(.menu)
@@ -65,11 +66,12 @@ struct ShareView: View {
                         Button("Spara som bilaga") { Task { await upload(asExpense: false) } }
                             .buttonStyle(.borderedProminent)
                             .padding(.top)
+                            .disabled(companyId == nil)
                         Button("Registrera som utlägg") { Task { await upload(asExpense: true) } }
                             .buttonStyle(.bordered)
+                            .disabled(companyId == nil)
                     }
                     .controlSize(.large)
-                    .disabled(companyId == nil)
                 case .uploading(let text):
                     VStack(spacing: 16) {
                         ProgressView().controlSize(.large)
@@ -109,11 +111,12 @@ struct ShareView: View {
         // lets the user pick another. Read-only companies cannot take uploads.
         let me: MeResponse? = try? await api.get("me/")
         companies = (me?.companies ?? []).filter { !$0.readOnly }
-        companyId = companies.first { $0.id == stored.companyId }?.id
-            ?? (companies.count == 1 ? companies[0].id : nil)
-            ?? (me == nil ? stored.companyId : nil)
-        guard companyId != nil else {
-            return fail(me == nil ? "Kunde inte nå servern." : companies.isEmpty ? "Du kan inte ladda upp till något företag." : "Välj företag i SaldoVibe-appen först.")
+        companyId = companies.first { $0.id == stored.companyId }?.id ?? (companies.count == 1 ? companies[0].id : nil)
+        if me == nil {
+            guard let storedId = stored.companyId else { return fail("Kunde inte nå servern.") }
+            companyId = storedId
+        } else if companies.isEmpty {
+            return fail("Du kan inte ladda upp till något företag.")
         }
         self.api = api
         let providers = (context?.inputItems as? [NSExtensionItem])?.flatMap { $0.attachments ?? [] } ?? []
