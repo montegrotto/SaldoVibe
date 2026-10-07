@@ -129,27 +129,25 @@ def dashboard(request, company):
 
     incoming_invoice_events = {}
     incoming_invoices = Invoice.objects.filter(
-        company=company, due_date__gte=today, due_date__lte=projection_end_date
+        company=company, is_paid=False, due_date__gte=today, due_date__lte=projection_end_date
     ).prefetch_related("lines")
     for invoice in incoming_invoices:
         due_date = invoice.due_date
-        incoming_invoice_events[due_date] = incoming_invoice_events.get(due_date, Decimal("0.00")) + (
-            invoice.total_amount or Decimal("0.00")
-        )
+        # remaining_amount is a magnitude; keep credit invoices negative.
+        remaining = invoice.remaining_amount.copy_sign(invoice.total_amount or Decimal("0.00"))
+        incoming_invoice_events[due_date] = incoming_invoice_events.get(due_date, Decimal("0.00")) + remaining
 
     supplier_payment_events = {}
-    supplier_due = (
-        SupplierInvoice.objects.filter(
-            company=company,
-            is_paid=False,
-            due_date__gte=today,
-            due_date__lte=projection_end_date,
-        )
-        .values("due_date")
-        .annotate(total=Sum("total_amount"))
+    supplier_due = SupplierInvoice.objects.filter(
+        company=company,
+        is_paid=False,
+        due_date__gte=today,
+        due_date__lte=projection_end_date,
     )
-    for row in supplier_due:
-        supplier_payment_events[row["due_date"]] = row["total"] or Decimal("0.00")
+    for supplier_invoice in supplier_due:
+        due_date = supplier_invoice.due_date
+        remaining = supplier_invoice.remaining_amount.copy_sign(supplier_invoice.total_amount or Decimal("0.00"))
+        supplier_payment_events[due_date] = supplier_payment_events.get(due_date, Decimal("0.00")) + remaining
 
     salary_payment_events = {}
     payroll_runs = (
@@ -159,9 +157,13 @@ def dashboard(request, company):
     )
     for payroll_run in payroll_runs:
         payout_date = payroll_run.payment_date
-        payout_amount = sum(
-            (record.net_salary or Decimal("0.00") for record in payroll_run.salary_records.all()), Decimal("0.00")
-        )
+        if payroll_run.booking_transaction_id:
+            # Bokförd körning: bara det som återstår att betala ut (2910 minus redan utbetalt).
+            payout_amount = payroll_run.salary_payment_remaining()
+        else:
+            payout_amount = sum(
+                (record.net_salary or Decimal("0.00") for record in payroll_run.salary_records.all()), Decimal("0.00")
+            )
         salary_payment_events[payout_date] = salary_payment_events.get(payout_date, Decimal("0.00")) + payout_amount
 
     labels = []

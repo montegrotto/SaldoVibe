@@ -128,6 +128,80 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertIn(800.0, chart["supplier_payments"])
         self.assertIn(22000.0, chart["salary_payments"])
 
+    def test_forecast_only_counts_unpaid_part_of_booked_payroll_run(self):
+        from bookkeeping.models import JournalEntry
+        from payroll.models import PayrollRun
+
+        today = timezone.localdate()
+        salary_liability = create_account(self.company, "2910", "Upplupna löner", AccountClass.EQUITY_LIABILITY)
+        booking = Transaction.objects.create(
+            accounting_year=self.year, date=today, description="Lön", created_by=self.user
+        )
+        JournalEntry.objects.create(
+            transaction=booking, account=self.equity_account, debit=Decimal("22000.00"), credit=Decimal("0.00")
+        )
+        JournalEntry.objects.create(
+            transaction=booking, account=salary_liability, debit=Decimal("0.00"), credit=Decimal("22000.00")
+        )
+        payroll_run = PayrollRun.objects.create(
+            company=self.company,
+            period_year=today.year,
+            period_month=today.month,
+            payment_date=today + timedelta(days=3),
+            created_by=self.user,
+            booking_transaction=booking,
+            paid_amount=Decimal("20000.00"),
+        )
+
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+        self.assertEqual(response.context["salary_total"], Decimal("2000.00"))
+
+        payroll_run.paid_amount = Decimal("22000.00")
+        payroll_run.save(update_fields=["paid_amount"])
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+        self.assertEqual(response.context["salary_total"], Decimal("0.00"))
+        self.assertEqual(response.context["projected_end_balance"], Decimal("100000.00"))
+
+    def test_forecast_only_counts_unpaid_part_of_supplier_and_customer_invoices(self):
+        from invoicing.models import Customer, Invoice, InvoiceLine
+        from supplier_invoices.models import SupplierInvoice
+
+        today = timezone.localdate()
+        SupplierInvoice.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            supplier_name="Delbetald AB",
+            invoice_date=today,
+            due_date=today + timedelta(days=5),
+            payable_account=self.payable_account,
+            amount_ex_vat=Decimal("800.00"),
+            total_amount=Decimal("800.00"),
+            vat_amount=Decimal("0.00"),
+            paid_amount=Decimal("300.00"),
+        )
+        customer = Customer.objects.create(company=self.company, name="Kund AB")
+        paid_invoice = Invoice.objects.create(
+            company=self.company,
+            customer=customer,
+            invoice_date=today,
+            due_date=today + timedelta(days=5),
+            payment_terms_days=5,
+            is_paid=True,
+            paid_amount=Decimal("1000.00"),
+        )
+        InvoiceLine.objects.create(
+            invoice=paid_invoice,
+            description="Tjänster",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("1000.00"),
+            vat_rate=Decimal("0.00"),
+        )
+
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+
+        self.assertEqual(response.context["supplier_total"], Decimal("500.00"))
+        self.assertEqual(response.context["incoming_total"], Decimal("0.00"))
+
     def test_default_selection_only_includes_193x_accounts_with_nonzero_balance(self):
         from bookkeeping.models import JournalEntry
         from bookkeeping.models import Transaction as TransactionModel
