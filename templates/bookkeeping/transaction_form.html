@@ -212,6 +212,7 @@
 {{ block.super }}
 {{ account_balances|json_script:"account-balances-data" }}
 {{ bank_managed_accounts|json_script:"bank-managed-accounts-data" }}
+{{ reskontra_accounts|json_script:"reskontra-accounts-data" }}
 {{ verification_templates_payload|json_script:"verification-templates-payload" }}
 {{ extraction_suggested_base_amount|json_script:"extraction-suggested-base-amount" }}
 <script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
@@ -225,6 +226,7 @@
   const MIN_ROWS = 2;
   const accountBalances = JSON.parse(document.getElementById('account-balances-data')?.textContent || '{}');
   const bankManagedAccounts = JSON.parse(document.getElementById('bank-managed-accounts-data')?.textContent || '{}');
+  const reskontraAccounts = JSON.parse(document.getElementById('reskontra-accounts-data')?.textContent || '{}');
   const bankingTransactionListUrl = "{% url 'banking:transaction_list' %}";
   const verificationTemplatesPayload = JSON.parse(document.getElementById('verification-templates-payload')?.textContent || '{}');
   const baseAmountWrapper = document.getElementById('base-amount-wrapper');
@@ -382,15 +384,22 @@
 
     const accountId = getSelectedAccountId(row);
     const info = accountId ? bankManagedAccounts[String(accountId)] : null;
-    if (!info) {
+    let message = '';
+    if (info) {
+      message = 'Kontot hanteras av en bankkoppling. Bokför hellre via <a href="' +
+        bankingTransactionListUrl + '?bank_account=' + info.bank_account_id + '">Banktransaktioner</a>.';
+    } else if (accountId && reskontraAccounts[String(accountId)]) {
+      message = 'Kontot är ett reskontrakonto. Registrera betalningar av kund- och leverantörsfakturor på ' +
+        'fakturan (Registrera betalning) eller i Bank-vyn, annars stämmer reskontran inte mot huvudboken.';
+    }
+    if (!message) {
       warningEl.classList.add('d-none');
       warningEl.innerHTML = '';
       return;
     }
 
     warningEl.classList.remove('d-none');
-    warningEl.innerHTML = 'Kontot hanteras av en bankkoppling. Bokför hellre via <a href="' +
-      bankingTransactionListUrl + '?bank_account=' + info.bank_account_id + '">Banktransaktioner</a>.';
+    warningEl.innerHTML = message;
   }
 
   function syncAllAccountBalances() {

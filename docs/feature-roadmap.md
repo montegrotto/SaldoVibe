@@ -36,14 +36,16 @@ Alla fyra punkter klara (se "Klart" ovan).
   (sammalöneregeln) och semesterlöneskuld som eget steg i bokslutsflödet (`payroll/vacation.py`).
 - ~~SRU för enskild firma~~ — NE-bilagan byggs från kontonumret (`bookkeeping/sru_ne.py`) när
   bolagsformen är enskild firma; INK2 oförändrat för aktiebolag.
-- **Kontantmetoden (bokslutsmetoden) för moms** — bara faktureringsmetoden finns.
 - **Tvåfaktorsinloggning** — TOTP går med stdlib `hmac`, inget nytt beroende.
 
 ### Stora — bara vid faktisk efterfrågan
 
 - **Årsredovisning K2** — naturligt steg efter bokslutet, men mycket mall och regelverk.
 - **Kostnadsställe/projekt** — ingen dimension i modellerna eller SIE-exporten (`#DIM`/`#OBJEKT`).
-- **Valutahantering** — kundfakturan har valutafält men ingen kursdifferens vid betalning.
+- **Valutahantering** — löst utan kursmodell (2026-10-06): fakturan registreras i SEK med
+  kortets/bankens belopp, och en differens vid betalning bokförs som avvikelse mot 3960/7960
+  (`register_manual_payment`) eller som extrarad i Bank-vyn. Full modell med kurshämtning och
+  omvärdering till balansdagens kurs bara om utländska fakturor blir vanliga.
 
 Attestflöde, lager och API: inga skäl i målgruppen, inte planerade.
 
@@ -69,4 +71,12 @@ Skapa offert från samma artiklar/kunder som fakturor, med "gör om till faktura
 ## Medvetet bortvalt
 - **Bankkoppling/PSD2, BankID, e-fakturaväxel** — bryter mot den integrationsfria linjen;
   SIE/CSV-import täcker behovet. (Peppol-XML genereras redan som fil, utan växel.)
+- **Kontantmetoden (bokslutsmetoden)** — användarna kör faktureringsmetoden, som alltid får
+  väljas; byte till bokslutsmetoden kräver dessutom ansökan hos Skatteverket (ML 7 kap. 17 §).
+  Bankmatchning och reskontra gör faktureringsmetoden billig för användaren. Skulle den byggas
+  är betalningsposterna (`AbstractPayment`) rätt datagrund för moms per betalningsdatum.
+  Beslut 2026-10-06.
+- **Betalning som egen entitet, kundsaldo, factoring, inkasso, PSP-clearing (1686)** — oallokerade
+  pengar ligger på ett balanskonto (2420, 1480, 2999) som sedan används som betalkonto; samma
+  modell som Fortnox och Bokio. Factoring utan regress är en betalning med avvikelse till 6064.
 - **Kassaflödesanalys enligt K3 m.fl. rapportvarianter** — fel målgrupp för små K2-bolag.

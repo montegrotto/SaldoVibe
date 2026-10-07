@@ -22,12 +22,13 @@ and optionally offset_url + offset_candidates (kvittning, invoice types only).
     <div class="mb-2">
       <label class="form-label small mb-0" for="{{ register_payment_form.payment_account.id_for_label }}">{{ register_payment_form.payment_account.label }}</label>
       {{ register_payment_form.payment_account }}
+      {% if register_payment_form.payment_account.help_text %}<div class="form-text">{{ register_payment_form.payment_account.help_text }}</div>{% endif %}
     </div>
     <hr class="my-2">
     <div class="mb-2">
       <label class="form-label small mb-0" for="{{ register_payment_form.write_off_amount.id_for_label }}">{{ register_payment_form.write_off_amount.label }}</label>
       {{ register_payment_form.write_off_amount }}
-      <div class="form-text">Belopp som inte betalas utan skrivs av, t.ex. öresavrundning, kundförlust eller rabatt.</div>
+      <div class="form-text">Positivt belopp: del av fakturan som inte betalas utan skrivs av (öresavrundning, kundförlust, rabatt). Negativt belopp: betalt utöver fakturan (påminnelseavgift, dröjsmålsränta, kursdifferens, förskott).</div>
     </div>
     <div class="mb-2">
       <label class="form-label small mb-0" for="{{ register_payment_form.write_off_account.id_for_label }}">{{ register_payment_form.write_off_account.label }}</label>
@@ -40,7 +41,7 @@ and optionally offset_url + offset_candidates (kvittning, invoice types only).
       <div class="form-text">{{ register_payment_form.adjust_vat.help_text }}</div>
     </div>
     {% endif %}
-    <div class="form-text mb-2">Återstående belopp: {{ document.remaining_amount|floatformat:"2g" }} kr. Betalning och avskrivning bokförs som en verifikation. Betalningar som syns på banken bokförs normalt i Bank-vyn.</div>
+    <div class="form-text mb-2">Återstående belopp: {{ document.remaining_amount|floatformat:"2g" }} kr. Betalt belopp plus avvikelse regleras på fakturan och bokförs som en verifikation. Betalningar som syns på banken bokförs normalt i Bank-vyn.</div>
     <button type="submit" class="btn btn-success btn-sm w-100">
       <i class="bi bi-journal-check me-1"></i>Bokför betalning
     </button>

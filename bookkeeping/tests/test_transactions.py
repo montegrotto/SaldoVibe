@@ -591,6 +591,13 @@ class TransactionAddExtractionSuggestionTests(CompanyTestCase):
         self.assertEqual(response.context["extraction_suggested_base_amount"], "")
         self.assertNotIn("date", response.context["form"].initial)
 
+    def test_form_flags_reskontra_accounts_for_the_warning(self):
+        # 2440 is a reskontrakonto, 1930 is not — the page JS warns on the former.
+        response = self.client.get(reverse("bookkeeping:transaction_add"))
+
+        self.assertEqual(response.context["reskontra_accounts"], {str(self.credit_account.pk): True})
+        self.assertContains(response, 'id="reskontra-accounts-data"')
+
 
 class AccountUpdateTests(CompanyTestCase):
     user_email = "account-editor@example.com"

@@ -2,11 +2,13 @@ from datetime import date
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from django.urls import reverse
 
 from banking.models import BankTransaction
 from banking.services import get_quick_booking_suggestion, undo_bank_payment
 from banking.tests.base import BankingTestCase
+from bookkeeping.forms import RegisterPaymentForm
 from bookkeeping.models import Account, AccountClass, JournalEntry, PeriodLock, Transaction
 from bookkeeping.payables import offset_payables, offsettable_counterparts, register_manual_payment
 from invoicing.models import Article, Customer, Invoice, InvoiceLine, InvoicePayment
@@ -331,7 +333,8 @@ class InvoiceAllocationBookingTests(PartialPaymentTestCase):
         invoice.refresh_from_db()
         bank_tx.refresh_from_db()
         self.assertTrue(invoice.is_paid)
-        self.assertEqual(invoice.paid_amount, Decimal("1799.60"))
+        # paid_amount is the settled amount: 1 799,60 paid plus 0,40 written off.
+        self.assertEqual(invoice.paid_amount, Decimal("1800.00"))
 
         payable_entry = JournalEntry.objects.get(transaction=bank_tx.booked_transaction, account=self.payable_account)
         self.assertEqual(payable_entry.debit, Decimal("1800.00"))
@@ -343,12 +346,12 @@ class InvoiceAllocationBookingTests(PartialPaymentTestCase):
         self.assertEqual(payment.write_off_amount, Decimal("0.40"))
 
     def test_remaining_amount_is_zero_once_a_write_off_settles_the_invoice(self):
-        """A written-off öresavrundning leaves paid_amount below total_amount.
+        """A written-off öresavrundning counts as settled, not as 0,40 kr still owing.
 
-        `remaining_amount` has to read that as settled, not as 0,40 kr still owing -
-        the shortfall went to 3740, nothing is outstanding. All three payable types
-        share one implementation in `PayableMixin`; this pins the purchase side, which
-        used to answer with the difference while customer invoices answered zero.
+        paid_amount is the settled amount (payment plus avvikelse), so the shortfall that
+        went to 3740 leaves nothing outstanding. All three payable types share one
+        implementation in `PayableMixin`; this pins the purchase side, which used to
+        answer with the difference while customer invoices answered zero.
         """
         supplier_invoice = self._create_supplier_invoice(total=Decimal("1800.00"), name_suffix="REM")
         bank_tx = self._create_bank_tx(amount="-1799.60", external_id="bank-supplier-remaining")
@@ -363,10 +366,10 @@ class InvoiceAllocationBookingTests(PartialPaymentTestCase):
 
         supplier_invoice.refresh_from_db()
         self.assertTrue(supplier_invoice.is_paid)
-        # Below the total precisely because 0,40 was written off, not left owing.
-        self.assertEqual(supplier_invoice.paid_amount, Decimal("1799.60"))
-        self.assertLess(supplier_invoice.paid_amount, supplier_invoice.total_amount)
+        self.assertEqual(supplier_invoice.paid_amount, Decimal("1800.00"))
         self.assertEqual(supplier_invoice.remaining_amount, Decimal("0.00"))
+        payment = SupplierInvoicePayment.objects.get(payable=supplier_invoice)
+        self.assertEqual((payment.amount, payment.write_off_amount), (Decimal("1799.60"), Decimal("0.40")))
 
     def test_remaining_amount_answers_the_same_way_for_a_customer_invoice(self):
         customer_invoice = self._create_customer_invoice(total=Decimal("1800.00"), name_suffix="REM")
@@ -717,6 +720,156 @@ class ManualPaymentTests(PartialPaymentTestCase):
                 amount=Decimal("1000.00"),
                 payment_account=self.bank_gl_account,
             )
+
+    def _entries(self, txn):
+        return {(entry.account.number, entry.debit, entry.credit) for entry in txn.entries.select_related("account")}
+
+    def test_negative_avvikelse_books_fee_paid_on_top_of_customer_invoice(self):
+        # Kunden betalar 1 060 för en faktura på 1 000: 60 kr påminnelseavgift till 3590.
+        fee_account = Account.objects.create(
+            company=self.company, number="3590", name="Övriga fakturerade kostnader", account_class=AccountClass.REVENUE
+        )
+        invoice = self._create_customer_invoice(total=Decimal("1000.00"))
+
+        txn = register_manual_payment(
+            invoice,
+            self.user,
+            payment_date=date(2026, 7, 10),
+            amount=Decimal("1060.00"),
+            payment_account=self.bank_gl_account,
+            write_off_amount=Decimal("-60.00"),
+            write_off_account=fee_account,
+        )
+        invoice.refresh_from_db()
+
+        self.assertTrue(invoice.is_paid)
+        self.assertEqual(invoice.paid_amount, Decimal("1000.00"))
+        self.assertEqual(
+            self._entries(txn),
+            {
+                ("1930", Decimal("1060.00"), Decimal("0.00")),
+                ("1510", Decimal("0.00"), Decimal("1000.00")),
+                ("3590", Decimal("0.00"), Decimal("60.00")),
+            },
+        )
+        payment = InvoicePayment.objects.get(payable=invoice)
+        self.assertEqual((payment.amount, payment.write_off_amount), (Decimal("1060.00"), Decimal("-60.00")))
+
+    def test_negative_avvikelse_books_currency_loss_on_supplier_invoice(self):
+        # Kortet drog 1 020 för en faktura registrerad till 1 000: kursförlust 20 kr på 7960.
+        loss_account = Account.objects.create(
+            company=self.company, number="7960", name="Valutakursförluster", account_class=AccountClass.PERSONNEL
+        )
+        invoice = self._create_supplier_invoice(total=Decimal("1000.00"), name_suffix="FX")
+
+        txn = register_manual_payment(
+            invoice,
+            self.user,
+            payment_date=date(2026, 7, 10),
+            amount=Decimal("1020.00"),
+            payment_account=self.bank_gl_account,
+            write_off_amount=Decimal("-20.00"),
+            write_off_account=loss_account,
+        )
+        invoice.refresh_from_db()
+
+        self.assertTrue(invoice.is_paid)
+        self.assertEqual(
+            self._entries(txn),
+            {
+                ("2440", Decimal("1000.00"), Decimal("0.00")),
+                ("1930", Decimal("0.00"), Decimal("1020.00")),
+                ("7960", Decimal("20.00"), Decimal("0.00")),
+            },
+        )
+
+    def test_partial_payment_with_write_off_keeps_remaining_amount_right(self):
+        # 500 betalt + 10 avskrivet reglerar 510, så 490 återstår — inte 500, annars
+        # överregleras fakturan med 10 kr vid nästa betalning.
+        invoice = self._create_customer_invoice(total=Decimal("1000.00"))
+        register_manual_payment(
+            invoice,
+            self.user,
+            payment_date=date(2026, 7, 10),
+            amount=Decimal("500.00"),
+            payment_account=self.bank_gl_account,
+            write_off_amount=Decimal("10.00"),
+            write_off_account=self.rounding_account,
+        )
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.paid_amount, Decimal("510.00"))
+        self.assertEqual(invoice.remaining_amount, Decimal("490.00"))
+
+        with self.assertRaises(ValidationError):
+            register_manual_payment(
+                invoice,
+                self.user,
+                payment_date=date(2026, 7, 11),
+                amount=Decimal("500.00"),
+                payment_account=self.bank_gl_account,
+            )
+
+        register_manual_payment(
+            invoice,
+            self.user,
+            payment_date=date(2026, 7, 11),
+            amount=Decimal("490.00"),
+            payment_account=self.bank_gl_account,
+        )
+        invoice.refresh_from_db()
+        self.assertTrue(invoice.is_paid)
+        receivable = JournalEntry.objects.filter(account=self.receivable_account).aggregate(
+            debit=Sum("debit"), credit=Sum("credit")
+        )
+        self.assertEqual(receivable["debit"], receivable["credit"])
+
+    def test_payment_account_may_be_any_balance_account_except_reskontra(self):
+        # En oidentifierad inbetalning parkerad på 2999 regleras senare mot fakturan.
+        obs_account = Account.objects.create(
+            company=self.company, number="2999", name="OBS-konto", account_class=AccountClass.EQUITY_LIABILITY
+        )
+        invoice = self._create_customer_invoice(total=Decimal("1000.00"))
+
+        form = RegisterPaymentForm(
+            {"payment_date": "2026-07-10", "amount": "1000.00", "payment_account": str(obs_account.pk)},
+            payable=invoice,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        payment_accounts = form.fields["payment_account"].queryset
+        self.assertIn(obs_account, payment_accounts)
+        self.assertNotIn(self.receivable_account, payment_accounts)
+        self.assertNotIn(self.payable_account, payment_accounts)
+        self.assertNotIn(self.rounding_account, payment_accounts)
+        self.assertIn(obs_account, form.fields["write_off_account"].queryset)
+        self.assertNotIn(self.receivable_account, form.fields["write_off_account"].queryset)
+
+        txn = register_manual_payment(
+            invoice, self.user, payment_date=date(2026, 7, 10), amount=Decimal("1000.00"), payment_account=obs_account
+        )
+        invoice.refresh_from_db()
+
+        self.assertTrue(invoice.is_paid)
+        self.assertTrue(txn.entries.filter(account=obs_account, debit=Decimal("1000.00")).exists())
+
+    def test_form_requires_avvikelsekonto_and_a_positive_settlement(self):
+        invoice = self._create_customer_invoice(total=Decimal("1000.00"))
+        base = {"payment_date": "2026-07-10", "payment_account": str(self.bank_gl_account.pk)}
+
+        form = RegisterPaymentForm({**base, "amount": "1060.00", "write_off_amount": "-60.00"}, payable=invoice)
+        self.assertFalse(form.is_valid())
+        self.assertIn("Välj ett konto för avvikelsen.", form.non_field_errors())
+
+        form = RegisterPaymentForm(
+            {
+                **base,
+                "amount": "60.00",
+                "write_off_amount": "-60.00",
+                "write_off_account": str(self.rounding_account.pk),
+            },
+            payable=invoice,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("Ange ett betalbelopp och/eller en avvikelse.", form.non_field_errors())
 
 
 class OffsetPayableTests(PartialPaymentTestCase):

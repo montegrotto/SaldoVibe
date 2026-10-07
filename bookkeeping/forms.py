@@ -615,21 +615,26 @@ class AccountChoiceField(forms.ModelChoiceField):
 
 
 def payment_accounts_for(company):
-    """Betalkonto: kassa/bank (19xx) samt ägarens privata betalning — 2018 (egna
-    insättningar, EF) och 2893 (avräkning aktieägare, AB). Inte t.ex. kundfordringar."""
+    """Betalkonto: vilket balanskonto som helst utom kund- och leverantörsreskontran —
+    kassa/bank (19xx), ägarens privata betalning (2893 i AB, 2018 i enskild firma),
+    förskott (2420/1480), OBS-konto för oidentifierade inbetalningar (2999), kortskuld,
+    skuld till anställd ... Reskontrakontona regleras bara via dokumenten."""
+    from .payables import reskontra_account_ids
+
     return (
-        company.accounts.filter(is_active=True)
-        .filter(Q(number__startswith="19") | Q(number__in=["2018", "2893"]))
+        company.accounts.filter(is_active=True, account_class__in=[AccountClass.ASSET, AccountClass.EQUITY_LIABILITY])
+        .exclude(pk__in=reskontra_account_ids(company))
         .order_by("number")
     )
 
 
 class RegisterPaymentForm(forms.Form):
-    """Register a manual payment and/or write-off against a payable, posting a verifikation.
+    """Register a manual payment and/or avvikelse against a payable, posting a verifikation.
 
-    Shared by customer invoices, supplier invoices and expense claims. The payable decides
-    the suggested write-off account (öresavrundning 3740, kundförlust 6351) and whether the
-    VAT-adjustment choice is offered (customer invoices only).
+    Shared by customer invoices, supplier invoices and expense claims (web and API). The
+    payable decides the suggested avvikelsekonto (öresavrundning 3740, kundförlust 6351)
+    and whether the VAT-adjustment choice is offered (customer invoices only). The
+    avvikelse is signed: positive is written off, negative was paid on top of the document.
     """
 
     payment_date = forms.DateField(
@@ -650,14 +655,13 @@ class RegisterPaymentForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-select form-select-sm js-account-select"}),
     )
     write_off_amount = forms.DecimalField(
-        label="Avskrivet belopp",
+        label="Avvikelse",
         required=False,
-        min_value=Decimal("0.00"),
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0"}),
+        widget=forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01"}),
     )
     write_off_account = AccountChoiceField(
-        label="Avskrivningskonto",
+        label="Avvikelsekonto",
         queryset=Account.objects.none(),
         required=False,
         widget=forms.Select(attrs={"class": "form-select form-select-sm js-account-select"}),
@@ -673,13 +677,22 @@ class RegisterPaymentForm(forms.Form):
     def __init__(self, *args, payable, **kwargs):
         super().__init__(*args, **kwargs)
         self.payable = payable
-        accounts = payable.company.accounts.filter(is_active=True).order_by("number")
         payment_accounts = payment_accounts_for(payable.company)
-        # Avskrivningskonto: inte balanskonton (reskontra, kassa/bank) som redan täcks av
-        # betalningen/regleringen — bara resultatkonton (öresavrundning, kundförlust, rabatt ...).
-        write_off_accounts = accounts.exclude(account_class__in=[AccountClass.ASSET, AccountClass.EQUITY_LIABILITY])
+        # Avvikelsekonto: resultatkonton (öresavrundning, kundförlust, rabatt, avgifter,
+        # kursdifferens) men även t.ex. 2420 när ett överskott är ett förskott på nästa faktura.
+        write_off_accounts = payable.company.accounts.filter(is_active=True).order_by("number")
+        settlement_account, _side = payable.payment_settlement()
+        if settlement_account is not None:
+            # The document's own reskontrakonto is the settlement row, never a counterpart.
+            payment_accounts = payment_accounts.exclude(pk=settlement_account.pk)
+            write_off_accounts = write_off_accounts.exclude(pk=settlement_account.pk)
         self.fields["payment_account"].queryset = payment_accounts
         self.fields["write_off_account"].queryset = write_off_accounts
+        legal_form = payable.company.legal_form
+        private_account = {"aktiebolag": "2893", "enskild_firma": "2018"}.get(
+            legal_form, "2893 i AB, 2018 i enskild firma"
+        )
+        self.fields["payment_account"].help_text = f"Betalt privat av ägaren: {private_account}."
 
         if not self.is_bound:
             self.fields["payment_date"].initial = timezone.localdate()
@@ -696,11 +709,11 @@ class RegisterPaymentForm(forms.Form):
         amount = cleaned.get("amount") or Decimal("0.00")
         write_off = cleaned.get("write_off_amount") or Decimal("0.00")
         if amount + write_off <= Decimal("0.00"):
-            raise forms.ValidationError("Ange ett betalbelopp och/eller ett avskrivningsbelopp.")
+            raise forms.ValidationError("Ange ett betalbelopp och/eller en avvikelse.")
         if amount > Decimal("0.00") and cleaned.get("payment_account") is None:
             raise forms.ValidationError("Välj ett betalkonto för betalbeloppet.")
-        if write_off > Decimal("0.00") and cleaned.get("write_off_account") is None:
-            raise forms.ValidationError("Välj ett konto för avskrivningsbeloppet.")
+        if write_off != Decimal("0.00") and cleaned.get("write_off_account") is None:
+            raise forms.ValidationError("Välj ett konto för avvikelsen.")
         return cleaned
 
 

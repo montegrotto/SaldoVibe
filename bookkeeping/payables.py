@@ -3,11 +3,12 @@
 A "payable" here is any document that carries a balance someone eventually settles —
 customer invoices, supplier invoices and expense claims. They post different journal
 entries and use different nouns in the UI, but the money side is identical: a total, a
-running paid amount, an öresavrundning write-off tolerance, and a manual "mark as paid"
-escape hatch for payments that will never show up as a bank transaction.
+running settled amount, a signed avvikelse (öresavrundning, kundförlust, påminnelseavgift,
+kursdifferens ...) and a manual "registrera betalning" path for payments that will never
+show up as a bank transaction.
 
-Keeping that logic here means the write-off limit and the rounding account cannot drift
-apart between the three flows.
+Every settlement — manual, bank booking, kvittning — is written through `record_payment`,
+so the over-settlement check and the paid/partial state cannot drift apart between flows.
 """
 
 from dataclasses import dataclass
@@ -195,6 +196,9 @@ class PayableMixin(models.Model):
 
     @property
     def remaining_amount(self):
+        # paid_amount is the settled amount (payments plus signed avvikelser), see
+        # reapply_payment_state — so this stays right after a partial payment with a
+        # write-off, or a payment that also covered a fee on top of the document.
         if self.is_paid:
             return Decimal("0.00")
         remaining = self.settled_total - self._amount(self.paid_amount)
@@ -240,6 +244,9 @@ class AbstractPayment(models.Model):
     `transaction` and `payment_account` FKs, which need per-app related names.
     """
 
+    # amount is the money moved on payment_account; write_off_amount the signed avvikelse
+    # (positive: part of the document written off, negative: paid on top of it). The
+    # document is settled by their sum.
     amount = models.DecimalField("Belopp", max_digits=15, decimal_places=2)
     write_off_amount = models.DecimalField("Avskrivet belopp", max_digits=15, decimal_places=2, default=Decimal("0.00"))
     payment_date = models.DateField("Betalningsdatum")
@@ -277,17 +284,23 @@ def payment_state_update_fields(model, extra_fields=()):
 
 
 def reapply_payment_state(obj, payment_model):
-    """Recompute an object's paid_amount/is_paid/... from its non-reversed payment rows."""
+    """Recompute an object's paid_amount/is_paid/... from its non-reversed payment rows.
+
+    paid_amount is the *settled* amount: payments plus their signed avvikelser. That is
+    what remaining_amount and the reskontra subtract from the total, so a partial payment
+    with a write-off, or a payment covering a fee on top of the document, leaves the
+    right remainder. The money actually moved is on the payment rows.
+    """
     remaining_rows = list(
         payment_model.objects.filter(payable=obj, reversed_at__isnull=True).order_by("payment_date", "id")
     )
-    total_paid = sum((row.amount for row in remaining_rows), Decimal("0.00"))
-    total_write_off = sum((row.write_off_amount for row in remaining_rows), Decimal("0.00"))
     total_amount = obj.settled_total
-    effective_paid = (total_paid + total_write_off).quantize(Decimal("0.01"))
+    settled = sum((row.amount + row.write_off_amount for row in remaining_rows), Decimal("0.00")).quantize(
+        Decimal("0.01")
+    )
 
-    obj.paid_amount = total_paid.quantize(Decimal("0.01"))
-    obj.is_paid = total_amount > Decimal("0.00") and effective_paid >= total_amount
+    obj.paid_amount = settled
+    obj.is_paid = total_amount > Decimal("0.00") and settled >= total_amount
 
     latest_row = remaining_rows[-1] if remaining_rows else None
     obj.paid_at = timezone.now() if obj.is_paid else None
@@ -301,6 +314,66 @@ def reapply_payment_state(obj, payment_model):
             extra_fields=("payment_account", "payment_transaction"),
         )
     )
+
+
+def record_payment(payable, *, transaction, amount, write_off_amount, payment_date, payment_account):
+    """Register one settlement row against a payable and recompute its payment state.
+
+    The single write path for every settlement — manual payment, bank booking, kvittning —
+    so the over-settlement check and the paid/partial bookkeeping cannot drift apart.
+    amount is the money moved on payment_account, write_off_amount the signed avvikelse
+    (positive: part of the document written off, negative: paid on top of it); together
+    they are what the document is settled by. Must run inside an atomic block — the row
+    is re-locked here, so callers may pass a stale instance.
+    """
+    amount = quantize_amount(amount)
+    write_off_amount = quantize_amount(write_off_amount)
+    settled = amount + write_off_amount
+
+    model = type(payable)
+    locked = model.objects.select_for_update().get(pk=payable.pk)
+    if locked.is_paid:
+        raise ValidationError(locked.PAYMENT_LABELS.already_paid)
+    if settled <= Decimal("0.00"):
+        raise ValidationError("Ange ett betalbelopp och/eller en avvikelse.")
+    if settled > locked.remaining_amount:
+        raise ValidationError(
+            f"Betalning och avvikelse ({settled:.2f} kr) överstiger återstående belopp ({locked.remaining_amount:.2f} kr)."
+        )
+
+    payment_model = locked.payments.model
+    row = payment_model.objects.create(
+        payable=locked,
+        transaction=transaction,
+        amount=amount,
+        write_off_amount=write_off_amount,
+        payment_date=payment_date,
+        payment_account=payment_account,
+    )
+    reapply_payment_state(locked, payment_model)
+    return row
+
+
+def reskontra_account_ids(company):
+    """Kund- och leverantörsreskontrakonton: 1510/2440 plus every account a booked invoice
+    settles on. Postings on these belong to a document — Registrera betalning or the bank
+    view — never to a bare voucher or as a betalkonto, or the reskontra drifts from the
+    ledger."""
+    from invoicing.models import Invoice
+    from supplier_invoices.models import SupplierInvoice
+
+    ids = set(company.accounts.filter(number__in=("1510", "2440")).values_list("pk", flat=True))
+    ids.update(
+        Invoice.objects.filter(company=company, is_booked=True, receivable_account__isnull=False)
+        .values_list("receivable_account_id", flat=True)
+        .distinct()
+    )
+    ids.update(
+        SupplierInvoice.objects.filter(company=company, is_registered=True)
+        .values_list("payable_account_id", flat=True)
+        .distinct()
+    )
+    return ids
 
 
 def _validate_open_payment_period(company, payment_date):
@@ -405,62 +478,59 @@ def register_manual_payment(
     write_off_account=None,
     adjust_vat=False,
 ):
-    """Register a payment (and/or write-off) against a payable, posting a real verifikation.
+    """Register a payment (and/or avvikelse) against a payable, posting a real verifikation.
 
-    Replaces the old flag-only "markera som betald": every settlement now hits the ledger,
-    so the reskontra and huvudbok can't drift apart. amount goes to payment_account
-    (kassa/bank/eget konto), write_off_amount to write_off_account (öresavrundning,
-    kundförlust, rabatt ...). Fully paid when they cover the remaining balance together.
-    Undo goes through banking's payment-undo flow like any other payment verification.
+    Every settlement hits the ledger, so the reskontra and huvudbok can't drift apart.
+    amount goes to payment_account — any balance account: kassa/bank, ägarens privata
+    betalning (2893/2018), förskott (2420/1480), OBS-konto (2999) ... write_off_amount is
+    the signed avvikelse against write_off_account: positive for a part of the document
+    that is written off (öresavrundning, kundförlust, rabatt), negative for money paid on
+    top of it (påminnelseavgift, dröjsmålsränta, kursdifferens, förskott). The document is
+    settled by amount + write_off_amount. Undo goes through banking's payment-undo flow
+    like any other payment verification.
     """
     labels = payable.PAYMENT_LABELS
     amount = quantize_amount(amount)
     write_off_amount = quantize_amount(write_off_amount)
+    settled = amount + write_off_amount
 
     if not payable.is_bookkept:
         raise ValidationError(labels.not_bookkept)
     if payable.is_paid:
         raise ValidationError(labels.already_paid)
     _validate_open_payment_period(payable.company, payment_date)
-    if amount < Decimal("0.00") or write_off_amount < Decimal("0.00"):
-        raise ValidationError("Beloppen kan inte vara negativa.")
-    if amount + write_off_amount <= Decimal("0.00"):
-        raise ValidationError("Ange ett betalbelopp och/eller ett avskrivningsbelopp.")
+    if amount < Decimal("0.00"):
+        raise ValidationError("Betalbeloppet kan inte vara negativt.")
+    if settled <= Decimal("0.00"):
+        raise ValidationError("Ange ett betalbelopp och/eller en avvikelse.")
     if amount > Decimal("0.00") and payment_account is None:
         raise ValidationError("Välj ett betalkonto för betalbeloppet.")
-    if write_off_amount > Decimal("0.00") and write_off_account is None:
-        raise ValidationError("Välj ett konto för avskrivningsbeloppet.")
+    if write_off_amount != Decimal("0.00") and write_off_account is None:
+        raise ValidationError("Välj ett konto för avvikelsen.")
 
     settlement_account, settlement_side = payable.payment_settlement()
     if settlement_account is None:
         raise ValidationError("Dokumentet saknar reskontrakonto och kan inte regleras.")
 
-    model = type(payable)
+    rows = [(settlement_account, settled, settlement_side)]
+    if amount > Decimal("0.00"):
+        rows.append((payment_account, amount, _opposite_side(settlement_side)))
+    if write_off_amount > Decimal("0.00"):
+        rows.extend(
+            _write_off_rows(
+                payable,
+                write_off_amount=write_off_amount,
+                write_off_account=write_off_account,
+                side=_opposite_side(settlement_side),
+                adjust_vat=adjust_vat,
+            )
+        )
+    elif write_off_amount < Decimal("0.00"):
+        # Paid on top of the document: the extra faces the payment row, on the
+        # settlement side (intäkt, kostnad or förskottsskuld).
+        rows.append((write_off_account, -write_off_amount, settlement_side))
 
     with db_transaction.atomic():
-        payable = model.objects.select_for_update().get(pk=payable.pk)
-        if payable.is_paid:
-            raise ValidationError(labels.already_paid)
-        if amount + write_off_amount > payable.remaining_amount:
-            raise ValidationError(
-                f"Betalning och avskrivning ({amount + write_off_amount:.2f} kr) överstiger "
-                f"återstående belopp ({payable.remaining_amount:.2f} kr)."
-            )
-
-        rows = [(settlement_account, amount + write_off_amount, settlement_side)]
-        if amount > Decimal("0.00"):
-            rows.append((payment_account, amount, _opposite_side(settlement_side)))
-        if write_off_amount > Decimal("0.00"):
-            rows.extend(
-                _write_off_rows(
-                    payable,
-                    write_off_amount=write_off_amount,
-                    write_off_account=write_off_account,
-                    side=_opposite_side(settlement_side),
-                    adjust_vat=adjust_vat,
-                )
-            )
-
         txn = _create_payment_transaction(
             company=payable.company,
             user=user,
@@ -468,16 +538,16 @@ def register_manual_payment(
             description=f"Betalning {payable.PAYABLE_LABEL.lower()} {payable}",
             rows=rows,
         )
-        payment_model = payable.payments.model
-        payment_model.objects.create(
-            payable=payable,
+        # record_payment re-locks and re-checks the remaining balance; a failure rolls
+        # the verifikation back with it.
+        record_payment(
+            payable,
             transaction=txn,
             amount=amount,
             write_off_amount=write_off_amount,
             payment_date=payment_date,
             payment_account=payment_account,
         )
-        reapply_payment_state(payable, payment_model)
         return txn
 
 
@@ -548,17 +618,15 @@ def offset_payables(payable, counterpart, user, *, payment_date):
             description=f"Kvittning {counterpart} mot {payable}",
             rows=[(account_a, offset_amount, side_a), (account_b, offset_amount, side_b)],
         )
-        payment_model = payable.payments.model
         for document in (payable, counterpart):
-            payment_model.objects.create(
-                payable=document,
+            record_payment(
+                document,
                 transaction=txn,
                 amount=offset_amount,
                 write_off_amount=Decimal("0.00"),
                 payment_date=payment_date,
                 payment_account=None,
             )
-            reapply_payment_state(document, payment_model)
         return txn
 
 

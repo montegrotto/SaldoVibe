@@ -53,16 +53,26 @@ Betalningar som syns på banken bokförs normalt i Bank-vyn (se
 [5. Bank & skattekonto](05-bank-skattekonto.md)). För övriga fall finns **Registrera betalning**
 på fakturans detaljvy:
 
-- Ange **betalningsdatum**, **betalt belopp** och **betalkonto** (förslag: 1930). Del- och
-  helbetalningar stöds – fakturan markeras som fullt reglerad först när hela beloppet är täckt.
-- **Avskrivet belopp** låter dig samtidigt skriva av en rest som inte kommer att betalas, till
-  valfritt **avskrivningskonto** – öresavrundning (3740), konstaterad kundförlust (förslag: 6351)
-  eller rabatt.
-- Med **Justera utgående moms (kundförlust)** ibockad delas avskrivningen per momssats: momsdelen
-  återtas på utgående moms-kontot (2611/2621/2631) och resten bokförs på avskrivningskontot.
-- Betalning och avskrivning bokförs som en verifikation; perioden för betalningsdatumet får inte
+- Ange **betalningsdatum**, **betalt belopp** och **betalkonto** (förslag: 1930). Betalkontot kan
+  vara vilket balanskonto som helst utom reskontrakontona: kassa (1910), ett annat bankkonto,
+  ägarens privata betalning (2893 i aktiebolag, 2018 i enskild firma), ett tidigare bokfört
+  förskott från kunden (2420) eller OBS-kontot (2999) där en oidentifierad inbetalning parkerats i
+  Bank-vyn. Del- och helbetalningar stöds – fakturan markeras som fullt reglerad först när hela
+  beloppet är täckt.
+- **Avvikelse** är skillnaden mellan det som regleras på fakturan och det som betalas. Ett
+  positivt belopp skrivs av mot valt **avvikelsekonto** – öresavrundning (3740), konstaterad
+  kundförlust (förslag: 6351) eller rabatt. Ett negativt belopp har kunden betalat utöver
+  fakturan: påminnelseavgift (3590), dröjsmålsränta (8313), valutakursvinst (3960) eller ett
+  förskott på nästa faktura (2420), som sedan regleras med 2420 som betalkonto. Betalt belopp
+  plus avvikelse är det som regleras på fakturan.
+- Med **Justera utgående moms (kundförlust)** ibockad delas en positiv avvikelse per momssats:
+  momsdelen återtas på utgående moms-kontot (2611/2621/2631) och resten bokförs på
+  avvikelsekontot.
+- Betalning och avvikelse bokförs som en verifikation; perioden för betalningsdatumet får inte
   vara låst. Registrerade betalningar kan ångras via **Ångra betalning**, som skapar en
   korrigeringsverifikation.
+- **Betalt** på fakturan visar det reglerade beloppet, alltså betalning plus avvikelse.
+  Betalningshistoriken på detaljvyn visar varje betalning med sin avvikelse.
 
 ## Kvitta kreditfaktura mot debetfaktura
 
@@ -71,6 +81,11 @@ varandra via **Kvitta mot faktura** på fakturans detaljvy. Välj motfaktura och
 det minsta återstående beloppet kvittas, en verifikation bokförs mellan fakturornas
 fordringskonton och en betalningspost registreras på båda fakturorna. En kvittning ångras som
 vilken betalning som helst, och båda fakturorna återställs då tillsammans.
+
+Är kunden också leverantör och ni kvittar en kundfaktura mot en leverantörsfaktura utan att pengar
+byter ägare: registrera betalning på båda fakturorna med OBS-kontot 2999 som betalkonto, så går
+kontot jämnt ut och båda reskontrorna stämmer. Betalas nettot via banken bokförs båda fakturorna i
+stället mot samma banktransaktion i Bank-vyn.
 
 ## Kreditera en faktura
 
@@ -115,8 +130,8 @@ fakturans detaljvy:
   ett inkassovarsel eller inkassokrav snarare än fler påminnelser. Det går fortfarande att
   skriva ut fler påminnelser – varningen är en upplysning, inget stopp.
 - Påminnelsen bokför ingenting – avgiften följer med som en upplysning på utskriften. Betalar
-  kunden avgiften registrerar du den som en del av betalningen, t.ex. mot konto 3591
-  (påminnelseavgifter).
+  kunden avgiften registrerar du den som en negativ avvikelse mot konto 3590 (övriga fakturerade
+  kostnader) i **Registrera betalning**, eller som en extrarad när betalningen bokförs i Bank-vyn.
 
 ## Skicka faktura och påminnelse via e-post
 
