@@ -160,12 +160,14 @@ final class Session {
     /// What the share extension uploaded with "Registrera som utlägg": the first attachment that
     /// is still unlinked opens the expense form; the list is cleared either way.
     func takePendingExpense() async -> Attachment? {
-        guard let api, company != nil else { return nil }
-        let ids = Keychain.readPendingExpense()
-        guard !ids.isEmpty else { return nil }
-        Keychain.writePendingExpense([])
+        guard let api, company != nil, let pending = Keychain.readPendingExpense() else { return nil }
+        Keychain.writePendingExpense(nil)
+        if pending.companyId != company?.id {
+            guard let target = companies.first(where: { $0.id == pending.companyId }) else { return nil }
+            select(company: target)
+        }
         let attachments: [Attachment] = (try? await api.get("bilagor/")) ?? []
-        return attachments.first { ids.contains($0.id) }
+        return attachments.first { pending.attachmentIds.contains($0.id) }
     }
 
     // MARK: - helpers

@@ -42,6 +42,8 @@ struct ShareView: View {
     let openApp: (URL) -> Void
     @State private var status = Status.loading
     @State private var api: APIClient?
+    @State private var companies: [Company] = []
+    @State private var companyId: Int?
     @State private var files: [UploadFile] = []
 
     var body: some View {
@@ -53,13 +55,21 @@ struct ShareView: View {
                 case .choosing:
                     VStack(spacing: 12) {
                         Text(files.count == 1 ? "Filen laddas upp till Kvitton i SaldoVibe." : "\(files.count) filer laddas upp till Kvitton i SaldoVibe.")
-                            .foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.bottom)
+                            .foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        if companies.count > 1 {
+                            Picker("Företag", selection: $companyId) {
+                                ForEach(companies) { Text($0.name).tag(Optional($0.id)) }
+                            }
+                            .pickerStyle(.menu)
+                        }
                         Button("Spara som bilaga") { Task { await upload(asExpense: false) } }
                             .buttonStyle(.borderedProminent)
+                            .padding(.top)
                         Button("Registrera som utlägg") { Task { await upload(asExpense: true) } }
                             .buttonStyle(.bordered)
                     }
                     .controlSize(.large)
+                    .disabled(companyId == nil)
                 case .uploading(let text):
                     VStack(spacing: 16) {
                         ProgressView().controlSize(.large)
@@ -94,15 +104,16 @@ struct ShareView: View {
         guard let stored = Keychain.readSession() else {
             return fail("Logga in i SaldoVibe-appen först.")
         }
-        let api = APIClient(baseURL: stored.server, token: stored.token, companyId: stored.companyId)
-        if api.companyId == nil {
-            // The session was saved by an app version before 2.4 (or the app has not been opened
-            // since the update): the company is in the keychain only after the app has run once.
-            let me: MeResponse? = try? await api.get("me/")
-            guard let companies = me?.companies, companies.count == 1 else {
-                return fail("Välj företag i SaldoVibe-appen först.")
-            }
-            api.companyId = companies[0].id
+        let api = APIClient(baseURL: stored.server, token: stored.token)
+        // The app's active company is preselected; the server list (offline: just that one)
+        // lets the user pick another. Read-only companies cannot take uploads.
+        let me: MeResponse? = try? await api.get("me/")
+        companies = (me?.companies ?? []).filter { !$0.readOnly }
+        companyId = companies.first { $0.id == stored.companyId }?.id
+            ?? (companies.count == 1 ? companies[0].id : nil)
+            ?? (me == nil ? stored.companyId : nil)
+        guard companyId != nil else {
+            return fail(me == nil ? "Kunde inte nå servern." : companies.isEmpty ? "Du kan inte ladda upp till något företag." : "Välj företag i SaldoVibe-appen först.")
         }
         self.api = api
         let providers = (context?.inputItems as? [NSExtensionItem])?.flatMap { $0.attachments ?? [] } ?? []
@@ -120,7 +131,8 @@ struct ShareView: View {
     }
 
     private func upload(asExpense: Bool) async {
-        guard let api else { return }
+        guard let api, let companyId else { return }
+        api.companyId = companyId
         var ids: [Int] = []
         do {
             for (index, file) in files.enumerated() {
@@ -131,7 +143,7 @@ struct ShareView: View {
             return fail(error.localizedDescription)
         }
         if asExpense {
-            Keychain.writePendingExpense(ids)
+            Keychain.writePendingExpense(Keychain.PendingExpense(companyId: companyId, attachmentIds: ids))
             openApp(URL(string: "saldovibe://utlagg")!)
         }
         context?.completeRequest(returningItems: nil)
