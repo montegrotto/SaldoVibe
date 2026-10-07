@@ -5,7 +5,8 @@ projektet är `SaldoVibe.xcodeproj` med synkroniserade mappar, så nya Swift-fil
 `SaldoVibe/` och `SaldoVibeShare/` plockas upp utan att projektfilen ändras.
 
 Två mål: appen (`SaldoVibe`) och delningstillägget `SaldoVibeShare` ("Dela → SaldoVibe" i
-Bilder, Mail, Filer, Safari), som laddar upp delade bilder och PDF:er som bilagor. Tillägget
+Bilder, Mail, Filer, Safari), som laddar upp delade bilder och PDF:er som bilagor eller, via en
+lista med bilage-id:n i nyckelringen plus `saldovibe://utlagg`, som ett nytt utlägg i appen. Tillägget
 kompilerar `Model/APIClient.swift`, `Keychain.swift`, `Models.swift` och `ReceiptEncoder.swift`
 från appens mapp (undantagslistan i projektfilen) och läser appens inloggning och valda företag
 ur nyckelringen via den delade åtkomstgruppen `$(AppIdentifierPrefix)se.saldovibe.app` i båda

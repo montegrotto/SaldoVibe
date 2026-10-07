@@ -11,12 +11,14 @@ struct StoredSession: Codable {
     var companyId: Int?
 }
 
-/// One blob in the keychain: the signed-in session (server, token, company).
+/// Two blobs in the keychain: the signed-in session (server, token, company) and the share
+/// extension's hand-over list for "Registrera som utlägg".
 enum Keychain {
     private static let service = "se.saldovibe.app"
-    private static let account = "session"
+    private static let sessionAccount = "session"
+    private static let pendingExpenseAccount = "pending-expense"
 
-    private static var query: [String: Any] {
+    private static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
     }
 
@@ -30,8 +32,22 @@ enum Keychain {
         }
     }
 
-    static func read() -> Data? {
-        var query = query
+    /// Attachment ids the share extension uploaded for an expense; the app turns the first of
+    /// them into an expense form the next time it is in front.
+    static func readPendingExpense() -> [Int] {
+        read(account: pendingExpenseAccount).flatMap { try? JSONDecoder().decode([Int].self, from: $0) } ?? []
+    }
+
+    static func writePendingExpense(_ ids: [Int]) {
+        if ids.isEmpty {
+            delete(account: pendingExpenseAccount)
+        } else if let data = try? JSONEncoder().encode(ids) {
+            write(data, account: pendingExpenseAccount)
+        }
+    }
+
+    static func read(account: String = sessionAccount) -> Data? {
+        var query = query(account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
@@ -39,9 +55,9 @@ enum Keychain {
         return result as? Data
     }
 
-    static func write(_ data: Data) {
-        SecItemDelete(query as CFDictionary)
-        var query = query
+    static func write(_ data: Data, account: String = sessionAccount) {
+        SecItemDelete(query(account) as CFDictionary)
+        var query = query(account)
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -51,7 +67,7 @@ enum Keychain {
         }
     }
 
-    static func delete() {
-        SecItemDelete(query as CFDictionary)
+    static func delete(account: String = sessionAccount) {
+        SecItemDelete(query(account) as CFDictionary)
     }
 }
