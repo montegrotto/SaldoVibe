@@ -10,7 +10,6 @@ struct SaldoVibeApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(session)
                 .task {
                     await session.restore()
                     await checkShared()
@@ -31,6 +30,7 @@ struct SaldoVibeApp: App {
                 } message: {
                     Text(linkError ?? "")
                 }
+                .environment(session) // outermost so the sheet and alert get it too
         }
     }
 

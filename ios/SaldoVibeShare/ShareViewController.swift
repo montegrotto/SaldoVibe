@@ -21,11 +21,17 @@ final class ShareViewController: UIViewController {
     // to the hidden UIApplication is the common workaround. If iOS closes it the hand-over still
     // works, the user just opens the app themselves (the pending list is in the keychain).
     private func openContainingApp(_ url: URL) {
-        let selector = NSSelectorFromString("openURL:")
+        typealias OpenURL = @convention(c) (NSObject, Selector, NSURL, NSDictionary, Any?) -> Void
+        let modern = NSSelectorFromString("openURL:options:completionHandler:")
+        let legacy = NSSelectorFromString("openURL:")
         var responder: UIResponder? = self
         while let current = responder {
-            if current.responds(to: selector) {
-                current.perform(selector, with: url)
+            if current.responds(to: modern), let method = current.method(for: modern) {
+                unsafeBitCast(method, to: OpenURL.self)(current, modern, url as NSURL, [:], nil)
+                return
+            }
+            if current.responds(to: legacy) {
+                current.perform(legacy, with: url)
                 return
             }
             responder = current.next
