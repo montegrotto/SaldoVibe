@@ -1,41 +1,17 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The share-sheet target ("Dela → SaldoVibe"): uploads shared images and PDFs as attachments,
-/// signed in with the app's session from the shared keychain, optionally handing them over to
-/// the app as a new expense.
+/// The share-sheet target ("Dela → SaldoVibe"): uploads shared images and PDFs as unlinked
+/// attachments of the chosen company, signed in with the app's session from the shared keychain.
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        let host = UIHostingController(rootView: ShareView(context: extensionContext) { [weak self] url in
-            self?.openContainingApp(url)
-        })
+        let host = UIHostingController(rootView: ShareView(context: extensionContext))
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(host.view)
         host.didMove(toParent: self)
-    }
-
-    // ponytail: no supported API lets a share extension open its app; the responder-chain walk
-    // to the hidden UIApplication is the common workaround. If iOS closes it the hand-over still
-    // works, the user just opens the app themselves (the pending list is in the keychain).
-    private func openContainingApp(_ url: URL) {
-        typealias OpenURL = @convention(c) (NSObject, Selector, NSURL, NSDictionary, Any?) -> Void
-        let modern = NSSelectorFromString("openURL:options:completionHandler:")
-        let legacy = NSSelectorFromString("openURL:")
-        var responder: UIResponder? = self
-        while let current = responder {
-            if current.responds(to: modern), let method = current.method(for: modern) {
-                unsafeBitCast(method, to: OpenURL.self)(current, modern, url as NSURL, [:], nil)
-                return
-            }
-            if current.responds(to: legacy) {
-                current.perform(legacy, with: url)
-                return
-            }
-            responder = current.next
-        }
     }
 }
 
@@ -45,7 +21,6 @@ struct ShareView: View {
     }
 
     let context: NSExtensionContext?
-    let openApp: (URL) -> Void
     @State private var status = Status.loading
     @State private var api: APIClient?
     @State private var companies: [Company] = []
@@ -69,12 +44,9 @@ struct ShareView: View {
                             }
                             .pickerStyle(.menu)
                         }
-                        Button("Spara som bilaga") { Task { await upload(asExpense: false) } }
+                        Button("Spara som bilaga") { Task { await upload() } }
                             .buttonStyle(.borderedProminent)
                             .padding(.top)
-                            .disabled(companyId == nil)
-                        Button("Registrera som utlägg") { Task { await upload(asExpense: true) } }
-                            .buttonStyle(.bordered)
                             .disabled(companyId == nil)
                     }
                     .controlSize(.large)
@@ -139,21 +111,16 @@ struct ShareView: View {
         status = .choosing
     }
 
-    private func upload(asExpense: Bool) async {
+    private func upload() async {
         guard let api, let companyId else { return }
         api.companyId = companyId
-        var ids: [Int] = []
         do {
             for (index, file) in files.enumerated() {
                 status = .uploading(files.count == 1 ? "Laddar upp och läser kvittot…" : "Laddar upp \(index + 1) av \(files.count)…")
-                ids.append(try await api.upload("bilagor/", file: file).id)
+                _ = try await api.upload("bilagor/", file: file)
             }
         } catch {
             return fail(error.localizedDescription)
-        }
-        if asExpense {
-            Keychain.writePendingExpense(Keychain.PendingExpense(companyId: companyId, attachmentIds: ids))
-            openApp(URL(string: "saldovibe://utlagg")!)
         }
         context?.completeRequest(returningItems: nil)
     }

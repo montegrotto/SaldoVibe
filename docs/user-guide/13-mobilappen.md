@@ -58,12 +58,9 @@ Fliken **Kvitton** visar bilagor som ännu inte kopplats till något, alltså sa
 - **Välj foto** tar en bild ur bildbiblioteket.
 - **Dela till SaldoVibe** från en annan app: välj **SaldoVibe** i delningsmenyn i Bilder, Mail,
   Filer eller Safari. Har du flera företag väljer du vilket det gäller (appens aktiva företag
-  är förvalt). Sedan **Spara som bilaga** (filen hamnar under Kvitton) eller **Registrera som
-  utlägg** – då öppnas appen med utläggsformuläret förifyllt från bilagan, i rätt företag;
-  öppnas den inte av sig själv kommer formuläret upp nästa gång du öppnar appen. Flera bilder
-  kan delas på en gång (vid utlägg förifylls den första, resten ligger under Kvitton). Det
-  kräver att du är inloggad i appen – annars säger delningen "Logga in i SaldoVibe-appen
-  först."
+  är förvalt), sedan **Spara som bilaga** så hamnar filen under Kvitton. Flera bilder kan delas
+  på en gång. Det kräver att du är inloggad i appen – annars säger delningen "Logga in i
+  SaldoVibe-appen först."
 
 Filen laddas upp direkt och går genom samma fältigenkänning som en uppladdning på webben.
 Förslagen (datum, totalbelopp, moms, leverantör) fylls i när du registrerar ett utlägg från
