@@ -54,7 +54,7 @@ struct CustomerInvoiceDetailView: View {
     let id: Int
 
     var body: some View {
-        DocumentDetailView<CustomerInvoice, _>(path: "kundfakturor/\(id)/", title: "Kundfaktura", actions: false) { invoice in
+        DocumentDetailView<CustomerInvoice, _>(path: "kundfakturor/\(id)/", title: "Kundfaktura") { invoice in
             Section("Faktura") {
                 LabeledContent("Kund", value: invoice.customerName)
                 if !invoice.invoiceNumber.isEmpty {

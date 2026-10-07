@@ -54,7 +54,7 @@ struct SupplierInvoiceDetailView: View {
     let id: Int
 
     var body: some View {
-        DocumentDetailView<SupplierInvoice, _>(path: "leverantorsfakturor/\(id)/", title: "Leverantörsfaktura", actions: false) { invoice in
+        DocumentDetailView<SupplierInvoice, _>(path: "leverantorsfakturor/\(id)/", title: "Leverantörsfaktura") { invoice in
             Section("Faktura") {
                 LabeledContent("Leverantör", value: invoice.supplierName)
                 if !invoice.invoiceNumber.isEmpty {

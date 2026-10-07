@@ -160,6 +160,7 @@ hela registret.
 | supplier_invoices.supplierinvoice | A4 | motpartsuppgifter |
 | supplier_invoices.supplierinvoicecostline | A4 | i förbigående |
 | supplier_invoices.supplierinvoicepayment | A4 | inga |
+| expenses.expensecategory | A4 | inga |
 | expenses.expenseclaim | A4 | referens till den anställde, kvittodata |
 | expenses.expenseclaimpayment | A4 | inga |
 | payroll.employee | A2 | namn, personnummer (krypterat), adress, e-post, lönevillkor |

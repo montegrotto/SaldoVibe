@@ -38,6 +38,12 @@
             <div class="small text-muted">Kostnadskonto</div>
             <div>{{ claim.expense_account.number }} {{ claim.expense_account.name }}</div>
           </div>
+          {% if claim.category %}
+          <div class="col-6 col-lg-3">
+            <div class="small text-muted">Kategori</div>
+            <div>{{ claim.category.name }}</div>
+          </div>
+          {% endif %}
         </div>
 
         {% if claim.mileage_report %}
@@ -115,6 +121,11 @@
         {% endif %}
 
         {% if not claim.is_registered %}
+          {% if not claim.mileage_report %}
+          <a href="{% url 'expenses:expense_edit' claim.pk %}" class="btn btn-outline-primary w-100 mb-2">
+            <i class="bi bi-pencil me-1"></i>Redigera utlägg
+          </a>
+          {% endif %}
           <form method="post" action="{% url 'expenses:expense_register' claim.pk %}" class="mb-2">
             {% csrf_token %}
             <button type="submit" class="btn btn-primary w-100">

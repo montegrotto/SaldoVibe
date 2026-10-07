@@ -93,7 +93,7 @@ https först. Servern bör ha `SALDOVIBE_PUBLIC_URL` satt så att QR-koden blir 
 ## Utvecklingsknep (bara DEBUG-byggen)
 
 - `-tab receipts|expenses|invoices|more`, `-invoiceKind 0|1`, `-report resultat|balans` och
-  `-new korrapport` (tillsammans med `-tab expenses`) som startargument öppnar en given flik,
+  `-new utlagg|korrapport` (tillsammans med `-tab expenses`) som startargument öppnar en given flik,
   rapport eller formulär – används för skärmdumpar via `xcrun simctl launch … -tab receipts`.
 - `-loginURL 'saldovibe://login?server=…&token=…'` loggar in samma väg som en skannad QR-kod.
   (`xcrun simctl openurl` går inte: simulatorn visar en "Öppna i SaldoVibe?"-dialog som
