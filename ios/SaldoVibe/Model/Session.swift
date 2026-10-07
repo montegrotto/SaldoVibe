@@ -7,11 +7,6 @@ import UIKit
 @MainActor
 @Observable
 final class Session {
-    struct Stored: Codable {
-        var server: URL
-        var token: String
-    }
-
     private(set) var api: APIClient?
     private(set) var user: User?
     private(set) var companies: [Company] = []
@@ -30,7 +25,7 @@ final class Session {
 
     func restore() async {
         defer { isRestoring = false }
-        if let data = Keychain.read(), let stored = try? JSONDecoder().decode(Stored.self, from: data) {
+        if let stored = Keychain.readSession() {
             let client = APIClient(baseURL: stored.server, token: stored.token)
             do {
                 try await adopt(client: client, me: client.get("me/"))
@@ -129,6 +124,7 @@ final class Session {
         api?.companyId = company.id
         choices = nil
         UserDefaults.standard.set(company.id, forKey: Session.companyKey)
+        persist()
         changeCounter += 1
     }
 
@@ -165,9 +161,6 @@ final class Session {
         user = me.user
         companies = me.companies
         choices = nil
-        if let token = client.token {
-            Keychain.write(try JSONEncoder().encode(Stored(server: client.baseURL, token: token)))
-        }
         let remembered = UserDefaults.standard.integer(forKey: Session.companyKey)
         if let match = me.companies.first(where: { $0.id == remembered }) ?? (me.companies.count == 1 ? me.companies.first : nil) {
             select(company: match)
@@ -175,6 +168,13 @@ final class Session {
             company = nil
             client.companyId = nil
         }
+        persist()
+    }
+
+    /// The share extension reads this to upload with the app's login and company.
+    private func persist() {
+        guard let api, let token = api.token else { return }
+        Keychain.write(StoredSession(server: api.baseURL, token: token, companyId: company?.id))
     }
 
     static func normalize(server: String) -> URL? {

@@ -2,6 +2,15 @@ import Foundation
 import OSLog
 import Security
 
+/// What the keychain holds: the signed-in session. Shared with the share extension through the
+/// keychain access group in the entitlements, so `companyId` lives here rather than only in
+/// UserDefaults.
+struct StoredSession: Codable {
+    var server: URL
+    var token: String
+    var companyId: Int?
+}
+
 /// One blob in the keychain: the signed-in session (server, token, company).
 enum Keychain {
     private static let service = "se.saldovibe.app"
@@ -9,6 +18,16 @@ enum Keychain {
 
     private static var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+    }
+
+    static func readSession() -> StoredSession? {
+        read().flatMap { try? JSONDecoder().decode(StoredSession.self, from: $0) }
+    }
+
+    static func write(_ session: StoredSession) {
+        if let data = try? JSONEncoder().encode(session) {
+            write(data)
+        }
     }
 
     static func read() -> Data? {
