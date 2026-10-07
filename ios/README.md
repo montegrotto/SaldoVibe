@@ -1,8 +1,18 @@
 # SaldoVibe för iPhone
 
 SwiftUI-app (iOS 18+) mot JSON-API:et i `api/` på servern. Inga tredjepartsberoenden; hela
-projektet är `SaldoVibe.xcodeproj` med en synkroniserad mapp, så nya Swift-filer under
-`SaldoVibe/` plockas upp utan att projektfilen ändras.
+projektet är `SaldoVibe.xcodeproj` med synkroniserade mappar, så nya Swift-filer under
+`SaldoVibe/` och `SaldoVibeShare/` plockas upp utan att projektfilen ändras.
+
+Två mål: appen (`SaldoVibe`) och delningstillägget `SaldoVibeShare` ("Dela → SaldoVibe" i
+Bilder, Mail, Filer, Safari), som laddar upp delade bilder och PDF:er som bilagor eller, via en
+lista med bilage-id:n i nyckelringen plus `saldovibe://utlagg`, som ett nytt utlägg i appen. Tillägget
+kompilerar `Model/APIClient.swift`, `Keychain.swift`, `Models.swift` och `ReceiptEncoder.swift`
+från appens mapp (undantagslistan i projektfilen) och läser appens inloggning och valda företag
+ur nyckelringen via den delade åtkomstgruppen `$(AppIdentifierPrefix)se.saldovibe.app` i båda
+målens entitlements. En fil som bara används av tillägget hör hemma i `SaldoVibeShare/`; en
+ny delad modellfil måste läggas till i undantagslistan (Xcode: markera filen → File Inspector →
+Target Membership).
 
 Vad appen gör och hur den används står i användarhandboken: `docs/user-guide/13-mobilappen.md`
 (rendereras under **Hjälp → Mobilappen** på webben).
