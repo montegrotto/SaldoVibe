@@ -7,7 +7,9 @@ app_name = "expenses"
 urlpatterns = [
     path("utlagg/", views.expense_list, name="expense_list"),
     path("utlagg/nytt/", views.expense_create, name="expense_create"),
+    path("utlagg/kategorier/", views.category_list, name="category_list"),
     path("utlagg/<int:claim_id>/", views.expense_detail, name="expense_detail"),
+    path("utlagg/<int:claim_id>/redigera/", views.expense_edit, name="expense_edit"),
     path(
         "utlagg/<int:claim_id>/bilagor/lagg-till/",
         views.expense_attachment_add,

@@ -51,6 +51,7 @@ TRACKED_MODELS = {
         "name": "Leverantörsfakturabetalning",
         "company_path": "payable.company",
     },
+    "expenses.expensecategory": {"name": "Utläggskategori", "company_path": "company"},
     "expenses.expenseclaim": {"name": "Utlägg", "company_path": "company"},
     "expenses.expenseclaimpayment": {"name": "Utläggsbetalning", "company_path": "payable.company"},
     "payroll.employee": {

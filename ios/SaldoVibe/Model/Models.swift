@@ -114,8 +114,6 @@ struct Account: Codable, Identifiable, Hashable {
     let accountClass: String
 
     var label: String { "\(number) \(name)" }
-    /// Kostnadsklasserna 4–8: det man normalt bokför kvitton och fakturor på.
-    var isCostAccount: Bool { ["4", "5", "6", "7", "8"].contains(accountClass) }
 }
 
 struct NamedItem: Codable, Identifiable, Hashable {
@@ -125,15 +123,12 @@ struct NamedItem: Codable, Identifiable, Hashable {
 
 struct FormChoices: Codable {
     let vatRegistered: Bool
-    let accounts: [Account]
-    let paymentAccountIds: [Int]
-    let defaultPaymentAccountId: Int?
+    /// Configured on the web (Utlägg → Kategorier); each maps to the account suggested there
+    /// when the draft is booked.
+    let expenseCategories: [NamedItem]
     let employees: [NamedItem]
     /// Optional so the app still decodes an older server without körrapporter.
     let mileageRatePerMil: Amount?
-
-    var paymentAccounts: [Account] { accounts.filter { paymentAccountIds.contains($0.id) } }
-    var defaultPaymentAccount: Account? { accounts.first { $0.id == defaultPaymentAccountId } }
 }
 
 struct OverviewAlert: Codable, Identifiable, Hashable {
@@ -220,6 +215,7 @@ struct Expense: Payable, Codable {
     let vatAmount: Amount
     let amountExVat: Amount
     let expenseAccount: Account?
+    let category: String?
     let attachments: [Attachment]?
     let mileage: Mileage?
 

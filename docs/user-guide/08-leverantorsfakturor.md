@@ -21,6 +21,20 @@ i listans huvud för att även se betalda fakturor.
 huvud för att även se utbetalda utlägg. Där finns även knappen **Ny körrapport**, se
 [Körrapporter](06-loner.md#körrapporter).
 
+I utläggsformuläret kan du välja en **Kategori**; kostnadskontot fylls då i med kategorins konto
+och kan ändras. Ett utkast – t.ex. ett utlägg från [mobilappen](13-mobilappen.md#utlägg), där man
+bara väljer kategori – ändras med **Redigera utlägg** på utläggets sida. Kontot är förifyllt med
+kategorins konto; **Spara och bokför** bokför med det konto som står i formuläret. Bokförda
+utlägg och körrapporter kan inte redigeras.
+
+### Utläggskategorier
+
+Knappen **Kategorier** i utläggslistan visar företagets kategorier, t.ex. Hotell (5831), Bränsle
+(5611) och Parkering (5619). Nya företag får en standarduppsättning. Ändra namn eller konto
+direkt i tabellen, lägg till en kategori i den tomma raden längst ner, bocka i **Ta bort** för
+att ta bort en, och klicka **Spara**. Två kategorier kan inte ha samma namn. Utlägg som redan
+har en borttagen kategori behåller sitt konto.
+
 ## Skapa en leverantörsfaktura
 
 1. Gå till **Inköp → Leverantörsfakturor → Ny faktura**.

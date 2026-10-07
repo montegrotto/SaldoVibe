@@ -6,6 +6,9 @@
 
 {% block content %}
 <div class="d-flex justify-content-end gap-2 mb-3">
+  <a href="{% url 'expenses:category_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-tags me-1"></i>Kategorier
+  </a>
   <a href="{% url 'payroll:mileage_report_create' %}" class="btn btn-outline-primary btn-sm">
     <i class="bi bi-car-front me-1"></i>Ny körrapport
   </a>

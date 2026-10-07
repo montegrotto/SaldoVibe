@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Nytt utlägg – SaldoVibe{% endblock %}
-{% block page_title %}Nytt utlägg{% endblock %}
+{% block title %}{% if claim %}Redigera utlägg{% else %}Nytt utlägg{% endif %} – SaldoVibe{% endblock %}
+{% block page_title %}{% if claim %}Redigera utlägg{% else %}Nytt utlägg{% endif %}{% endblock %}
 {% block nav_expenses %}active{% endblock %}
 
 {% block extra_head %}
@@ -24,7 +24,7 @@
 <div class="d-flex flex-column flex-lg-row gap-3 align-items-start">
 <div class="flex-grow-1 min-width-0 card shadow-sm border-0" style="max-width:860px;">
   <div class="card-body p-4">
-    <h5 class="mb-4">Registrera utlägg</h5>
+    <h5 class="mb-4">{% if claim %}Redigera utlägg{% else %}Registrera utlägg{% endif %}</h5>
 
     <form method="post" id="expense-form">
       {% csrf_token %}
@@ -61,11 +61,21 @@
       </div>
 
       <div class="row g-3 mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.category.label }}</label>
+          {{ form.category }}
+          {{ form.category.errors }}
+          <div class="form-text"><a href="{% url 'expenses:category_list' %}">Hantera kategorier</a></div>
+        </div>
+        <div class="col-md-8">
           <label class="form-label fw-semibold">{{ form.expense_account.label }}</label>
           {{ form.expense_account }}
           {{ form.expense_account.errors }}
+          <div class="form-text">Föreslås från kategorin.</div>
         </div>
+      </div>
+
+      <div class="row g-3 mb-3">
         <div class="col-md-3">
           <label class="form-label fw-semibold">{{ form.total_amount.label }}</label>
           {{ form.total_amount }}
@@ -80,6 +90,7 @@
         {% endif %}
       </div>
 
+      {% if not claim %}
       <div class="mb-4">
         <label class="form-label fw-semibold">Kvitton</label>
         <div class="mb-2">
@@ -104,20 +115,23 @@
         </div>
         <div class="form-text">Skulden bokförs mot 2820 (Kortfristiga skulder till anställda) och regleras vid utbetalning.</div>
       </div>
+      {% endif %}
 
       <div class="d-flex gap-2">
         <button type="submit" name="register" value="1" class="btn btn-primary">
           <i class="bi bi-journal-check me-2"></i>Spara och bokför
         </button>
         <button type="submit" class="btn btn-outline-primary">
-          <i class="bi bi-save me-2"></i>Spara som utkast
+          <i class="bi bi-save me-2"></i>{% if claim %}Spara{% else %}Spara som utkast{% endif %}
         </button>
-        <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary">Avbryt</a>
+        <a href="{% if claim %}{% url 'expenses:expense_detail' claim.pk %}{% else %}{% url 'expenses:expense_list' %}{% endif %}" class="btn btn-outline-secondary">Avbryt</a>
       </div>
     </form>
   </div>
 </div>
+{% if not claim %}
 {% include "attachments/_attachment_panel.html" with attachments=selected_attachments start_empty=True hide_thumb_nav=True %}
+{% endif %}
 </div>
 {% endblock %}
 
@@ -126,6 +140,7 @@
 <script src="{% static 'vendor/select2/js/select2.min.js' %}"></script>
 <script src="{% static 'js/select2-utils.js' %}"></script>
 <script src="{% static 'js/attachment-picker.js' %}"></script>
+{{ form.category_accounts|json_script:"category-accounts" }}
 <script>
   (function () {
     if (typeof window.$ !== "undefined") {
@@ -133,8 +148,16 @@
       if (accountSelect.length) {
         window.SaldoVibe.select2Utils.initAccountSelect(accountSelect);
       }
+      const categoryAccounts = JSON.parse(document.getElementById("category-accounts").textContent);
+      $("#{{ form.category.id_for_label }}").on("change", function () {
+        const accountId = categoryAccounts[this.value];
+        if (accountId) {
+          accountSelect.val(String(accountId)).trigger("change");
+        }
+      });
     }
 
+    {% if claim %}return;{% endif %}
     SaldoVibe.attachments.initSelectionList({ viewerEvents: true });
     SaldoVibe.attachments.initFormStateRoundtrip({
       form: 'expense-form',

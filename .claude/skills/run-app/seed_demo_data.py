@@ -29,6 +29,7 @@ from attachments.models import TransactionAttachment  # noqa: E402
 from banking.models import BankAccount, BankAccountType, BankTransaction  # noqa: E402
 from bookkeeping.bas_accounts import seed_bas_2026_accounts_for_company  # noqa: E402
 from bookkeeping.models import AccountingYear, Company  # noqa: E402
+from expenses.models import ExpenseCategory  # noqa: E402
 from invoicing.models import Article, Customer  # noqa: E402
 
 EMAIL = "smoke-run@example.test"
@@ -48,6 +49,7 @@ user.save()
 company = Company.objects.create(name=COMPANY, org_number=ORG_NUMBER)
 company.users.add(user)
 seed_bas_2026_accounts_for_company(company)
+ExpenseCategory.seed_defaults_for_company(company)
 AccountingYear.objects.create(company=company, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
 
 Customer.objects.create(company=company, name="Demokund AB", is_active=True)

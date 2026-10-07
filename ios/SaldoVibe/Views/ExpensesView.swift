@@ -6,7 +6,7 @@ struct ExpensesView: View {
     @State private var error: String?
     @State private var loaded = false
     @State private var showAll = false
-    @State private var creating = false
+    @State private var creating = MainTabView.launchArgument("-new") == "utlagg"
     @State private var creatingMileage = MainTabView.launchArgument("-new") == "korrapport"
 
     var body: some View {
@@ -78,8 +78,11 @@ struct ExpenseDetailView: View {
                 LabeledContent("Beskrivning", value: expense.description)
                 LabeledContent("Datum", value: ISODate.display(expense.expenseDate))
                 LabeledContent("Person", value: expense.person)
+                if let category = expense.category {
+                    LabeledContent("Kategori", value: category)
+                }
                 if let account = expense.expenseAccount {
-                    LabeledContent("Kostnadskonto", value: account.label)
+                    LabeledContent(expense.isBookkept ? "Kostnadskonto" : "Föreslaget konto", value: account.label)
                 }
                 LabeledContent("Exkl. moms", value: expense.amountExVat.formatted)
                 LabeledContent("Moms", value: expense.vatAmount.formatted)
@@ -107,7 +110,7 @@ struct ExpenseFormView: View {
     @State private var date = Date()
     @State private var total = ""
     @State private var vat = ""
-    @State private var account: Account?
+    @State private var category: NamedItem?
     @State private var employee: NamedItem?
     @State private var personName = ""
     @State private var attachments: [Attachment] = []
@@ -124,10 +127,11 @@ struct ExpenseFormView: View {
                     if choices?.vatRegistered ?? true {
                         AmountField("Varav moms", text: $vat)
                     }
-                    NavigationLink {
-                        AccountPickerView(accounts: choices?.accounts ?? [], selection: $account)
-                    } label: {
-                        AccountRow(title: "Kostnadskonto", account: account)
+                    Picker("Kategori", selection: $category) {
+                        Text("Välj…").tag(nil as NamedItem?)
+                        ForEach(choices?.expenseCategories ?? []) { category in
+                            Text(category.name).tag(Optional(category))
+                        }
                     }
                 }
                 Section("Vem gjorde utlägget?") {
@@ -147,19 +151,14 @@ struct ExpenseFormView: View {
                 }
                 Section {
                     Button {
-                        Task { await save(register: true) }
+                        Task { await save() }
                     } label: {
-                        Label("Bokför", systemImage: "checkmark.seal")
-                    }
-                    Button {
-                        Task { await save(register: false) }
-                    } label: {
-                        Label("Spara som utkast", systemImage: "tray")
+                        Label("Spara utkast", systemImage: "tray")
                     }
                 } footer: {
-                    Text("Bokför registrerar utlägget direkt med samma konton och kontroller som på webben.")
+                    Text("Utlägget sparas som utkast och bokförs på webben, där kategorins konto föreslås.")
                 }
-                .disabled(busy || description.isEmpty || Amount.parse(total) == nil || account == nil)
+                .disabled(busy || description.isEmpty || Amount.parse(total) == nil || category == nil)
             }
             .navigationTitle("Nytt utlägg")
             .navigationBarTitleDisplayMode(.inline)
@@ -189,7 +188,7 @@ struct ExpenseFormView: View {
         if let parsed = ISODate.parse(suggestion.date) { date = parsed }
     }
 
-    private func save(register: Bool) async {
+    private func save() async {
         guard let api = session.api, let totalValue = Amount.parse(total) else { return }
         busy = true
         defer { busy = false }
@@ -200,11 +199,10 @@ struct ExpenseFormView: View {
                 "expense_date": ISODate.string(date),
                 "total_amount": Amount.apiString(totalValue),
                 "vat_amount": Amount.apiString(Amount.parse(vat) ?? 0),
-                "expense_account": account?.id,
+                "category": category?.id,
                 "employee": employee?.id,
                 "person_name": employee == nil ? personName : "",
                 "attachment_ids": attachments.map(\.id),
-                "register": register,
             ]))
             session.didChange()
             onSaved()
@@ -216,7 +214,7 @@ struct ExpenseFormView: View {
 }
 
 /// Körrapport: same fields and rules as Personal → Utlägg → Ny körrapport on the web. The
-/// server turns it into an expense on 7331 for the employee.
+/// server turns it into a draft expense on 7331 for the employee; it is booked on the web.
 struct MileageFormView: View {
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -267,15 +265,12 @@ struct MileageFormView: View {
                 }
                 Section {
                     Button {
-                        Task { await save(register: true) }
+                        Task { await save() }
                     } label: {
-                        Label("Lämna in och bokför", systemImage: "checkmark.seal")
+                        Label("Lämna in", systemImage: "tray")
                     }
-                    Button {
-                        Task { await save(register: false) }
-                    } label: {
-                        Label("Spara som utkast", systemImage: "tray")
-                    }
+                } footer: {
+                    Text("Körrapporten sparas som utkast och bokförs på webben.")
                 }
                 .disabled(busy || employee == nil || route.isEmpty || purpose.isEmpty || reimbursement == nil)
             }
@@ -296,7 +291,7 @@ struct MileageFormView: View {
         }
     }
 
-    private func save(register: Bool) async {
+    private func save() async {
         guard let api = session.api, let km = Amount.parse(distance), let perMil = Amount.parse(rate) else { return }
         busy = true
         defer { busy = false }
@@ -309,7 +304,6 @@ struct MileageFormView: View {
                 "purpose": purpose,
                 "distance_km": "\(km)",
                 "rate_per_mil": Amount.apiString(perMil),
-                "register": register,
             ]))
             session.didChange()
             dismiss()

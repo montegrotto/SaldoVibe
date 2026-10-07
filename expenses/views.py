@@ -21,8 +21,25 @@ from bookkeeping.view_utils import (
     unmark_payable_manually_paid_view,
 )
 
-from .forms import ExpenseClaimForm
-from .models import ExpenseClaim
+from .forms import ExpenseCategoryFormSet, ExpenseClaimForm
+from .models import ExpenseCategory, ExpenseClaim
+
+
+@login_required
+@require_company
+def category_list(request, company):
+    """Utläggskategorierna som mobilappen väljer bland; kontot föreslås vid bokföring."""
+    queryset = ExpenseCategory.objects.filter(company=company).select_related("account")
+    formset = ExpenseCategoryFormSet(request.POST or None, queryset=queryset, form_kwargs={"company": company})
+    if request.method == "POST" and formset.is_valid():
+        for category in formset.save(commit=False):
+            category.company = company
+            category.save()
+        for category in formset.deleted_objects:
+            category.delete()
+        messages.success(request, "Utläggskategorierna har sparats.")
+        return redirect("expenses:category_list")
+    return render(request, "expenses/category_list.html", {"formset": formset})
 
 
 @login_required
@@ -104,6 +121,39 @@ def expense_create(request, company):
 
 @login_required
 @require_company
+def expense_edit(request, company, claim_id):
+    """Ändra ett utkast (t.ex. från mobilappen) innan det bokförs; kontot är förifyllt från
+    kategorin. Bilagor hanteras på detaljsidan."""
+    claim = get_object_or_404(ExpenseClaim, pk=claim_id, company=company)
+    if claim.is_registered or getattr(claim, "mileage_report", None):
+        # Körrapportens belopp och konto räknas fram av rapporten, inte av utläggsformuläret.
+        messages.error(request, "Bokförda utlägg och körrapporter kan inte ändras här.")
+        return redirect("expenses:expense_detail", claim.pk)
+
+    if request.method == "POST":
+        form = ExpenseClaimForm(request.POST, instance=claim, company=company)
+        if form.is_valid():
+            claim = form.save(commit=False)
+            if claim.employee_id:
+                claim.person_name = str(claim.employee)
+            claim.save()
+            if "register" in request.POST:
+                run_document_action(
+                    request,
+                    lambda: claim.register_and_bookkeep(request.user),
+                    "Utlägget har registrerats och bokförts.",
+                )
+            else:
+                messages.success(request, "Utlägget har sparats.")
+            return redirect("expenses:expense_detail", claim.pk)
+    else:
+        form = ExpenseClaimForm(instance=claim, company=company)
+
+    return render(request, "expenses/expense_form.html", {"form": form, "claim": claim})
+
+
+@login_required
+@require_company
 def expense_detail(request, company, claim_id):
     claim = get_object_or_404(
         ExpenseClaim.objects.select_related(
@@ -113,6 +163,7 @@ def expense_detail(request, company, claim_id):
             "registered_transaction",
             "payment_transaction",
             "mileage_report",
+            "category",
         ).prefetch_related("attachments", "payments__transaction"),
         pk=claim_id,
         company=company,

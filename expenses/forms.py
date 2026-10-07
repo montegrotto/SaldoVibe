@@ -5,7 +5,42 @@ from django import forms
 from bookkeeping.form_utils import normalize_decimal_fields
 from bookkeeping.models import AccountClass
 
-from .models import ExpenseClaim
+from .models import ExpenseCategory, ExpenseClaim
+
+
+def expense_accounts_for(company):
+    """Konton som kan bära en utläggskostnad: allt utom tillgångar, skulder/eget kapital och intäkter."""
+    return (
+        company.accounts.filter(is_active=True)
+        .exclude(account_class__in=(AccountClass.ASSET, AccountClass.EQUITY_LIABILITY, AccountClass.REVENUE))
+        .order_by("number")
+    )
+
+
+class ExpenseCategoryForm(forms.ModelForm):
+    class Meta:
+        model = ExpenseCategory
+        fields = ("name", "account")
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "account": forms.Select(attrs={"class": "form-select form-select-sm account-select"}),
+        }
+
+    def __init__(self, *args, company, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["account"].queryset = expense_accounts_for(company)
+        self.company = company
+
+    def validate_unique(self):
+        # company sätts först i vyn, så unikheten per företag kontrolleras här.
+        super().validate_unique()
+        name = self.cleaned_data.get("name")
+        others = ExpenseCategory.objects.filter(company=self.company, name__iexact=name).exclude(pk=self.instance.pk)
+        if name and others.exists():
+            self.add_error("name", "Det finns redan en kategori med det namnet.")
+
+
+ExpenseCategoryFormSet = forms.modelformset_factory(ExpenseCategory, form=ExpenseCategoryForm, extra=1, can_delete=True)
 
 
 class ExpenseClaimForm(forms.ModelForm):
@@ -16,6 +51,7 @@ class ExpenseClaimForm(forms.ModelForm):
             "person_name",
             "description",
             "expense_date",
+            "category",
             "expense_account",
             "total_amount",
             "vat_amount",
@@ -27,6 +63,7 @@ class ExpenseClaimForm(forms.ModelForm):
             ),
             "description": forms.TextInput(attrs={"class": "form-control"}),
             "expense_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "category": forms.Select(attrs={"class": "form-select"}),
             "expense_account": forms.Select(attrs={"class": "form-select"}),
             "total_amount": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.01", "min": "0"}),
             "vat_amount": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.01", "min": "0"}),
@@ -40,22 +77,16 @@ class ExpenseClaimForm(forms.ModelForm):
 
         self.fields["employee"].required = False
         self.fields["person_name"].required = False
+        self.fields["category"].empty_label = "Ingen kategori"
+        # Mobilappen skickar bara kategori; kontot tas då från kategorin i clean().
+        self.fields["expense_account"].required = False
 
         if company is not None:
             self.fields["employee"].queryset = company.employees.filter(is_active=True).order_by(
                 "first_name", "last_name"
             )
-            self.fields["expense_account"].queryset = (
-                company.accounts.filter(is_active=True)
-                .exclude(
-                    account_class__in=(
-                        AccountClass.ASSET,
-                        AccountClass.EQUITY_LIABILITY,
-                        AccountClass.REVENUE,
-                    )
-                )
-                .order_by("number")
-            )
+            self.fields["category"].queryset = company.expense_categories.select_related("account")
+            self.fields["expense_account"].queryset = expense_accounts_for(company)
 
         self.fields["employee"].empty_label = "Välj anställd…"
 
@@ -80,6 +111,13 @@ class ExpenseClaimForm(forms.ModelForm):
         employee = cleaned_data.get("employee")
         person_name = (cleaned_data.get("person_name") or "").strip()
         expense_date = cleaned_data.get("expense_date")
+
+        category = cleaned_data.get("category")
+        if not cleaned_data.get("expense_account"):
+            if category is not None and category.account in self.fields["expense_account"].queryset:
+                cleaned_data["expense_account"] = category.account
+            elif "expense_account" not in self.errors:
+                self.add_error("expense_account", "Välj kostnadskonto eller en kategori med konto.")
 
         if not employee and not person_name:
             self.add_error("employee", "Ange anställd eller namn på den som gjort utlägget.")
@@ -123,3 +161,7 @@ class ExpenseClaimForm(forms.ModelForm):
         self.instance.amount_ex_vat = total_amount - vat_amount
 
         return cleaned_data
+
+    def category_accounts(self):
+        """{kategori-id: konto-id} för formulärets JS, som föreslår kontot när kategorin väljs."""
+        return {str(c.pk): c.account_id for c in self.fields["category"].queryset}

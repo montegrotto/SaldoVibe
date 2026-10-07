@@ -1,10 +1,10 @@
 """JSON endpoints behind the iPhone app (ios/).
 
 Token auth and company scoping live in auth.py. Every write goes through the same forms
-and services as the web views (ExpenseClaimForm, MileageReportForm, RegisterPaymentForm,
-register_and_bookkeep, MileageReport.submit, register_manual_payment), so the two clients cannot
-disagree on validation, default accounts or what gets posted to the ledger. Supplier and customer
-invoices are read-only here: they are created, booked, paid and deleted on the web.
+as the web views (ExpenseClaimForm, MileageReportForm, MileageReport.submit), so the two clients
+cannot disagree on validation or default accounts. The app never posts to the ledger: expenses and
+körrapporter are saved as drafts (the app picks an ExpenseCategory, whose account is the
+suggestion) and are booked and paid on the web. Supplier and customer invoices are read-only.
 """
 
 from decimal import Decimal
@@ -23,8 +23,7 @@ from attachments.view_helpers import selectable_attachments
 from attachments.views import attachment_file_response, attachment_thumbnail_response, uploaded_file_from_request
 from bookkeeping.company_scope import get_user_companies, is_read_only_member
 from bookkeeping.context_processors import get_topbar_alert_state_for_company
-from bookkeeping.forms import RegisterPaymentForm, payment_accounts_for
-from bookkeeping.payables import quantize_amount, register_manual_payment
+from bookkeeping.payables import quantize_amount
 from bookkeeping.reports import build_balance_sheet_context, build_income_statement_context
 from bookkeeping.views.dashboard import dashboard_summary
 from expenses.forms import ExpenseClaimForm
@@ -119,6 +118,7 @@ def _expense_json(claim, detail=False):
         vat_amount=_amount(claim.vat_amount),
         amount_ex_vat=_amount(claim.amount_ex_vat),
         expense_account=_account_json(claim.expense_account),
+        category=claim.category.name if claim.category_id else None,
     )
     if not detail:
         return data
@@ -281,14 +281,10 @@ def overview(request, company):
 @api_view()
 def form_choices(request, company):
     """Everything the app's forms need to offer in pickers, in one round trip."""
-    payment_accounts = payment_accounts_for(company)
-    default_payment = payment_accounts.filter(number="1930").first()
     return JsonResponse(
         {
             "vat_registered": company.vat_registered,
-            "accounts": [_account_json(a) for a in company.accounts.filter(is_active=True).order_by("number")],
-            "payment_account_ids": list(payment_accounts.values_list("pk", flat=True)),
-            "default_payment_account_id": default_payment.pk if default_payment else None,
+            "expense_categories": [{"id": c.pk, "name": c.name} for c in company.expense_categories.order_by("name")],
             "mileage_rate_per_mil": _amount(MileageReport.DEFAULT_RATE_PER_MIL),
             "employees": [
                 {"id": e.pk, "name": str(e)}
@@ -339,32 +335,13 @@ def attachment_thumbnail(request, company, pk):
     return attachment_thumbnail_response(_attachment(company, pk))
 
 
-# --- payments (shared) -----------------------------------------------------------------
-
-
-def _register_payment(request, payable, serialize):
-    form = RegisterPaymentForm(form_data(json_body(request)), payable=payable)
-    if not form.is_valid():
-        raise form_error(form)
-    register_manual_payment(
-        payable,
-        request.user,
-        payment_date=form.cleaned_data["payment_date"],
-        amount=form.cleaned_data.get("amount") or Decimal("0.00"),
-        payment_account=form.cleaned_data.get("payment_account"),
-        write_off_amount=form.cleaned_data.get("write_off_amount") or Decimal("0.00"),
-        write_off_account=form.cleaned_data.get("write_off_account"),
-        adjust_vat=form.cleaned_data.get("adjust_vat", False),
-    )
-    payable.refresh_from_db()
-    return JsonResponse(serialize(payable, detail=True))
-
-
 # --- expenses --------------------------------------------------------------------------
 
 
 def _expense(company, pk):
-    return get_object_or_404(ExpenseClaim.objects.select_related("employee", "expense_account"), pk=pk, company=company)
+    return get_object_or_404(
+        ExpenseClaim.objects.select_related("employee", "expense_account", "category"), pk=pk, company=company
+    )
 
 
 @api_view(("GET", "POST"))
@@ -382,10 +359,8 @@ def expenses(request, company):
                 claim.person_name = str(claim.employee)
             claim.save()
             _link_attachments(claim, company, data)
-            if data.get("register"):
-                claim.register_and_bookkeep(request.user)
         return JsonResponse(_expense_json(claim, detail=True), status=201)
-    claims = ExpenseClaim.objects.filter(company=company).select_related("employee", "expense_account")
+    claims = ExpenseClaim.objects.filter(company=company).select_related("employee", "expense_account", "category")
     if request.GET.get("visa") != "alla":
         claims = claims.filter(is_paid=False)
     return JsonResponse([_expense_json(c) for c in claims[:LIST_LIMIT]], safe=False)
@@ -397,29 +372,16 @@ def expense_detail(request, company, pk):
 
 
 @api_view(("POST",))
-def expense_register(request, company, pk):
-    claim = _expense(company, pk)
-    if not claim.is_registered:
-        claim.register_and_bookkeep(request.user)
-    return JsonResponse(_expense_json(claim, detail=True))
-
-
-@api_view(("POST",))
-def expense_payment(request, company, pk):
-    return _register_payment(request, _expense(company, pk), _expense_json)
-
-
-@api_view(("POST",))
 def mileage_reports(request, company):
     """Körrapport, as payroll:mileage_report_create: submit() creates the expense claim
-    (7331 against 2820) and books it when `register`. Answers with that claim."""
+    (7331 against 2820) as a draft. Answers with that claim."""
     data = json_body(request)
     form = MileageReportForm(form_data(data), company=company)
     if not form.is_valid():
         raise form_error(form)
     report = form.save(commit=False)
     report.company = company
-    claim = report.submit(request.user, register=bool(data.get("register")))
+    claim = report.submit(request.user, register=False)
     return JsonResponse(_expense_json(claim, detail=True), status=201)
 
 

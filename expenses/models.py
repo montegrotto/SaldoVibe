@@ -6,6 +6,56 @@ from django.db import models
 
 from bookkeeping.payables import AbstractPayment, PayableLabels, PayableMixin
 
+# Förvalda kategorier för nya företag: (namn, BAS-konto). Hoppas över om kontot saknas.
+DEFAULT_EXPENSE_CATEGORIES = (
+    ("Hotell", "5831"),
+    ("Bränsle", "5611"),
+    ("Parkering", "5619"),
+    ("Biljetter och taxi", "5810"),
+    ("Representation", "6071"),
+    ("Kontorsmaterial", "6110"),
+    ("Programvara", "5420"),
+    ("Förbrukningsinventarier", "5410"),
+    ("Övrigt", "6991"),
+)
+
+
+class ExpenseCategory(models.Model):
+    """Utläggskategori som mobilappen väljer i stället för konto. Kontot föreslås när
+    utkastet bokförs på webben."""
+
+    company = models.ForeignKey(
+        "bookkeeping.Company",
+        on_delete=models.CASCADE,
+        related_name="expense_categories",
+        verbose_name="Företag",
+    )
+    name = models.CharField("Namn", max_length=100)
+    account = models.ForeignKey(
+        "bookkeeping.Account",
+        on_delete=models.PROTECT,
+        related_name="expense_categories",
+        verbose_name="Konto",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["company", "name"], name="unique_expense_category_name")]
+        verbose_name = "Utläggskategori"
+        verbose_name_plural = "Utläggskategorier"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def seed_defaults_for_company(cls, company):
+        accounts = {a.number: a for a in company.accounts.filter(number__in=[n for _, n in DEFAULT_EXPENSE_CATEGORIES])}
+        existing = set(cls.objects.filter(company=company).values_list("name", flat=True))
+        # En och en så att auditloggen får seedningen (bulk_create hoppar över signalerna).
+        for name, number in DEFAULT_EXPENSE_CATEGORIES:
+            if name not in existing and number in accounts:
+                cls(company=company, name=name, account=accounts[number]).save()
+
 
 class ExpenseClaim(PayableMixin):
     """Ett utlägg: någon har betalat en företagskostnad privat och ska ersättas.
@@ -63,6 +113,14 @@ class ExpenseClaim(PayableMixin):
     )
     description = models.CharField("Beskrivning", max_length=255)
     expense_date = models.DateField("Utläggsdatum")
+    category = models.ForeignKey(
+        ExpenseCategory,
+        on_delete=models.SET_NULL,
+        related_name="expense_claims",
+        null=True,
+        blank=True,
+        verbose_name="Kategori",
+    )
 
     expense_account = models.ForeignKey(
         "bookkeeping.Account",

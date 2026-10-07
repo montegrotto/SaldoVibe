@@ -1,13 +1,14 @@
 ---
-description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, registrera utlägg och körrapporter, se läget, läsa resultat- och balansräkningen och se leverantörs- och kundfakturor."
+description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, lägga in utlägg och körrapporter som utkast, se läget, läsa resultat- och balansräkningen och se leverantörs- och kundfakturor."
 ---
 
 # 13. Mobilappen
 
-Appen är till för det man gör på språng: fotografera kvitton och fakturor, registrera utlägg
+Appen är till för det man gör på språng: fotografera kvitton och fakturor, lägga in utlägg
 direkt från bilden, se läget i företaget, läsa resultat- och balansräkningen och se leverantörs-
-och kundfakturor. Allt annat – att skapa, bokföra och betala fakturor, verifikationer, övriga
-rapporter, moms, lön, SIE, bank och inställningar – görs på datorn.
+och kundfakturor. Ingenting bokförs från appen: utlägg och körrapporter sparas som utkast och
+bokförs på datorn. Allt annat – att bokföra och betala utlägg och fakturor, verifikationer,
+övriga rapporter, moms, lön, SIE, bank och inställningar – görs också på datorn.
 
 Appen finns för iPhone (iOS 18 eller senare). Den finns inte i App Store utan byggs från
 källkoden i mappen `ios/` med Xcode och installeras på telefonen via Xcode eller TestFlight;
@@ -30,7 +31,7 @@ visats men aldrig skannats förfaller av sig själv.
 
 Har du flera företag väljer du vilket under **Mer**; alla flikar visar det valda företaget. Med
 läsbehörighet (se [Företagsinställningar](11-foretagsinstallningar.md)) kan du se allt men inte
-skapa, bokföra eller registrera betalningar – appen svarar då "Du har bara läsbehörighet i det
+skapa något – appen svarar då "Du har bara läsbehörighet i det
 här företaget."
 
 ## Översikt
@@ -71,23 +72,24 @@ Tryck på en bilaga för att se den i full storlek. Därifrån: **Registrera som
 
 ## Utlägg
 
-Samma uppgifter som på webben: beskrivning, datum, totalbelopp, moms (bara om företaget är
-momsregistrerat), kostnadskonto och anställd eller namn. Kvittot kan skannas direkt i formuläret
-eller väljas bland de uppladdade bilagorna. **Spara utkast** lägger utlägget i listan utan att
-bokföra; **Bokför** registrerar det direkt med samma konton och kontroller som på webben
-(skuldkonto 2820/2890, ingående moms 2640, låsta perioder).
+Beskrivning, datum, totalbelopp, moms (bara om företaget är momsregistrerat), **kategori** – t.ex.
+Hotell, Bränsle eller Parkering – och anställd eller namn. Kvittot kan skannas direkt i formuläret
+eller väljas bland de uppladdade bilagorna. **Spara utkast** lägger utlägget i listan som utkast.
+Det bokförs sedan på datorn, där kategorins konto är förifyllt och kan ändras (se
+[Utlägg](08-leverantorsfakturor.md#utlägg)). Kategorierna och deras konton ställs in på webben
+under **Utlägg → Kategorier** (se [Utläggskategorier](08-leverantorsfakturor.md#utläggskategorier)).
 
-Listan visar obetalda utlägg; **Visa alla** tar med utbetalda. Ett bokfört utlägg betalas ut med
-**Registrera betalning**: datum, belopp och betalkonto (förvalt 1930).
+Listan visar obetalda utlägg; **Visa alla** tar med utbetalda. Utläggets sida visar kategori,
+föreslaget konto (kostnadskonto när det är bokfört), betalningsstatus och kvitton. Bokföring och
+utbetalning görs på datorn.
 
 ### Körrapporter
 
 Plusknappen i fliken **Utlägg** har två val: **Nytt utlägg** och **Ny körrapport**. Körrapporten
 har samma fält som på webben (se [Körrapporter](06-loner.md#körrapporter)): anställd, datum,
 resväg, syfte, sträcka i km och ersättning i kr/mil, förifylld med Skatteverkets skattefria
-schablon. Beloppet att ersätta räknas ut medan du skriver. **Lämna in och bokför** skapar och
-bokför utlägget på 7331 mot 2820; **Spara som utkast** sparar det obokfört. Körrapporten hamnar
-sedan i utläggslistan, och utläggets sida visar resväg, syfte, sträcka och ersättning per mil.
+schablon. Beloppet att ersätta räknas ut medan du skriver. **Lämna in** sparar körrapporten som
+ett utkast på 7331 mot 2820, som sedan bokförs på datorn. Körrapporten hamnar i utläggslistan, och utläggets sida visar resväg, syfte, sträcka och ersättning per mil.
 
 ## Fakturor
 
@@ -106,6 +108,5 @@ inte heller som utkast.
 | "Ogiltig eller återkallad inloggning." | Inloggningen är återkallad under **Mobilappen**, användaren är avaktiverad, eller QR-koden hann gå ut innan den skannades. Logga in på nytt. |
 | "Du har inte tillgång till företaget." | Du har tagits bort från företaget. Välj ett annat under **Mer**. |
 | "Du har bara läsbehörighet i det här företaget." | Rollen **Endast läsa** – se [Företagsinställningar](11-foretagsinstallningar.md). |
-| "Perioden … är låst" | Datumet ligger i en låst period; se [Löpande bokföring](02-lopande-bokforing.md). |
 | "iOS tillåter bara krypterade anslutningar (https) …" | Adressen pekar på ett domännamn över `http://`. iOS släpper inte fram okrypterad trafik till domännamn; använd `https://`, eller serverns IP-adress när du är på det lokala nätverket. Säger QR-koden `http://` fast sajten är https, sätt `SALDOVIBE_PUBLIC_URL` på servern (appen provar ändå https först). |
 | Kan inte nå servern | Kontrollera serveradressen (den som visas under **Mobilappen**) och att telefonen når den – en server som bara finns på det lokala nätverket kräver att du är på samma nätverk eller VPN. |

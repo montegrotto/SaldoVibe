@@ -1,81 +1,14 @@
 import SwiftUI
 
-struct AccountPickerView: View {
-    let accounts: [Account]
-    @Binding var selection: Account?
-    /// Show only cost accounts (class 4–8) until the user searches.
-    var preferCost = true
-    @State private var search = ""
-    @Environment(\.dismiss) private var dismiss
-
-    private var shown: [Account] {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        if query.isEmpty {
-            return preferCost ? accounts.filter(\.isCostAccount) : accounts
-        }
-        return accounts.filter { $0.number.hasPrefix(query) || $0.name.localizedCaseInsensitiveContains(query) }
-    }
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(shown) { account in
-                    Button {
-                        selection = account
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text(account.number).monospacedDigit().foregroundStyle(.secondary)
-                            Text(account.name)
-                            Spacer()
-                            if account.id == selection?.id {
-                                Image(systemName: "checkmark").foregroundStyle(.tint)
-                            }
-                        }
-                    }
-                    .tint(.primary)
-                }
-            } footer: {
-                if preferCost && search.isEmpty {
-                    Text("Kostnadskonton (klass 4–8). Sök på nummer eller namn för övriga konton.")
-                }
-            }
-        }
-        .searchable(text: $search, prompt: "Kontonummer eller namn")
-        .overlay {
-            if shown.isEmpty {
-                ContentUnavailableView.search(text: search)
-            }
-        }
-        .navigationTitle("Konto")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct AccountRow: View {
-    let title: String
-    let account: Account?
-
-    var body: some View {
-        LabeledContent(title) {
-            Text(account?.label ?? "Välj…").foregroundStyle(account == nil ? .secondary : .primary)
-        }
-    }
-}
-
 /// Detail page for an expense, supplier invoice or customer invoice: document rows from the
-/// caller, then payment state, attachments and the actions the role allows. Invoices pass
-/// `actions: false` – the app only shows them; booking and payment happen on the web.
+/// caller, then payment state and attachments. Read-only – booking and payment happen on the web.
 struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
     @Environment(Session.self) private var session
     let path: String
     let title: String
-    var actions = true
     @ViewBuilder let rows: (P) -> Rows
     @State private var item: P?
     @State private var error: String?
-    @State private var paying = false
-    @State private var busy = false
 
     var body: some View {
         List {
@@ -111,25 +44,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
                 }
-                if actions && !(session.company?.readOnly ?? false) && (!item.isBookkept || !item.isPaid) {
-                    Section {
-                        if !item.isBookkept {
-                            Button {
-                                Task { await register() }
-                            } label: {
-                                Label("Bokför", systemImage: "checkmark.seal")
-                            }
-                            .disabled(busy)
-                        }
-                        if item.isBookkept && !item.isPaid {
-                            Button {
-                                paying = true
-                            } label: {
-                                Label("Registrera betalning", systemImage: "banknote")
-                            }
-                        }
-                    }
-                }
             } else if let error {
                 ContentUnavailableView("Kunde inte hämta", systemImage: "wifi.exclamationmark", description: Text(error))
             } else {
@@ -138,14 +52,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $paying) {
-            if let item {
-                PaymentSheet(payable: item, path: path + "betalning/") { updated in
-                    self.item = updated
-                    session.didChange()
-                }
-            }
-        }
         .task { await load() }
         .refreshable { await load() }
     }
@@ -155,89 +61,6 @@ struct DocumentDetailView<P: Payable & Decodable, Rows: View>: View {
         do {
             item = try await api.get(path)
             error = nil
-        } catch {
-            self.error = session.describe(error)
-        }
-    }
-
-    private func register() async {
-        guard let api = session.api else { return }
-        busy = true
-        defer { busy = false }
-        do {
-            item = try await api.post(path + "bokfor/")
-            error = nil
-            session.didChange()
-        } catch {
-            self.error = session.describe(error)
-        }
-    }
-}
-
-struct PaymentSheet<P: Payable & Decodable>: View {
-    @Environment(Session.self) private var session
-    @Environment(\.dismiss) private var dismiss
-    let payable: P
-    let path: String
-    let onDone: (P) -> Void
-    @State private var date = Date()
-    @State private var amount = ""
-    @State private var account: Account?
-    @State private var choices: FormChoices?
-    @State private var error: String?
-    @State private var busy = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    DatePicker("Betalningsdatum", selection: $date, displayedComponents: .date)
-                    AmountField("Belopp", text: $amount)
-                    NavigationLink {
-                        AccountPickerView(accounts: choices?.paymentAccounts ?? [], selection: $account, preferCost: false)
-                    } label: {
-                        AccountRow(title: "Betalkonto", account: account)
-                    }
-                } footer: {
-                    Text("Kvar att betala: \(payable.remainingAmount.formatted). En avvikelse på högst 1 kr skrivs av som öresavrundning; ett mindre belopp lämnar posten delbetald.")
-                }
-                if let error {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
-            }
-            .navigationTitle("Registrera betalning")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Registrera") { Task { await submit() } }
-                        .disabled(busy || account == nil || Amount.parse(amount) == nil)
-                }
-            }
-            .task {
-                amount = payable.remainingAmount.value.formatted(.number.precision(.fractionLength(2)).grouping(.never).locale(Locale(identifier: "sv_SE")))
-                do {
-                    choices = try await session.loadChoices()
-                    account = choices?.defaultPaymentAccount ?? choices?.paymentAccounts.first
-                } catch {
-                    self.error = session.describe(error)
-                }
-            }
-        }
-    }
-
-    private func submit() async {
-        guard let api = session.api, let value = Amount.parse(amount) else { return }
-        busy = true
-        defer { busy = false }
-        do {
-            let updated: P = try await api.post(path, json: [
-                "payment_date": ISODate.string(date),
-                "amount": Amount.apiString(value),
-                "payment_account": account?.id ?? 0,
-            ])
-            onDone(updated)
-            dismiss()
         } catch {
             self.error = session.describe(error)
         }

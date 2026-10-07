@@ -12,8 +12,8 @@ from django.utils import timezone
 from accounts.models import ApiToken
 from attachments.models import TransactionAttachment
 from auditlog.models import AuditLogEntry
-from bookkeeping.models import CompanyMembership, JournalEntry, PeriodLock, Transaction
-from expenses.models import ExpenseClaim
+from bookkeeping.models import CompanyMembership, JournalEntry, Transaction
+from expenses.models import ExpenseCategory, ExpenseClaim
 from invoicing.models import Article, Customer, Invoice, InvoiceLine
 from payroll.models import Employee
 from saldovibe.testing import DEFAULT_PASSWORD, CompanyTestCase, create_company, create_user
@@ -229,7 +229,7 @@ class OverviewTests(ApiTestCase):
 
 
 class FormChoicesTests(ApiTestCase):
-    def test_form_choices_lists_accounts_payment_accounts_and_employees(self):
+    def test_form_choices_lists_categories_and_employees(self):
         employee = Employee.objects.create(
             company=self.company,
             first_name="Anna",
@@ -238,17 +238,16 @@ class FormChoicesTests(ApiTestCase):
             monthly_salary=Decimal("40000.00"),
         )
 
+        hotel = ExpenseCategory.objects.create(company=self.company, name="Hotell", account=self.account("5831"))
+        ExpenseCategory.objects.create(company=create_company("Annat AB"), name="Bränsle", account=self.account("5611"))
+
         response = self.get("/api/v1/formulardata/")
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["vat_registered"])
-        self.assertIn("1930", {a["number"] for a in data["accounts"]})
-        self.assertEqual(len(data["accounts"]), self.company.accounts.filter(is_active=True).count())
-        self.assertIn(self.account("1930").pk, data["payment_account_ids"])
-        self.assertIn(self.account("2893").pk, data["payment_account_ids"])
-        self.assertNotIn(self.account("1510").pk, data["payment_account_ids"])
-        self.assertEqual(data["default_payment_account_id"], self.account("1930").pk)
+        self.assertEqual(data["expense_categories"], [{"id": hotel.pk, "name": "Hotell"}])
+        self.assertNotIn("accounts", data)
         self.assertEqual(data["employees"], [{"id": employee.pk, "name": "Anna Andersson"}])
         self.assertEqual(data["mileage_rate_per_mil"], "25.00")
 
@@ -329,15 +328,20 @@ class AttachmentTests(ApiTestCase):
 
 
 class ExpenseTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.category = ExpenseCategory.objects.create(
+            company=self.company, name="Förbrukningsinventarier", account=self.account("5410")
+        )
+
     def _payload(self, **overrides):
         return {
             "description": "Kontorsmaterial",
             "expense_date": "2026-09-15",
             "total_amount": "125.00",
             "vat_amount": "25.00",
-            "expense_account": self.account("5410").pk,
+            "category": self.category.pk,
             "person_name": "Mattias",
-            "register": False,
             **overrides,
         }
 
@@ -356,15 +360,29 @@ class ExpenseTests(ApiTestCase):
         self.assertEqual(list(claim.attachments.all()), [attachment])
         self.assertEqual(claim.person_name, "Mattias")
 
-    def test_create_with_register_books_a_transaction(self):
-        response = self.post("/api/v1/utlagg/", self._payload(register=True))
+    def test_category_suggests_the_account(self):
+        data = self.post("/api/v1/utlagg/", self._payload()).json()
+        self.assertEqual(data["category"], "Förbrukningsinventarier")
+        self.assertEqual(data["expense_account"]["number"], "5410")
+        self.assertEqual(ExpenseClaim.objects.get(pk=data["id"]).category, self.category)
 
+    def test_category_from_another_company_is_rejected(self):
+        foreign = ExpenseCategory.objects.create(
+            company=create_company("Annat AB"), name="Hotell", account=self.account("5831")
+        )
+        response = self.post("/api/v1/utlagg/", self._payload(category=foreign.pk))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category", response.json()["errors"])
+
+    def test_app_can_never_book_or_pay(self):
+        response = self.post("/api/v1/utlagg/", self._payload(register=True))
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["status"], "bookkept")
-        self.assertTrue(response.json()["is_bookkept"])
-        claim = ExpenseClaim.objects.get(pk=response.json()["id"])
-        self.assertTrue(claim.is_registered)
-        self.assertTrue(Transaction.objects.filter(pk=claim.registered_transaction_id).exists())
+        self.assertFalse(response.json()["is_bookkept"])
+        claim_id = response.json()["id"]
+        self.assertEqual(self.post(f"/api/v1/utlagg/{claim_id}/bokfor/").status_code, 404)
+        self.assertEqual(self.pay(f"/api/v1/utlagg/{claim_id}/betalning/", "125.00").status_code, 404)
+        self.assertFalse(ExpenseClaim.objects.get(pk=claim_id).is_registered)
+        self.assertFalse(Transaction.objects.exists())
 
     def test_validation_error_names_the_field(self):
         response = self.post("/api/v1/utlagg/", self._payload(person_name=""))
@@ -373,41 +391,10 @@ class ExpenseTests(ApiTestCase):
         self.assertIn("employee", response.json()["errors"])
         self.assertFalse(ExpenseClaim.objects.exists())
 
-    def test_register_endpoint_books_a_draft(self):
-        claim_id = self.post("/api/v1/utlagg/", self._payload()).json()["id"]
-        response = self.post(f"/api/v1/utlagg/{claim_id}/bokfor/")
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["is_bookkept"])
-        self.assertTrue(ExpenseClaim.objects.get(pk=claim_id).is_registered)
-
-    def test_payment_marks_the_claim_paid(self):
-        claim_id = self.post("/api/v1/utlagg/", self._payload(register=True)).json()["id"]
-        response = self.pay(f"/api/v1/utlagg/{claim_id}/betalning/", "125.00")
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["is_paid"])
-        self.assertEqual(response.json()["status"], "paid")
-        self.assertTrue(ExpenseClaim.objects.get(pk=claim_id).is_paid)
-
-    def test_locked_period_blocks_registration_and_rolls_back_the_create(self):
-        draft_id = self.post("/api/v1/utlagg/", self._payload()).json()["id"]
-        PeriodLock.objects.create(
-            company=self.company,
-            accounting_year=self.year,
-            period_start=date(2026, 9, 1),
-            period_end=date(2026, 9, 30),
-            reason="Månadsavstämning",
-        )
-
-        response = self.post(f"/api/v1/utlagg/{draft_id}/bokfor/")
+    def test_category_or_account_is_required(self):
+        response = self.post("/api/v1/utlagg/", self._payload(category=None))
         self.assertEqual(response.status_code, 400)
-        self.assertIn("låst", response.json()["error"])
-        self.assertFalse(ExpenseClaim.objects.get(pk=draft_id).is_registered)
-
-        response = self.post("/api/v1/utlagg/", self._payload(register=True))
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("låst", response.json()["error"])
-        self.assertEqual(ExpenseClaim.objects.count(), 1)
-        self.assertFalse(Transaction.objects.exists())
+        self.assertIn("expense_account", response.json()["errors"])
 
 
 class MileageReportTests(ApiTestCase):
@@ -429,29 +416,24 @@ class MileageReportTests(ApiTestCase):
             "purpose": "Kundmöte",
             "distance_km": "142,5",
             "rate_per_mil": "25.00",
-            "register": True,
             **overrides,
         }
 
-    def test_submit_books_an_expense_on_7331(self):
-        response = self.post("/api/v1/korrapporter/", self._payload())
+    def test_submit_creates_a_draft_expense_on_7331(self):
+        response = self.post("/api/v1/korrapporter/", self._payload(register=True))
 
         self.assertEqual(response.status_code, 201)
         data = response.json()
-        self.assertEqual(data["status"], "bookkept")
+        self.assertEqual(data["status"], "draft")
         self.assertEqual(data["total_amount"], "356.25")
         self.assertEqual(data["expense_account"]["number"], "7331")
         self.assertEqual(data["mileage"]["route"], "Stockholm–Uppsala t/r")
         self.assertEqual(data["mileage"]["distance_km"], "142.5")
         claim = ExpenseClaim.objects.get(pk=data["id"])
         self.assertEqual(claim.mileage_report.employee, self.employee)
-        self.assertTrue(claim.is_registered)
-        self.assertEqual(self.get(f"/api/v1/utlagg/{claim.pk}/").json()["mileage"]["purpose"], "Kundmöte")
-
-    def test_draft_is_not_booked(self):
-        data = self.post("/api/v1/korrapporter/", self._payload(register=False)).json()
-        self.assertEqual(data["status"], "draft")
+        self.assertFalse(claim.is_registered)
         self.assertFalse(Transaction.objects.exists())
+        self.assertEqual(self.get(f"/api/v1/utlagg/{claim.pk}/").json()["mileage"]["purpose"], "Kundmöte")
 
     def test_validation_error_names_the_field(self):
         response = self.post("/api/v1/korrapporter/", self._payload(distance_km="0"))
@@ -466,7 +448,15 @@ class MileageReportTests(ApiTestCase):
         self.assertFalse(ExpenseClaim.objects.exists())
 
     def test_plain_expense_detail_has_no_mileage(self):
-        data = self.post("/api/v1/utlagg/", ExpenseTests._payload(self)).json()
+        payload = {
+            "description": "Kontorsmaterial",
+            "expense_date": "2026-09-15",
+            "total_amount": "125.00",
+            "vat_amount": "0.00",
+            "expense_account": self.account("5410").pk,
+            "person_name": "Mattias",
+        }
+        data = self.post("/api/v1/utlagg/", payload).json()
         self.assertIsNone(data["mileage"])
 
 

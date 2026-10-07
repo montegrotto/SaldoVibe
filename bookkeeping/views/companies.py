@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from attachments.email_import import import_email_attachments_for_company
+from expenses.models import ExpenseCategory
 from invoicing.models import Invoice
 from payroll.models import PayrollRun
 from supplier_invoices.models import SupplierInvoice
@@ -108,6 +109,7 @@ def company_create(request):
                     company.users.add(request.user)
                     created_accounts = seed_bas_2026_accounts_for_company(company)
                     VoucherSeriesRule.seed_defaults_for_company(company)
+                    ExpenseCategory.seed_defaults_for_company(company)
             except BasAccountLoadError as exc:
                 logger.exception(
                     "Company create failed while loading BAS accounts",

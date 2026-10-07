@@ -63,7 +63,8 @@ i taget. Bocka ur och spara för att ta bort det igen, eller ta bort den anstäl
 Körrapporter finns under **Personal → Utlägg**, eftersom de är utlägg: klicka **Ny körrapport** och
 fyll i anställd, datum, resväg, syfte, sträcka i km och ersättning i kr/mil (förifyllt med
 Skatteverkets skattefria schablon, 25 kr/mil). Samma sak går att göra i
-[mobilappen](13-mobilappen.md#körrapporter) direkt efter resan.
+[mobilappen](13-mobilappen.md#körrapporter) direkt efter resan; där sparas den som utkast och
+bokförs sedan här.
 
 - **Lämna in och bokför** skapar och bokför ett utlägg på beloppet (`km / 10 × kr/mil`) med konto
   7331 (Skattefria bilersättningar) mot skulden 2820. Saknas något av kontona i kontoplanen, eller
