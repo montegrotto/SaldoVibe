@@ -94,10 +94,17 @@ struct ShareView: View {
         guard let stored = Keychain.readSession() else {
             return fail("Logga in i SaldoVibe-appen först.")
         }
-        guard let companyId = stored.companyId else {
-            return fail("Välj företag i SaldoVibe-appen först.")
+        let api = APIClient(baseURL: stored.server, token: stored.token, companyId: stored.companyId)
+        if api.companyId == nil {
+            // The session was saved by an app version before 2.4 (or the app has not been opened
+            // since the update): the company is in the keychain only after the app has run once.
+            let me: MeResponse? = try? await api.get("me/")
+            guard let companies = me?.companies, companies.count == 1 else {
+                return fail("Välj företag i SaldoVibe-appen först.")
+            }
+            api.companyId = companies[0].id
         }
-        api = APIClient(baseURL: stored.server, token: stored.token, companyId: companyId)
+        self.api = api
         let providers = (context?.inputItems as? [NSExtensionItem])?.flatMap { $0.attachments ?? [] } ?? []
         do {
             for provider in providers {
