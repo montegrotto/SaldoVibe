@@ -32,17 +32,22 @@ enum Keychain {
         }
     }
 
-    /// Attachment ids the share extension uploaded for an expense; the app turns the first of
-    /// them into an expense form the next time it is in front.
-    static func readPendingExpense() -> [Int] {
-        read(account: pendingExpenseAccount).flatMap { try? JSONDecoder().decode([Int].self, from: $0) } ?? []
+    /// What the share extension uploaded for an expense; the app switches to that company and
+    /// turns the first attachment into an expense form the next time it is in front.
+    struct PendingExpense: Codable {
+        var companyId: Int
+        var attachmentIds: [Int]
     }
 
-    static func writePendingExpense(_ ids: [Int]) {
-        if ids.isEmpty {
-            delete(account: pendingExpenseAccount)
-        } else if let data = try? JSONEncoder().encode(ids) {
+    static func readPendingExpense() -> PendingExpense? {
+        read(account: pendingExpenseAccount).flatMap { try? JSONDecoder().decode(PendingExpense.self, from: $0) }
+    }
+
+    static func writePendingExpense(_ pending: PendingExpense?) {
+        if let pending, let data = try? JSONEncoder().encode(pending) {
             write(data, account: pendingExpenseAccount)
+        } else {
+            delete(account: pendingExpenseAccount)
         }
     }
 
