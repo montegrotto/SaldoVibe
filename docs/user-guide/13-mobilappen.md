@@ -68,7 +68,10 @@ Förslagen (datum, totalbelopp, moms, leverantör) fylls i när du registrerar e
 bilagan – de är bara förslag och kan ändras innan du sparar. En fotograferad leverantörsfaktura
 ligger kvar i listan tills den registrerats på datorn under **Leverantörsfakturor**.
 
-Tryck på en bilaga för att se den i full storlek. Därifrån: **Registrera som utlägg**.
+Tryck på en bilaga för att se den i full storlek. Därifrån: **Registrera som utlägg**, eller
+**Ta bort** (papperskorgen uppe till höger) om det var fel bild. Samma sak genom att svepa åt
+vänster på en rad i listan. Det går bara med bilagor som inte kopplats till något; en bilaga
+som hör till ett utlägg eller en faktura tas bort på webben.
 
 ## Utlägg
 

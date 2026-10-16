@@ -1,6 +1,7 @@
 import logging
 
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from bookkeeping.period_locking import is_date_locked
 
@@ -24,6 +25,25 @@ def is_attachment_period_locked(attachment):
     falls in a locked accounting period (BFNAR 2013:2) - independent of whether
     that record has been bokförd."""
     return any(is_date_locked(attachment.company, date) for date in attachment_relevant_dates(attachment))
+
+
+def soft_delete_attachment(attachment, user, reason=""):
+    """Mark the attachment as removed (the file and audit trail stay). Shared by the web and
+    the mobile API; callers check period locks and linkage first."""
+    logger.info(
+        "Attachment soft-deleted",
+        extra={
+            "company_id": attachment.company_id,
+            "user_id": user.id,
+            "attachment_id": attachment.id,
+            "file_name": attachment.file_name,
+            "delete_reason": reason,
+        },
+    )
+    attachment.deleted_at = timezone.now()
+    attachment.deleted_by = user
+    attachment.delete_reason = reason
+    attachment.save(update_fields=["deleted_at", "deleted_by", "delete_reason"])
 
 
 def _fetch_extracted_data(attachment):

@@ -114,6 +114,7 @@ struct ExpenseFormView: View {
     @State private var employee: NamedItem?
     @State private var personName = ""
     @State private var attachments: [Attachment] = []
+    @State private var capture = ReceiptCapture()
     @State private var error: String?
     @State private var busy = false
 
@@ -145,7 +146,7 @@ struct ExpenseFormView: View {
                         TextField("Namn", text: $personName)
                     }
                 }
-                AttachmentsSection(attachments: $attachments, onSuggestion: apply)
+                AttachmentsSection(attachments: $attachments, capture: capture)
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
                 }
@@ -160,6 +161,7 @@ struct ExpenseFormView: View {
                 }
                 .disabled(busy || description.isEmpty || Amount.parse(total) == nil || category == nil)
             }
+            .modifier(ReceiptCaptureModifier(capture: capture, attachments: $attachments, onSuggestion: apply))
             .navigationTitle("Nytt utlägg")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

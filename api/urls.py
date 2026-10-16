@@ -13,6 +13,7 @@ urlpatterns = [
     path("resultatrakning/", views.income_statement, name="income_statement"),
     path("balansrakning/", views.balance_sheet, name="balance_sheet"),
     path("bilagor/", views.attachments, name="attachments"),
+    path("bilagor/<int:pk>/", views.attachment_delete, name="attachment_delete"),
     path("bilagor/<int:pk>/fil/", views.attachment_file, name="attachment_file"),
     path("bilagor/<int:pk>/miniatyr/", views.attachment_thumbnail, name="attachment_thumbnail"),
     path("utlagg/", views.expenses, name="expenses"),
