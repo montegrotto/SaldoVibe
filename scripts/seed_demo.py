@@ -26,7 +26,9 @@ import sys
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 
+import reportlab
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.db import transaction as db_transaction
@@ -48,6 +50,8 @@ from supplier_invoices.models import Supplier, SupplierInvoice, SupplierInvoiceC
 from supplier_invoices.services import register_and_bookkeep_supplier_invoice
 
 TODAY = timezone.localdate()
+# Pillows inbyggda typsnitt saknar å/ä/ö; Vera följer med reportlab (via xhtml2pdf).
+RECEIPT_FONT = str(Path(reportlab.__file__).parent / "fonts" / "Vera.ttf")
 VAT_RATE = Decimal("0.25")
 
 # Fakturor: (kund, beskrivning, antal, dagar sedan fakturadatum, betald)
@@ -161,10 +165,10 @@ def ago(days):
 
 def receipt_image(title, lines, total):
     """A PNG that looks enough like a receipt for the attachment list and preview."""
-    font = ImageFont.load_default(size=30)
+    font = ImageFont.truetype(RECEIPT_FONT, 30)
     image = Image.new("RGB", (620, 160 + 46 * len(lines)), "white")
     draw = ImageDraw.Draw(image)
-    draw.text((40, 40), title, fill="black", font=ImageFont.load_default(size=40))
+    draw.text((40, 40), title, fill="black", font=ImageFont.truetype(RECEIPT_FONT, 40))
     for i, line in enumerate(lines):
         draw.text((40, 110 + 46 * i), line, fill="black", font=font)
     draw.text((40, 110 + 46 * len(lines)), f"Totalt {total} kr", fill="black", font=font)

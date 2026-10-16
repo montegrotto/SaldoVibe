@@ -36,6 +36,21 @@ Ingen analys, ingen spårning, inga tredjepartsskript — alla script och stilar
 appen själv. Eftersom båda kakorna är strikt nödvändiga för tjänstens funktion krävs inget
 samtyckesbanner enligt ePrivacy-reglerna.
 
+## Mobilappen (iPhone)
+
+SaldoVibe-appen är en klient till företagets egen SaldoVibe-server. Den skickar uppgifter bara
+till den serveradress du loggar in mot — aldrig till apputvecklaren eller någon tredje part.
+Appen innehåller ingen analys, spårning, reklam eller kraschrapportering.
+
+- **På telefonen:** serveradressen och en personlig inloggningsnyckel sparas i iOS nyckelring,
+  och vilket företag du senast valde sparas i appens inställningar. Lösenordet sparas inte.
+- **På servern:** varje app-inloggning sparas med enhetens namn och när den skapades och senast
+  användes. Du ser och kan återkalla dem under **Mobilappen → Inloggade enheter** på webben (se
+  [Logga in](13-mobilappen.md#logga-in)); **Logga ut** i appen tar bort inloggningen.
+- **Kameran** används bara när du skannar ett kvitto eller inloggningens QR-kod, och
+  **fotoväljaren** ger appen bara de bilder du själv väljer. Kvitton och filer du delar till
+  SaldoVibe från andra appar laddas upp till servern som bilagor och sparas inte kvar i appen.
+
 ## Dina rättigheter
 
 Du har rätt att få ut dina uppgifter (registerutdrag), få felaktiga uppgifter rättade och få
