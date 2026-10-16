@@ -43,7 +43,8 @@ def require_active_company(
     if company is None:
         if logger is not None and log_message:
             logger.warning(log_message, extra={"user_id": request.user.id})
-        if error_message:
+        # The message is for users without any company; one with several just hasn't picked yet.
+        if error_message and not get_user_companies(request.user).exists():
             messages.error(request, error_message)
         return None
 

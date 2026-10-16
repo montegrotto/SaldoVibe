@@ -415,11 +415,12 @@ class CompanyAccessTests(TestCase):
         second_company.users.add(user)
         self.client.force_login(user)
 
-        response = self.client.get(reverse("bookkeeping:dashboard"))
+        response = self.client.get(reverse("bookkeeping:dashboard"), follow=True)
 
         self.assertRedirects(response, reverse("bookkeeping:select_company"))
         session = self.client.session
         self.assertNotIn(SESSION_COMPANY_KEY, session)
+        self.assertNotContains(response, "inte tillgång till något företag")
 
     def test_select_company_lists_available_companies_and_sets_session(self):
         user = create_user("picker@example.com")
