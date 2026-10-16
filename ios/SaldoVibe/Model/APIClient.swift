@@ -48,6 +48,10 @@ final class APIClient {
         _ = try await raw(request(path, method: "POST"))
     }
 
+    func delete(_ path: String) async throws {
+        _ = try await raw(request(path, method: "DELETE"))
+    }
+
     func upload(_ path: String, file: UploadFile) async throws -> Attachment {
         let boundary = "saldovibe-\(UUID().uuidString)"
         var body = Data()

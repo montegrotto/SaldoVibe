@@ -20,7 +20,12 @@ from bookkeeping.view_utils import public_base_url
 
 from .forms import TransactionAttachmentForm
 from .models import AttachmentUploadToken, TransactionAttachment
-from .services import is_attachment_period_locked, save_attachment_with_thumbnail, save_uploaded_attachment
+from .services import (
+    is_attachment_period_locked,
+    save_attachment_with_thumbnail,
+    save_uploaded_attachment,
+    soft_delete_attachment,
+)
 from .utils import exclude_used_attachments, is_safe_return_to, parse_attachment_ids, replace_query_param
 
 logger = logging.getLogger(__name__)
@@ -273,21 +278,7 @@ def attachment_delete(request, company, attachment_id):
         messages.info(request, "Bilagan är redan borttagen.")
         return redirect(return_to)
 
-    delete_reason = (request.POST.get("delete_reason") or "").strip()
-    logger.info(
-        "Attachment soft-deleted",
-        extra={
-            "company_id": company.id,
-            "user_id": request.user.id,
-            "attachment_id": attachment.id,
-            "file_name": attachment.file_name,
-            "delete_reason": delete_reason,
-        },
-    )
-    attachment.deleted_at = timezone.now()
-    attachment.deleted_by = request.user
-    attachment.delete_reason = delete_reason
-    attachment.save(update_fields=["deleted_at", "deleted_by", "delete_reason"])
+    soft_delete_attachment(attachment, request.user, (request.POST.get("delete_reason") or "").strip())
     messages.success(request, "Bilagan har markerats som borttagen.")
 
     return redirect(return_to)

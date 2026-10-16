@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from accounts.models import ApiToken
 from attachments.models import TransactionAttachment
-from attachments.services import save_uploaded_attachment
+from attachments.services import save_uploaded_attachment, soft_delete_attachment
 from attachments.utils import exclude_used_attachments
 from attachments.view_helpers import selectable_attachments
 from attachments.views import attachment_file_response, attachment_thumbnail_response, uploaded_file_from_request
@@ -323,6 +323,17 @@ def attachments(request, company):
         TransactionAttachment.objects.filter(company=company, deleted_at__isnull=True)
     ).order_by("-uploaded_at")
     return JsonResponse([_attachment_json(a) for a in queryset[:LIST_LIMIT]], safe=False)
+
+
+@api_view(("DELETE",))
+def attachment_delete(request, company, pk):
+    """Remove an attachment that is not linked to anything (the app's Kvitton list). Linked
+    attachments are removed from their document on the web, where the period lock applies."""
+    attachment = _attachment(company, pk)
+    if not exclude_used_attachments(TransactionAttachment.objects.filter(pk=attachment.pk)).exists():
+        raise ApiError("Bilagan är kopplad till ett dokument och tas bort på webben.", 409)
+    soft_delete_attachment(attachment, request.user, "Borttagen i appen")
+    return HttpResponse(status=204)
 
 
 @api_view()

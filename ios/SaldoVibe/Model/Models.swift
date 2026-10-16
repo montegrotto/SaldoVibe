@@ -177,6 +177,7 @@ struct Attachment: Codable, Identifiable, Hashable {
     let suggestion: Suggestion?
 
     var filePath: String { "bilagor/\(id)/fil/" }
+    var deletePath: String { "bilagor/\(id)/" }
     var thumbnailPath: String { "bilagor/\(id)/miniatyr/" }
 }
 

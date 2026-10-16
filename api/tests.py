@@ -298,6 +298,40 @@ class AttachmentTests(ApiTestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(self.get("/api/v1/bilagor/").json(), [])
 
+    def test_delete_marks_an_unlinked_attachment_as_removed(self):
+        attachment_id = self._upload().json()["id"]
+
+        response = self.client.delete(f"/api/v1/bilagor/{attachment_id}/", headers=self.headers)
+
+        self.assertEqual(response.status_code, 204)
+        attachment = TransactionAttachment.objects.get(pk=attachment_id)
+        self.assertIsNotNone(attachment.deleted_at)
+        self.assertEqual(attachment.deleted_by, self.user)
+        self.assertEqual(attachment.delete_reason, "Borttagen i appen")
+        self.assertEqual(self.get("/api/v1/bilagor/").json(), [])
+        self.assertEqual(self.client.delete(f"/api/v1/bilagor/{attachment_id}/", headers=self.headers).status_code, 404)
+
+    def test_delete_refuses_a_linked_attachment(self):
+        attachment_id = self._upload().json()["id"]
+        self.post(
+            "/api/v1/utlagg/",
+            {
+                "description": "Kvitto",
+                "expense_date": "2026-09-15",
+                "total_amount": "125.00",
+                "vat_amount": "0.00",
+                "expense_account": self.account("5410").pk,
+                "person_name": "Mattias",
+                "attachment_ids": [attachment_id],
+            },
+        )
+
+        response = self.client.delete(f"/api/v1/bilagor/{attachment_id}/", headers=self.headers)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("kopplad", response.json()["error"])
+        self.assertIsNone(TransactionAttachment.objects.get(pk=attachment_id).deleted_at)
+
     def test_file_download_is_scoped_to_the_company(self):
         attachment = self.create_attachment()
         response = self.get(f"/api/v1/bilagor/{attachment.pk}/fil/")

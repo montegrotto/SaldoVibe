@@ -20,6 +20,10 @@ struct AttachmentsView: View {
                         AttachmentRow(attachment: attachment)
                     }
                 }
+                .onDelete { offsets in
+                    Task { await delete(at: offsets) }
+                }
+                .deleteDisabled(session.company?.readOnly ?? false)
             }
             .navigationDestination(for: Attachment.self) { attachment in
                 AttachmentDetailView(attachment: attachment)
@@ -71,6 +75,18 @@ struct AttachmentsView: View {
         }
         loaded = true
     }
+
+    private func delete(at offsets: IndexSet) async {
+        guard let api = session.api else { return }
+        for attachment in offsets.map({ attachments[$0] }) {
+            do {
+                try await api.delete(attachment.deletePath)
+                attachments.removeAll { $0.id == attachment.id }
+            } catch {
+                uploader.error = session.describe(error)
+            }
+        }
+    }
 }
 
 struct AttachmentDetailView: View {
@@ -81,6 +97,7 @@ struct AttachmentDetailView: View {
     @State private var fileURL: URL?
     @State private var error: String?
     @State private var registering = false
+    @State private var deleteError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -103,6 +120,7 @@ struct AttachmentDetailView: View {
                     Button("Registrera som utlägg", systemImage: "creditcard") { registering = true }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
+                    ErrorText(message: deleteError)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -111,6 +129,13 @@ struct AttachmentDetailView: View {
         }
         .navigationTitle(attachment.fileName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if allowRegister && !(session.company?.readOnly ?? false) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Ta bort", systemImage: "trash", role: .destructive) { Task { await delete() } }
+                }
+            }
+        }
         .task { await download() }
         .sheet(isPresented: $registering) {
             ExpenseFormView(prefill: attachment) { dismiss() }
@@ -128,6 +153,17 @@ struct AttachmentDetailView: View {
             fileURL = url
         } catch {
             self.error = session.describe(error)
+        }
+    }
+
+    private func delete() async {
+        guard let api = session.api else { return }
+        do {
+            try await api.delete(attachment.deletePath)
+            session.didChange()
+            dismiss()
+        } catch {
+            deleteError = session.describe(error)
         }
     }
 }
@@ -175,14 +211,23 @@ struct AttachmentPickerSheet: View {
     }
 }
 
+/// Presentation state behind AttachmentsSection. The form owns it so the pickers can be
+/// presented from the Form itself: a modifier on a Section is applied to every row, so
+/// `.photosPicker`/`.fullScreenCover` there opened one picker per row and the sheet collapsed.
+@MainActor
+@Observable
+final class ReceiptCapture {
+    var uploader = Uploader()
+    var isScanning = false
+    var isPicking = false
+    var choosing = false
+}
+
 /// The "Kvitto" section of a document form: selected attachments plus ways to add one.
+/// Pair with `ReceiptCaptureModifier` on the enclosing Form.
 struct AttachmentsSection: View {
     @Binding var attachments: [Attachment]
-    var onSuggestion: (Suggestion) -> Void = { _ in }
-    @State private var uploader = Uploader()
-    @State private var isScanning = false
-    @State private var isPicking = false
-    @State private var choosing = false
+    let capture: ReceiptCapture
 
     var body: some View {
         Section {
@@ -193,32 +238,45 @@ struct AttachmentsSection: View {
                 }
             }
             .onDelete { attachments.remove(atOffsets: $0) }
-            if uploader.isUploading {
+            if capture.uploader.isUploading {
                 HStack {
                     ProgressView()
                     Text("Laddar upp och läser…").foregroundStyle(.secondary)
                 }
             }
-            ErrorText(message: uploader.error)
+            ErrorText(message: capture.uploader.error)
             if DocumentScannerView.isSupported {
-                Button("Skanna kvitto", systemImage: "doc.viewfinder") { isScanning = true }
+                Button("Skanna kvitto", systemImage: "doc.viewfinder") { capture.isScanning = true }
             }
-            Button("Välj foto", systemImage: "photo") { isPicking = true }
-            Button("Välj uppladdad bilaga", systemImage: "paperclip") { choosing = true }
+            Button("Välj foto", systemImage: "photo") { capture.isPicking = true }
+                .onAppear { if MainTabView.launchArgument("-capture") == "pick" { capture.isPicking = true } }
+            Button("Välj uppladdad bilaga", systemImage: "paperclip") { capture.choosing = true }
         } header: {
             Text("Kvitto")
         } footer: {
             Text("Belopp, moms och datum som läses ur bilden fylls i automatiskt – kontrollera dem.")
         }
-        .modifier(CaptureModifier(isScanning: $isScanning, isPicking: $isPicking, uploader: uploader) { attachment in
-            add(attachment)
-        })
-        .sheet(isPresented: $choosing) {
-            AttachmentPickerSheet(exclude: Set(attachments.map(\.id))) { attachment in
+    }
+}
+
+/// Scanner, photo picker and the uploaded-attachment sheet for an AttachmentsSection; goes on
+/// the Form (see ReceiptCapture).
+struct ReceiptCaptureModifier: ViewModifier {
+    @Bindable var capture: ReceiptCapture
+    @Binding var attachments: [Attachment]
+    var onSuggestion: (Suggestion) -> Void = { _ in }
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(CaptureModifier(isScanning: $capture.isScanning, isPicking: $capture.isPicking, uploader: capture.uploader) { attachment in
                 add(attachment)
-                choosing = false
+            })
+            .sheet(isPresented: $capture.choosing) {
+                AttachmentPickerSheet(exclude: Set(attachments.map(\.id))) { attachment in
+                    add(attachment)
+                    capture.choosing = false
+                }
             }
-        }
     }
 
     private func add(_ attachment: Attachment) {
