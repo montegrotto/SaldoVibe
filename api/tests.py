@@ -1,9 +1,14 @@
+import io
+import os
 import shutil
 import tempfile
+from contextlib import redirect_stdout
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -20,6 +25,7 @@ from saldovibe.testing import DEFAULT_PASSWORD, CompanyTestCase, create_company,
 from supplier_invoices.models import Supplier, SupplierInvoice, SupplierInvoiceCostLine
 
 PDF = b"%PDF-1.4 kvitto"
+User = get_user_model()
 
 
 class ApiTestCase(CompanyTestCase):
@@ -666,3 +672,26 @@ class ReportTests(ApiTestCase):
     def test_non_numeric_year_falls_back_to_the_current_year(self):
         for path in ("/api/v1/resultatrakning/", "/api/v1/balansrakning/"):
             self.assertEqual(self.get(path, year="abc").json(), self.get(path).json())
+
+
+class SeedDemoTests(ApiTestCase):
+    """scripts/seed_demo.py (the App Store demo data) still runs against the current models."""
+
+    def test_seed_demo_gives_each_company_an_overview_with_open_items(self):
+        script = Path(__file__).resolve().parents[1] / "scripts" / "seed_demo.py"
+        env = {"DEMO_EMAIL": "demo@example.com", "DEMO_PASSWORD": "demo-pass"}
+        with patch.dict(os.environ, env), redirect_stdout(io.StringIO()):
+            exec(compile(script.read_text(), str(script), "exec"), {"__name__": "seed_demo"})
+
+        user = User.objects.get(email="demo@example.com")
+        self.assertFalse(user.is_superuser)
+        token = ApiToken.issue(user, name="Test")
+        companies = user.companies.all()
+        self.assertEqual(companies.count(), 3)
+        for company in companies:
+            headers = {"Authorization": f"Bearer {token}", "X-Company-Id": str(company.pk)}
+            data = self.client.get("/api/v1/oversikt/", headers=headers).json()
+            self.assertGreater(data["receivables_open"]["count"], 0, company.name)
+            self.assertGreater(data["payables_open"]["count"], 0, company.name)
+            self.assertGreater(Decimal(data["net_result"]), 0, company.name)
+        self.assertTrue(all(t.is_balanced for t in Transaction.objects.filter(created_by=user)))

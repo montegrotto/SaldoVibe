@@ -72,6 +72,10 @@ att varje uppladdning är unik; versionen är `MARKETING_VERSION` i projektet. E
 minuters bearbetning finns bygget under TestFlight i App Store Connect och i TestFlight-appen
 på telefonen. Samma sak från Xcode: Product → Archive → Distribute App → TestFlight & App Store.
 
+App Review behöver ett demokonto på en publik server. `scripts/seed_demo.py` fyller en tom
+databas med tre påhittade bolag och en vanlig demoanvändare; körinstruktionen står överst i
+skriptet.
+
 Redan på plats för uppladdningen: 1024-pixelsikon (`Assets.xcassets/AppIcon.appiconset`, rendrerad
 från `static/brand/saldovibe-mark.svg`), `PrivacyInfo.xcprivacy` (UserDefaults, skäl CA92.1, ingen
 spårning, ingen insamling) och `ITSAppUsesNonExemptEncryption = NO` (bara vanlig HTTPS), så
