@@ -35,12 +35,12 @@ from ..models import (
     JournalEntry,
     Transaction,
 )
-from ..notifications import skatteverket_due_date, vat_filing_deadline
 from ..pdf import company_logo_size, render_pdf_response
 from ..reports import (
     build_system_documentation_context,
     get_year_context,
 )
+from ..tax_account import tax_account_payment_events, tax_account_summary
 from ._base import company_required
 
 logger = logging.getLogger(__name__)
@@ -63,54 +63,6 @@ def _is_included_in_liquidity_forecast(account, balance):
     if account.include_in_liquidity_forecast is not None:
         return account.include_in_liquidity_forecast
     return Account.is_default_liquidity_account(account.number, balance)
-
-
-def _next_skatteverket_due_date(today):
-    due = skatteverket_due_date(today.year, today.month)
-    if due >= today:
-        return due
-    year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
-    return skatteverket_due_date(year, month)
-
-
-def _liability_balance(company, numbers):
-    """Credit balance (what is owed) across the given liability accounts; negative = Skatteverket owes us."""
-    totals = JournalEntry.objects.filter(
-        transaction__accounting_year__company=company, account__number__in=numbers
-    ).aggregate(debit=Sum("debit"), credit=Sum("credit"))
-    return (totals["credit"] or Decimal("0.00")) - (totals["debit"] or Decimal("0.00"))
-
-
-def tax_account_payment_events(company, today, end_date):
-    """Expected skattekonto debits (date -> amount) from today through end_date.
-
-    Three sources: the unpaid VAT on 2650 (due at the filing deadline of the latest closed
-    period), unpaid employer contributions and withheld tax on 2731/2710 (due the next
-    Skatteverket due date), and the monthly F-skatt from company settings.
-    """
-    events = defaultdict(lambda: Decimal("0.00"))
-
-    vat_due = _liability_balance(company, ["2650"])
-    if vat_due:
-        latest_close = VatCloseSnapshot.objects.filter(company=company).order_by("-period_end").first()
-        due = vat_filing_deadline(latest_close.period_end) if latest_close else today
-        events[max(due, today)] += vat_due
-
-    payroll_due = _liability_balance(company, ["2710", "2731"])
-    if payroll_due:
-        events[_next_skatteverket_due_date(today)] += payroll_due
-
-    if company.preliminary_tax_monthly:
-        year, month = today.year, today.month
-        while True:
-            due = skatteverket_due_date(year, month)
-            if due > end_date:
-                break
-            if due >= today:
-                events[due] += company.preliminary_tax_monthly
-            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-
-    return {day: amount for day, amount in events.items() if day <= end_date}
 
 
 def dashboard_summary(company, today):
@@ -344,6 +296,7 @@ def dashboard(request, company):
         "supplier_total": supplier_total,
         "salary_total": salary_total,
         "tax_total": tax_total,
+        "tax_account": tax_account_summary(company, today),
         "projected_end_balance": projected_end_balance,
         "liquidity_chart": {
             "labels": labels,

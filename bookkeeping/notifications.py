@@ -13,6 +13,7 @@ from django.utils import timezone
 from .models import SentEmail
 
 VAT_DEADLINE_WARNING_DAYS = 14
+TAX_IMPORT_STALE_DAYS = 35
 
 
 def get_overdue_customer_invoice_state(company, today):
@@ -125,6 +126,31 @@ def get_vat_deadline_state(company, today):
             lines.append(f"Momsdeklarationen för {period['label']} {when} {deadline}.")
             keys.append(period["key"])
     return lines, len(lines), "|".join(keys)
+
+
+def get_tax_account_shortfall_state(company, today):
+    from .tax_account import tax_account_summary
+
+    summary = tax_account_summary(company, today)
+    if summary["shortfall_date"] is None:
+        return [], 0, ""
+    line = (
+        f"Skattekontot täcker inte dragningen {summary['shortfall_date']}, saknas {summary['shortfall_amount']:.2f} kr."
+    )
+    return [line], 1, f"{summary['shortfall_date']}:{summary['shortfall_amount']:.2f}"
+
+
+def get_stale_tax_import_state(company, today):
+    """Nags only companies that actually import skattekontot: no import ever means silence."""
+    from .tax_account import tax_account_summary
+
+    last_import_at = tax_account_summary(company, today)["last_import_at"]
+    if last_import_at is None:
+        return [], 0, ""
+    last_import = timezone.localdate(last_import_at)
+    if last_import >= today - datetime.timedelta(days=TAX_IMPORT_STALE_DAYS):
+        return [], 0, ""
+    return [f"Skattekontot har inte importerats sedan {last_import}."], 1, str(last_import)
 
 
 def get_failed_job_state(company, today):
