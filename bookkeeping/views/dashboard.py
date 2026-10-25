@@ -3,7 +3,7 @@
 import logging
 import re
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -35,7 +35,7 @@ from ..models import (
     JournalEntry,
     Transaction,
 )
-from ..notifications import vat_filing_deadline
+from ..notifications import skatteverket_due_date, vat_filing_deadline
 from ..pdf import company_logo_size, render_pdf_response
 from ..reports import (
     build_system_documentation_context,
@@ -65,17 +65,12 @@ def _is_included_in_liquidity_forecast(account, balance):
     return Account.is_default_liquidity_account(account.number, balance)
 
 
-def _skatteverket_due_date(year, month):
-    # ponytail: 17:e i januari och augusti, annars 12:e; helgförskjutning ignoreras.
-    return date(year, month, 17 if month in (1, 8) else 12)
-
-
 def _next_skatteverket_due_date(today):
-    due = _skatteverket_due_date(today.year, today.month)
+    due = skatteverket_due_date(today.year, today.month)
     if due >= today:
         return due
     year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
-    return _skatteverket_due_date(year, month)
+    return skatteverket_due_date(year, month)
 
 
 def _liability_balance(company, numbers):
@@ -108,7 +103,7 @@ def tax_account_payment_events(company, today, end_date):
     if company.preliminary_tax_monthly:
         year, month = today.year, today.month
         while True:
-            due = _skatteverket_due_date(year, month)
+            due = skatteverket_due_date(year, month)
             if due > end_date:
                 break
             if due >= today:

@@ -19,7 +19,7 @@ description: "Företagsuppgifter, användarroller (inklusive läsroll för revis
   artiklar och kundfakturarader får 0 %, och momsfältet visas inte på nya leverantörsfakturor och
   utlägg.
 - **Debiterad preliminärskatt per månad** – F-skatten Skatteverket drar från skattekontot varje
-  månad (den 12:e, i januari och augusti den 17:e). Beloppet dras av i startsidans
+  månad (den 12:e, i januari och augusti den 17:e, nästa vardag om det är helg). Beloppet dras av i startsidans
   likviditetsprognos tillsammans med obetald moms på 2650 och obetalda arbetsgivaravgifter och
   personalskatt på 2731/2710. Skattekontot (1630) räknas med i prognosens kassasaldo så länge det
   har ett saldo – via **Välj konton** vid prognosen kan det tas bort eller läggas till som vilket
