@@ -17,6 +17,8 @@ from .notifications import (
     get_failed_job_state,
     get_overdue_customer_invoice_state,
     get_overdue_supplier_invoice_state,
+    get_stale_tax_import_state,
+    get_tax_account_shortfall_state,
     get_vat_deadline_state,
 )
 
@@ -39,6 +41,8 @@ def get_topbar_alert_state_for_company(company):
             "overdue_supplier_invoices_count": 0,
             "vat_deadlines_count": 0,
             "failed_email_jobs_count": 0,
+            "tax_account_shortfall_count": 0,
+            "stale_tax_import_count": 0,
             "topbar_alert_count": 0,
             "topbar_alert_signature": "",
         }
@@ -87,6 +91,8 @@ def get_topbar_alert_state_for_company(company):
     _, overdue_supplier_count, overdue_supplier_signature = get_overdue_supplier_invoice_state(company, today)
     _, vat_deadline_count, vat_deadline_signature = get_vat_deadline_state(company, today)
     _, failed_jobs_count, failed_jobs_signature = get_failed_job_state(company, today)
+    _, tax_shortfall_count, tax_shortfall_signature = get_tax_account_shortfall_state(company, today)
+    _, stale_tax_import_count, stale_tax_import_signature = get_stale_tax_import_state(company, today)
 
     topbar_alert_count = (
         fixed_assets_due_count
@@ -98,12 +104,15 @@ def get_topbar_alert_state_for_company(company):
         + overdue_supplier_count
         + vat_deadline_count
         + failed_jobs_count
+        + tax_shortfall_count
+        + stale_tax_import_count
     )
     topbar_alert_signature = (
         f"assets:{fixed_assets_signature}#supplier:{supplier_signature}"
         f"#recurring:{recurring_invoices_signature}#payroll:{payroll_signature}"
         f"#overduecust:{overdue_customer_signature}#overduesupp:{overdue_supplier_signature}"
         f"#vat:{vat_deadline_signature}#failedjobs:{failed_jobs_signature}"
+        f"#taxshortfall:{tax_shortfall_signature}#taximport:{stale_tax_import_signature}"
     )
 
     return {
@@ -116,6 +125,8 @@ def get_topbar_alert_state_for_company(company):
         "overdue_supplier_invoices_count": overdue_supplier_count,
         "vat_deadlines_count": vat_deadline_count,
         "failed_email_jobs_count": failed_jobs_count,
+        "tax_account_shortfall_count": tax_shortfall_count,
+        "stale_tax_import_count": stale_tax_import_count,
         "topbar_alert_count": topbar_alert_count,
         "topbar_alert_signature": topbar_alert_signature,
     }
@@ -136,6 +147,8 @@ def active_company(request):
             "overdue_supplier_invoices_count": 0,
             "vat_deadlines_count": 0,
             "failed_email_jobs_count": 0,
+            "tax_account_shortfall_count": 0,
+            "stale_tax_import_count": 0,
             "topbar_alert_count": 0,
             "topbar_alert_has_any": False,
             "topbar_alert_has_alert": False,
@@ -177,6 +190,8 @@ def active_company(request):
         "overdue_supplier_invoices_count": state["overdue_supplier_invoices_count"],
         "vat_deadlines_count": state["vat_deadlines_count"],
         "failed_email_jobs_count": state["failed_email_jobs_count"],
+        "tax_account_shortfall_count": state["tax_account_shortfall_count"],
+        "stale_tax_import_count": state["stale_tax_import_count"],
         "topbar_alert_count": topbar_alert_count,
         "topbar_alert_has_any": topbar_alert_has_any,
         "topbar_alert_has_alert": topbar_alert_has_alert,

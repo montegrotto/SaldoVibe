@@ -227,7 +227,7 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertEqual(included_account_ids, [tax_account.pk, self.bank_account.pk])
 
     def test_forecast_subtracts_expected_tax_account_debits(self):
-        from bookkeeping.views.dashboard import _next_skatteverket_due_date
+        from bookkeeping.tax_account import next_skatteverket_due_date
 
         today = timezone.localdate()
         accounts = create_accounts(
@@ -249,7 +249,7 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         chart = response.context["liquidity_chart"]
         # Payroll liabilities land on the next Skatteverket due date, VAT with no closed period
         # falls due at once, and F-skatt is drawn every month in the 10-week window.
-        next_due = _next_skatteverket_due_date(today)
+        next_due = next_skatteverket_due_date(today)
         week_index = (next_due - (today - timedelta(days=today.weekday()))).days // 7
         self.assertGreaterEqual(chart["tax_payments"][week_index], 5000.0 + 5000.0)
         self.assertGreaterEqual(chart["tax_payments"][0], 12000.0)
@@ -265,6 +265,38 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
             + Decimal("12000.00")
             + Decimal("5000.00"),
         )
+
+    def test_tax_account_card_shows_balances_difference_and_shortfall(self):
+        from banking.models import BankAccount, BankAccountType, BankTransaction
+        from bookkeeping.models import Account
+
+        today = timezone.localdate()
+        tax_account = Account.objects.get(company=self.company, number="1630")
+        self._book(tax_account, debit="1000.00", description="Inbetalning skattekonto")
+        tax_source = BankAccount.objects.get(company=self.company, account_type=BankAccountType.TAX)
+        BankTransaction.objects.create(
+            company=self.company,
+            bank_account=tax_source,
+            date=today,
+            description="Inbetalning",
+            amount=Decimal("1000.00"),
+            balance=Decimal("1250.00"),
+            external_id="skv-1",
+        )
+        self.company.preliminary_tax_monthly = Decimal("5000.00")
+        self.company.save(update_fields=["preliminary_tax_monthly"])
+
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+
+        summary = response.context["tax_account"]
+        self.assertEqual(summary["booked_balance"], Decimal("1000.00"))
+        self.assertEqual(summary["imported_balance"], Decimal("1250.00"))
+        self.assertEqual(summary["difference"], Decimal("-250.00"))
+        self.assertEqual(summary["next_debit_amount"], Decimal("5000.00"))
+        self.assertEqual(summary["shortfall_amount"], Decimal("4000.00"))
+        self.assertContains(response, "Saldo enligt Skatteverket")
+        self.assertContains(response, "Saldot täcker inte dragningen")
+        self.assertContains(response, "Skattekontot täcker inte nästa dragning (1)")
 
     def test_default_selection_only_includes_193x_accounts_with_nonzero_balance(self):
         from bookkeeping.models import JournalEntry

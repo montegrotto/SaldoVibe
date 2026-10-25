@@ -8,6 +8,8 @@ from bookkeeping.notifications import (
     get_failed_job_state,
     get_overdue_customer_invoice_state,
     get_overdue_supplier_invoice_state,
+    get_stale_tax_import_state,
+    get_tax_account_shortfall_state,
     get_vat_deadline_state,
 )
 from bookkeeping.outgoing_mail import send_system_email
@@ -18,6 +20,8 @@ SECTIONS = (
     ("Förfallna kundfakturor", get_overdue_customer_invoice_state),
     ("Förfallna leverantörsfakturor", get_overdue_supplier_invoice_state),
     ("Momsdeklarationer", get_vat_deadline_state),
+    ("Skattekontot", get_tax_account_shortfall_state),
+    ("Skattekontoimport", get_stale_tax_import_state),
     ("Misslyckade e-postjobb", get_failed_job_state),
 )
 

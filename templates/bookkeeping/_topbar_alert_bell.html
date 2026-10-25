@@ -76,6 +76,20 @@ what a real navigation would have shown.
     </a>
   </li>
   {% endif %}
+  {% if tax_account_shortfall_count %}
+  <li id="tax-account-shortfall-alert-item">
+    <a class="dropdown-item" href="{% url 'bookkeeping:dashboard' %}">
+      Skattekontot täcker inte nästa dragning ({{ tax_account_shortfall_count }})
+    </a>
+  </li>
+  {% endif %}
+  {% if stale_tax_import_count %}
+  <li id="stale-tax-import-alert-item">
+    <a class="dropdown-item" href="{% url 'banking:transaction_list' %}">
+      Skattekontot behöver importeras ({{ stale_tax_import_count }})
+    </a>
+  </li>
+  {% endif %}
   {% if failed_email_jobs_count and active_company %}
   <li id="failed-email-jobs-alert-item">
     <a class="dropdown-item" href="{% url 'bookkeeping:company_update' active_company.pk %}">
