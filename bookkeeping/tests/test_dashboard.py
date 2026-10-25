@@ -202,6 +202,70 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertEqual(response.context["supplier_total"], Decimal("500.00"))
         self.assertEqual(response.context["incoming_total"], Decimal("0.00"))
 
+    def _book(self, account, debit="0.00", credit="0.00", description="Bokning"):
+        from bookkeeping.models import JournalEntry
+
+        txn = Transaction.objects.create(
+            accounting_year=self.year, date=timezone.localdate(), description=description, created_by=self.user
+        )
+        JournalEntry.objects.create(transaction=txn, account=account, debit=Decimal(debit), credit=Decimal(credit))
+        JournalEntry.objects.create(
+            transaction=txn, account=self.equity_account, debit=Decimal(credit), credit=Decimal(debit)
+        )
+
+    def test_tax_account_with_balance_is_included_by_default(self):
+        from bookkeeping.models import Account
+
+        # 1630 is auto-created with the company by banking's post_save signal.
+        tax_account = Account.objects.get(company=self.company, number="1630")
+        self._book(tax_account, debit="2500.00", description="Inbetalning skattekonto")
+
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+
+        self.assertEqual(response.context["cash_balance"], Decimal("102500.00"))
+        included_account_ids = [row["account"].pk for row in response.context["account_balances"]]
+        self.assertEqual(included_account_ids, [tax_account.pk, self.bank_account.pk])
+
+    def test_forecast_subtracts_expected_tax_account_debits(self):
+        from bookkeeping.views.dashboard import _next_skatteverket_due_date
+
+        today = timezone.localdate()
+        accounts = create_accounts(
+            self.company,
+            [
+                ("2650", "Redovisningskonto för moms", AccountClass.EQUITY_LIABILITY),
+                ("2710", "Personalskatt", AccountClass.EQUITY_LIABILITY),
+                ("2731", "Avräkning lagstadgade sociala avgifter", AccountClass.EQUITY_LIABILITY),
+            ],
+        )
+        self._book(accounts["2650"], credit="12000.00", description="Stängning av momsperiod")
+        self._book(accounts["2710"], credit="3000.00", description="Lönekörning")
+        self._book(accounts["2731"], credit="2000.00", description="Lönekörning")
+        self.company.preliminary_tax_monthly = Decimal("5000.00")
+        self.company.save(update_fields=["preliminary_tax_monthly"])
+
+        response = self.client.get(reverse("bookkeeping:dashboard"))
+
+        chart = response.context["liquidity_chart"]
+        # Payroll liabilities land on the next Skatteverket due date, VAT with no closed period
+        # falls due at once, and F-skatt is drawn every month in the 10-week window.
+        next_due = _next_skatteverket_due_date(today)
+        week_index = (next_due - (today - timedelta(days=today.weekday()))).days // 7
+        self.assertGreaterEqual(chart["tax_payments"][week_index], 5000.0 + 5000.0)
+        self.assertGreaterEqual(chart["tax_payments"][0], 12000.0)
+        months_in_window = sum(1 for amount in chart["tax_payments"] if amount)
+        self.assertGreaterEqual(months_in_window, 2)
+        self.assertEqual(sum(chart["tax_payments"]), float(response.context["tax_total"]))
+        self.assertEqual(
+            response.context["projected_end_balance"],
+            Decimal("100000.00")
+            - Decimal("12000.00")
+            - Decimal("5000.00")
+            - response.context["tax_total"]
+            + Decimal("12000.00")
+            + Decimal("5000.00"),
+        )
+
     def test_default_selection_only_includes_193x_accounts_with_nonzero_balance(self):
         from bookkeeping.models import JournalEntry
         from bookkeeping.models import Transaction as TransactionModel
@@ -227,11 +291,12 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         response = self.client.get(reverse("bookkeeping:dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        # Only self.bank_account (1930, non-zero balance) should be included by default.
+        # Only self.bank_account (1930, non-zero balance) should be included by default;
+        # the auto-created 1630 has a zero balance and is excluded like 1935.
         self.assertEqual(response.context["cash_balance"], Decimal("100000.00"))
         included_account_ids = [row["account"].pk for row in response.context["account_balances"]]
         self.assertEqual(included_account_ids, [self.bank_account.pk])
-        self.assertEqual(response.context["excluded_liquidity_account_count"], 2)
+        self.assertEqual(response.context["excluded_liquidity_account_count"], 3)
 
     def test_excluded_account_is_omitted_from_cash_balance_and_forecast(self):
         savings_account = create_account(
@@ -257,7 +322,8 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["cash_balance"], Decimal("100000.00"))
-        self.assertEqual(response.context["excluded_liquidity_account_count"], 1)
+        # The excluded savings account plus the auto-created, empty 1630.
+        self.assertEqual(response.context["excluded_liquidity_account_count"], 2)
         included_account_ids = [row["account"].pk for row in response.context["account_balances"]]
         self.assertIn(self.bank_account.pk, included_account_ids)
         self.assertNotIn(savings_account.pk, included_account_ids)

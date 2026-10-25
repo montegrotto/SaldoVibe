@@ -307,6 +307,7 @@ class CompanyForm(forms.ModelForm):
         # Ett förslagsvärde ska inte kunna blockera en företagsuppdatering:
         # lämnas fältet tomt behålls nuvarande värde (eller standardvärdet).
         self.fields["reminder_fee"].required = False
+        self.fields["preliminary_tax_monthly"].required = False
         self.fields["email_fetch_imap_port"].required = False
         self.fields["email_send_smtp_port"].required = False
         self.fields["email_notify_smtp_port"].required = False
@@ -326,6 +327,9 @@ class CompanyForm(forms.ModelForm):
         if self.instance.pk:
             return getattr(self.instance, name)
         return Company._meta.get_field(name).default
+
+    def clean_preliminary_tax_monthly(self):
+        return self._clean_optional_port("preliminary_tax_monthly")
 
     def clean_email_fetch_imap_port(self):
         return self._clean_optional_port("email_fetch_imap_port")
@@ -355,6 +359,7 @@ class CompanyForm(forms.ModelForm):
             "reminder_fee",
             "vat_reporting_period",
             "vat_start_date",
+            "preliminary_tax_monthly",
             "email_fetch_enabled",
             "email_fetch_provider",
             "email_fetch_address",
@@ -401,6 +406,7 @@ class CompanyForm(forms.ModelForm):
             "reminder_fee": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
             "vat_reporting_period": forms.Select(attrs={"class": "form-select"}),
             "vat_start_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "preliminary_tax_monthly": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
             "email_fetch_enabled": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "email_fetch_provider": forms.Select(attrs={"class": "form-select"}),
             "email_fetch_address": forms.EmailInput(attrs={"class": "form-control"}),
@@ -596,8 +602,8 @@ class LiquidityForecastAccountForm(forms.ModelForm):
             balance = (getattr(instance, "liquidity_debit", None) or Decimal("0")) - (
                 getattr(instance, "liquidity_credit", None) or Decimal("0")
             )
-            self.initial["include_in_liquidity_forecast"] = instance.number.startswith("193") and balance != Decimal(
-                "0"
+            self.initial["include_in_liquidity_forecast"] = Account.is_default_liquidity_account(
+                instance.number, balance
             )
 
 

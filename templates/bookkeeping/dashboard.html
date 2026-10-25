@@ -142,6 +142,7 @@
     const incomingInvoices = data.incoming_invoices || [];
     const supplierPayments = data.supplier_payments || [];
     const salaryPayments = data.salary_payments || [];
+    const taxPayments = data.tax_payments || [];
 
     const ctx = chartElement.getContext("2d");
     const gradient = ctx.createLinearGradient(0, 0, 0, 320);
@@ -208,6 +209,7 @@
                 const incoming = Number(incomingInvoices[dayIndex] || 0);
                 const supplier = Number(supplierPayments[dayIndex] || 0);
                 const salary = Number(salaryPayments[dayIndex] || 0);
+                const tax = Number(taxPayments[dayIndex] || 0);
 
                 const formatCurrency = function (amount) {
                   return formatAmount(amount) + " kr";
@@ -222,6 +224,9 @@
                 }
                 if (salary !== 0) {
                   rows.push("- Löneutbetalningar: " + formatCurrency(salary));
+                }
+                if (tax !== 0) {
+                  rows.push("- Skattekontot (moms, arbetsgivaravgifter, F-skatt): " + formatCurrency(tax));
                 }
 
                 if (rows.length === 0) {

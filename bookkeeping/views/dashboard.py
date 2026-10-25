@@ -3,7 +3,7 @@
 import logging
 import re
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -35,6 +35,7 @@ from ..models import (
     JournalEntry,
     Transaction,
 )
+from ..notifications import vat_filing_deadline
 from ..pdf import company_logo_size, render_pdf_response
 from ..reports import (
     build_system_documentation_context,
@@ -46,9 +47,9 @@ logger = logging.getLogger(__name__)
 
 
 def _liquidity_accounts_with_balances(company):
-    """Bank/cash accounts (class 19) for the company, annotated with their current balance."""
+    """Bank/cash accounts (class 19) and the tax account (1630), annotated with their current balance."""
     return (
-        Account.objects.filter(company=company, number__startswith="19", is_active=True)
+        Account.objects.filter(Account.LIQUIDITY_ACCOUNT_FILTER, company=company, is_active=True)
         .annotate(
             liquidity_debit=Sum("journalentry__debit"),
             liquidity_credit=Sum("journalentry__credit"),
@@ -58,10 +59,63 @@ def _liquidity_accounts_with_balances(company):
 
 
 def _is_included_in_liquidity_forecast(account, balance):
-    """Explicit user choice wins; otherwise default to non-zero bank accounts (193x)."""
+    """Explicit user choice wins; otherwise the shared default (non-zero 193x and 1630)."""
     if account.include_in_liquidity_forecast is not None:
         return account.include_in_liquidity_forecast
-    return account.number.startswith("193") and balance != Decimal("0")
+    return Account.is_default_liquidity_account(account.number, balance)
+
+
+def _skatteverket_due_date(year, month):
+    # ponytail: 17:e i januari och augusti, annars 12:e; helgförskjutning ignoreras.
+    return date(year, month, 17 if month in (1, 8) else 12)
+
+
+def _next_skatteverket_due_date(today):
+    due = _skatteverket_due_date(today.year, today.month)
+    if due >= today:
+        return due
+    year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    return _skatteverket_due_date(year, month)
+
+
+def _liability_balance(company, numbers):
+    """Credit balance (what is owed) across the given liability accounts; negative = Skatteverket owes us."""
+    totals = JournalEntry.objects.filter(
+        transaction__accounting_year__company=company, account__number__in=numbers
+    ).aggregate(debit=Sum("debit"), credit=Sum("credit"))
+    return (totals["credit"] or Decimal("0.00")) - (totals["debit"] or Decimal("0.00"))
+
+
+def tax_account_payment_events(company, today, end_date):
+    """Expected skattekonto debits (date -> amount) from today through end_date.
+
+    Three sources: the unpaid VAT on 2650 (due at the filing deadline of the latest closed
+    period), unpaid employer contributions and withheld tax on 2731/2710 (due the next
+    Skatteverket due date), and the monthly F-skatt from company settings.
+    """
+    events = defaultdict(lambda: Decimal("0.00"))
+
+    vat_due = _liability_balance(company, ["2650"])
+    if vat_due:
+        latest_close = VatCloseSnapshot.objects.filter(company=company).order_by("-period_end").first()
+        due = vat_filing_deadline(latest_close.period_end) if latest_close else today
+        events[max(due, today)] += vat_due
+
+    payroll_due = _liability_balance(company, ["2710", "2731"])
+    if payroll_due:
+        events[_next_skatteverket_due_date(today)] += payroll_due
+
+    if company.preliminary_tax_monthly:
+        year, month = today.year, today.month
+        while True:
+            due = _skatteverket_due_date(year, month)
+            if due > end_date:
+                break
+            if due >= today:
+                events[due] += company.preliminary_tax_monthly
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    return {day: amount for day, amount in events.items() if day <= end_date}
 
 
 def dashboard_summary(company, today):
@@ -166,11 +220,14 @@ def dashboard(request, company):
             )
         salary_payment_events[payout_date] = salary_payment_events.get(payout_date, Decimal("0.00")) + payout_amount
 
+    tax_payment_events = tax_account_payment_events(company, today, projection_end_date)
+
     labels = []
     projected_balance_series = []
     incoming_series = []
     supplier_series = []
     salary_series = []
+    tax_series = []
     running_balance = cash_balance
 
     for week_offset in range(10):
@@ -202,6 +259,10 @@ def dashboard(request, company):
             ),
             Decimal("0.00"),
         )
+        tax_amount = sum(
+            (amount for event_date, amount in tax_payment_events.items() if effective_start <= event_date <= week_end),
+            Decimal("0.00"),
+        )
 
         iso_calendar = week_start.isocalendar()
         labels.append(f"v.{iso_calendar.week}")
@@ -213,14 +274,17 @@ def dashboard(request, company):
         incoming_series.append(float(incoming_amount))
         supplier_series.append(float(supplier_amount))
         salary_series.append(float(salary_amount))
+        tax_series.append(float(tax_amount))
 
         running_balance += incoming_amount
         running_balance -= supplier_amount
         running_balance -= salary_amount
+        running_balance -= tax_amount
 
     incoming_total = sum(incoming_invoice_events.values(), Decimal("0.00"))
     supplier_total = sum(supplier_payment_events.values(), Decimal("0.00"))
     salary_total = sum(salary_payment_events.values(), Decimal("0.00"))
+    tax_total = sum(tax_payment_events.values(), Decimal("0.00"))
     projected_end_balance = running_balance
 
     # Invoice status chart: 5 weeks back, current week, and 3 weeks forward.
@@ -284,6 +348,7 @@ def dashboard(request, company):
         "incoming_total": incoming_total,
         "supplier_total": supplier_total,
         "salary_total": salary_total,
+        "tax_total": tax_total,
         "projected_end_balance": projected_end_balance,
         "liquidity_chart": {
             "labels": labels,
@@ -291,6 +356,7 @@ def dashboard(request, company):
             "incoming_invoices": incoming_series,
             "supplier_payments": supplier_series,
             "salary_payments": salary_series,
+            "tax_payments": tax_series,
         },
         "invoice_status_chart": {
             "labels": invoice_week_labels,

@@ -53,7 +53,7 @@ def get_overdue_supplier_invoice_state(company, today):
     return lines, len(invoices), signature
 
 
-def _vat_filing_deadline(period_end):
+def vat_filing_deadline(period_end):
     # ponytail: 12:e i andra månaden efter periodslut för alla periodtyper;
     # årsmoms har egentligen egna datum (26:e/inkomstdeklarationen) — förfina om årsmomsbolag klagar.
     year = period_end.year + (period_end.month + 2 - 1) // 12
@@ -82,7 +82,7 @@ def get_vat_deadline_state(company, today):
         for period in build_closed_periods(year, company.vat_reporting_period, today, company.vat_start_date):
             if (period["start_date"], period["end_date"]) in declared:
                 continue
-            deadline = _vat_filing_deadline(period["end_date"])
+            deadline = vat_filing_deadline(period["end_date"])
             if deadline > today + datetime.timedelta(days=VAT_DEADLINE_WARNING_DAYS):
                 continue
             when = "förföll" if deadline < today else "ska lämnas senast"
