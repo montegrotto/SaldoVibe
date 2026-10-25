@@ -16,6 +16,8 @@ from bookkeeping.notifications import (
     get_failed_job_state,
     get_overdue_customer_invoice_state,
     get_overdue_supplier_invoice_state,
+    get_stale_tax_import_state,
+    get_tax_account_shortfall_state,
     get_vat_deadline_state,
     skatteverket_due_date,
 )
@@ -263,3 +265,69 @@ class SkatteverketDueDateTests(CompanyTestCase):
         # 2004: annandag påsk 12 april (måndag). 1988: Kristi himmelsfärdsdag 12 maj (torsdag).
         self.assertEqual(skatteverket_due_date(2004, 4), datetime.date(2004, 4, 13))
         self.assertEqual(skatteverket_due_date(1988, 5), datetime.date(1988, 5, 13))
+
+
+class TaxAccountNoticeTests(CompanyTestCase):
+    user_email = "skattekonto@example.com"
+    company_name = "Skattekontobolaget AB"
+
+    def _book_tax_account(self, amount):
+        from bookkeeping.models import Account, JournalEntry, Transaction
+
+        accounts = create_accounts(self.company, [("2010", "Eget kapital", AccountClass.EQUITY_LIABILITY)])
+        tax_account = Account.objects.get(company=self.company, number="1630")
+        txn = Transaction.objects.create(
+            accounting_year=self.year, date=TODAY, description="Inbetalning", created_by=self.user
+        )
+        JournalEntry.objects.create(transaction=txn, account=tax_account, debit=amount, credit=Decimal("0.00"))
+        JournalEntry.objects.create(transaction=txn, account=accounts["2010"], debit=Decimal("0.00"), credit=amount)
+
+    def _tax_import(self, days_ago):
+        from banking.models import BankAccount, BankAccountType, BankImport
+
+        tax_source = BankAccount.objects.get(company=self.company, account_type=BankAccountType.TAX)
+        batch = BankImport.objects.create(company=self.company, bank_account=tax_source, imported_by=self.user)
+        BankImport.objects.filter(pk=batch.pk).update(
+            imported_at=timezone.make_aware(datetime.datetime.combine(TODAY, datetime.time(9)))
+            - datetime.timedelta(days=days_ago)
+        )
+
+    def test_shortfall_names_first_uncovered_debit(self):
+        self._book_tax_account(Decimal("1000.00"))
+        self.company.preliminary_tax_monthly = Decimal("5000.00")
+        self.company.save(update_fields=["preliminary_tax_monthly"])
+
+        lines, count, signature = get_tax_account_shortfall_state(self.company, TODAY)
+
+        # 25 aug 2026: nästa dragning är 14 september (12:e = lördag).
+        self.assertEqual(count, 1)
+        self.assertEqual(lines, ["Skattekontot täcker inte dragningen 2026-09-14, saknas 4000.00 kr."])
+        self.assertEqual(signature, "2026-09-14:4000.00")
+
+    def test_covered_debits_are_silent(self):
+        self._book_tax_account(Decimal("20000.00"))
+        self.company.preliminary_tax_monthly = Decimal("5000.00")
+        self.company.save(update_fields=["preliminary_tax_monthly"])
+        _, count, _ = get_tax_account_shortfall_state(self.company, TODAY)
+        self.assertEqual(count, 0)
+
+    def test_stale_import_only_nags_after_a_first_import(self):
+        _, count, _ = get_stale_tax_import_state(self.company, TODAY)
+        self.assertEqual(count, 0)
+
+        self._tax_import(days_ago=10)
+        _, count, _ = get_stale_tax_import_state(self.company, TODAY)
+        self.assertEqual(count, 0)
+
+        self._tax_import(days_ago=40)
+        _, count, _ = get_stale_tax_import_state(self.company, TODAY)
+        self.assertEqual(count, 0, "den senaste importen (10 dagar) räknas, inte den äldre")
+
+    def test_stale_import_line(self):
+        self._tax_import(days_ago=40)
+        lines, count, signature = get_stale_tax_import_state(self.company, TODAY)
+        self.assertEqual(count, 1)
+        self.assertEqual(lines, ["Skattekontot har inte importerats sedan 2026-07-16."])
+        self.assertEqual(signature, "2026-07-16")
+        response = self.client.get("/")
+        self.assertContains(response, "Skattekontot behöver importeras (1)")

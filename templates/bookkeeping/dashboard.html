@@ -119,6 +119,39 @@
   </div>
 </div>
 
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-0 h-100" id="tax-account-card">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+        <h6 class="mb-0 fw-semibold">Skattekonto</h6>
+        <a href="{% url 'banking:transaction_list' %}" class="small"><i class="bi bi-bank"></i> Bank &amp; skattekonto</a>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-7">Bokfört saldo (1630)</dt>
+          <dd class="col-5 text-end fw-semibold">{{ tax_account.booked_balance|floatformat:"2g" }} kr</dd>
+          <dt class="col-7">Saldo enligt Skatteverket{% if tax_account.imported_balance_date %} ({{ tax_account.imported_balance_date|date:"Y-m-d" }}){% endif %}</dt>
+          <dd class="col-5 text-end fw-semibold">{% if tax_account.imported_balance is not None %}{{ tax_account.imported_balance|floatformat:"2g" }} kr{% else %}<span class="text-muted">Inget importerat</span>{% endif %}</dd>
+          {% if tax_account.difference is not None %}
+          <dt class="col-7">Differens</dt>
+          <dd class="col-5 text-end fw-semibold {% if tax_account.difference %}text-danger{% else %}text-success{% endif %}">{{ tax_account.difference|floatformat:"2g" }} kr</dd>
+          {% endif %}
+          <dt class="col-7">Nästa dragning{% if tax_account.next_debit_date %} ({{ tax_account.next_debit_date|date:"Y-m-d" }}){% endif %}</dt>
+          <dd class="col-5 text-end fw-semibold">{% if tax_account.next_debit_date %}{{ tax_account.next_debit_amount|floatformat:"2g" }} kr{% else %}<span class="text-muted">Ingen inom 30 dagar</span>{% endif %}</dd>
+        </dl>
+        {% if tax_account.shortfall_date %}
+        <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small">
+          Saldot täcker inte dragningen {{ tax_account.shortfall_date|date:"Y-m-d" }} – saknas {{ tax_account.shortfall_amount|floatformat:"2g" }} kr.
+        </div>
+        {% endif %}
+        {% if tax_account.last_import_at %}
+        <div class="text-muted small mt-2">Senaste import {{ tax_account.last_import_at|date:"Y-m-d" }}.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 {{ liquidity_chart|json_script:"liquidity-chart-data" }}
 {{ invoice_status_chart|json_script:"invoice-status-chart-data" }}
 {% endblock %}
