@@ -12,10 +12,12 @@ from django.utils import timezone
 from bookkeeping.context_processors import get_topbar_alert_state_for_company
 from bookkeeping.models import AccountClass, SentEmail
 from bookkeeping.notifications import (
+    easter_sunday,
     get_failed_job_state,
     get_overdue_customer_invoice_state,
     get_overdue_supplier_invoice_state,
     get_vat_deadline_state,
+    skatteverket_due_date,
 )
 from invoicing.models import Customer, Invoice, InvoiceLine
 from saldovibe.testing import CompanyTestCase, create_accounts, create_user
@@ -114,12 +116,12 @@ class VatDeadlineStateTests(NotificationSourceTestCase):
         self.assertEqual(count, 0)
 
     def test_undeclared_periods_inside_warning_window(self):
-        # Stängda perioder: maj (deadline 12 juli, passerad), juni (12 aug, passerad),
-        # juli (12 sep, utanför 14-dagarsfönstret från 25 aug).
+        # Stängda perioder: maj (deadline 12 juli = söndag -> 13 juli, passerad), juni (17 aug i
+        # augusti, passerad), juli (14 sep, utanför 14-dagarsfönstret från 25 aug).
         lines, count, _ = get_vat_deadline_state(self.company, TODAY)
         self.assertEqual(count, 2)
-        self.assertIn("förföll 2026-07-12", lines[0])
-        self.assertIn("förföll 2026-08-12", lines[1])
+        self.assertIn("förföll 2026-07-13", lines[0])
+        self.assertIn("förföll 2026-08-17", lines[1])
 
     def test_declared_period_is_excluded(self):
         from vat.models import VatCloseSnapshot
@@ -239,3 +241,25 @@ class DigestCommandTests(NotificationSourceTestCase):
             call_command("skicka_notisdigest", stdout=StringIO())
         failed = SentEmail.objects.get(purpose=SentEmail.Purpose.DIGEST)
         self.assertEqual(failed.status, SentEmail.Status.FAILED)
+
+
+class SkatteverketDueDateTests(CompanyTestCase):
+    def test_easter_sunday_matches_known_years(self):
+        self.assertEqual(easter_sunday(1988), datetime.date(1988, 4, 3))
+        self.assertEqual(easter_sunday(2004), datetime.date(2004, 4, 11))
+        self.assertEqual(easter_sunday(2024), datetime.date(2024, 3, 31))
+        self.assertEqual(easter_sunday(2026), datetime.date(2026, 4, 5))
+
+    def test_weekday_due_dates_stay_put(self):
+        self.assertEqual(skatteverket_due_date(2026, 10), datetime.date(2026, 10, 12))  # måndag
+        self.assertEqual(skatteverket_due_date(2026, 1), datetime.date(2026, 1, 19))  # 17:e = lördag
+        self.assertEqual(skatteverket_due_date(2026, 8), datetime.date(2026, 8, 17))  # måndag
+
+    def test_weekend_moves_to_monday(self):
+        self.assertEqual(skatteverket_due_date(2026, 7), datetime.date(2026, 7, 13))  # 12 juli = söndag
+        self.assertEqual(skatteverket_due_date(2026, 9), datetime.date(2026, 9, 14))  # 12 sep = lördag
+
+    def test_movable_holidays_move_to_next_weekday(self):
+        # 2004: annandag påsk 12 april (måndag). 1988: Kristi himmelsfärdsdag 12 maj (torsdag).
+        self.assertEqual(skatteverket_due_date(2004, 4), datetime.date(2004, 4, 13))
+        self.assertEqual(skatteverket_due_date(1988, 5), datetime.date(1988, 5, 13))

@@ -7,7 +7,7 @@
 <div class="mb-3">
   <h5 class="mb-1">Konton i likviditetsprognosen</h5>
   <p class="text-muted mb-0">
-    Välj vilka bank- och kassakonton (klass 19) som ska räknas med i dashboardens likviditetsprognos.
+    Välj vilka bank- och kassakonton (klass 19) samt skattekontot (1630) som ska räknas med i dashboardens likviditetsprognos.
     Kryssa ur t.ex. sparkonton som inte är tillgängliga för löpande betalningar. Valet sparas per företag
     och gäller tills du ändrar det igen.
   </p>
@@ -54,7 +54,7 @@
     </form>
     {% else %}
       <div class="text-center text-muted py-4">
-        Inga bank- eller kassakonton (klass 19) hittades för företaget.
+        Inga bank-, kassa- eller skattekonton hittades för företaget.
       </div>
       <a href="{% url 'bookkeeping:dashboard' %}" class="btn btn-outline-secondary btn-sm">Tillbaka</a>
     {% endif %}

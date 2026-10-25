@@ -93,6 +93,13 @@ class Company(models.Model):
         blank=True,
     )
     vat_start_date = models.DateField("Momsstartdatum", blank=True, null=True)
+    preliminary_tax_monthly = models.DecimalField(
+        "Debiterad preliminärskatt per månad",
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="F-skatten Skatteverket drar från skattekontot varje månad. Används i likviditetsprognosen.",
+    )
     email_fetch_enabled = models.BooleanField("Hämta e-postbilagor", default=False)
     email_fetch_provider = models.CharField(
         "E-postleverantör",
@@ -295,9 +302,17 @@ class Account(models.Model):
         default=None,
         help_text=(
             "Styr om kontots saldo räknas med i dashboardens likviditetsprognos. "
-            "Lämnas det tomt används standardvalet: bankkonton (193x) med ett saldo skilt från noll."
+            "Lämnas det tomt används standardvalet: bankkonton (193x) och skattekontot (1630) "
+            "med ett saldo skilt från noll."
         ),
     )
+
+    LIQUIDITY_ACCOUNT_FILTER = models.Q(number__startswith="19") | models.Q(number="1630")
+
+    @staticmethod
+    def is_default_liquidity_account(number, balance):
+        """Standardvalet när include_in_liquidity_forecast är tomt."""
+        return (number.startswith("193") or number == "1630") and balance != Decimal("0")
 
     class Meta:
         ordering = ["number"]

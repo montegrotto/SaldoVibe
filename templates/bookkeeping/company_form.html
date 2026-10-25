@@ -89,6 +89,11 @@
             {{ form.vat_start_date }}
             <div class="form-text">Transaktioner före detta datum ignoreras i momsrapporten.</div>
           </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.preliminary_tax_monthly.id_for_label }}">{{ form.preliminary_tax_monthly.label }} (kr)</label>
+            {{ form.preliminary_tax_monthly }}
+            <div class="form-text">{{ form.preliminary_tax_monthly.help_text }}</div>
+          </div>
 
           <hr>
           <h6 class="fw-semibold">E-postbilagor</h6>

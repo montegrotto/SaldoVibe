@@ -53,12 +53,48 @@ def get_overdue_supplier_invoice_state(company, today):
     return lines, len(invoices), signature
 
 
-def _vat_filing_deadline(period_end):
-    # ponytail: 12:e i andra månaden efter periodslut för alla periodtyper;
+def easter_sunday(year):
+    """Påskdagen enligt den anonyma gregorianska algoritmen."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    g = (b - (b + 8) // 25 + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    length = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * length) // 451
+    month, day = divmod(h + length - 7 * m + 114, 31)
+    return datetime.date(year, month, day + 1)
+
+
+def next_business_day(day):
+    """Skatteverket: infaller förfallodagen på helg eller helgdag gäller nästa vardag.
+
+    Bara de rörliga helgdagarna kan träffa en 12:e/17:e (långfredag, annandag påsk, Kristi
+    himmelsfärdsdag); de fasta faller aldrig på de datumen och midsommar/alla helgons dag är lördagar.
+    """
+    easter = easter_sunday(day.year)
+    holidays = {
+        easter - datetime.timedelta(days=2),
+        easter + datetime.timedelta(days=1),
+        easter + datetime.timedelta(days=39),
+    }
+    while day.weekday() >= 5 or day in holidays:
+        day += datetime.timedelta(days=1)
+    return day
+
+
+def skatteverket_due_date(year, month):
+    """Månadens förfallodag på skattekontot: 12:e, i januari och augusti 17:e, framflyttad förbi helg."""
+    return next_business_day(datetime.date(year, month, 17 if month in (1, 8) else 12))
+
+
+def vat_filing_deadline(period_end):
+    # ponytail: andra månaden efter periodslut för alla periodtyper;
     # årsmoms har egentligen egna datum (26:e/inkomstdeklarationen) — förfina om årsmomsbolag klagar.
     year = period_end.year + (period_end.month + 2 - 1) // 12
     month = (period_end.month + 2 - 1) % 12 + 1
-    return datetime.date(year, month, 12)
+    return skatteverket_due_date(year, month)
 
 
 def get_vat_deadline_state(company, today):
@@ -82,7 +118,7 @@ def get_vat_deadline_state(company, today):
         for period in build_closed_periods(year, company.vat_reporting_period, today, company.vat_start_date):
             if (period["start_date"], period["end_date"]) in declared:
                 continue
-            deadline = _vat_filing_deadline(period["end_date"])
+            deadline = vat_filing_deadline(period["end_date"])
             if deadline > today + datetime.timedelta(days=VAT_DEADLINE_WARNING_DAYS):
                 continue
             when = "förföll" if deadline < today else "ska lämnas senast"

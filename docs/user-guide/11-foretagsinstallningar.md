@@ -18,6 +18,12 @@ description: "Företagsuppgifter, användarroller (inklusive läsroll för revis
   vilka transaktioner som räknas med. Är momsperioden "Ingen" föreslås heller ingen moms: nya
   artiklar och kundfakturarader får 0 %, och momsfältet visas inte på nya leverantörsfakturor och
   utlägg.
+- **Debiterad preliminärskatt per månad** – F-skatten Skatteverket drar från skattekontot varje
+  månad (den 12:e, i januari och augusti den 17:e, nästa vardag om det är helg). Beloppet dras av i startsidans
+  likviditetsprognos tillsammans med obetald moms på 2650 och obetalda arbetsgivaravgifter och
+  personalskatt på 2731/2710. Skattekontot (1630) räknas med i prognosens kassasaldo så länge det
+  har ett saldo – via **Välj konton** vid prognosen kan det tas bort eller läggas till som vilket
+  bankkonto som helst.
 - **E-postimport av bilagor** – aktivera och konfigurera Gmail, en annan IMAP-server eller
   Microsoft 365 (OAuth2), inklusive vilken mapp som ska läsas av. Se [4. Bilagor](04-bilagor.md).
 - **Utgående e-post** – företagets konto för att skicka fakturor och betalningspåminnelser via
