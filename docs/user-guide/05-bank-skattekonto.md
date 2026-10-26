@@ -67,9 +67,11 @@ Startsidan har en ruta **Skattekonto** som ställer bokföringen mot Skatteverke
   Står det "Inget importerat" har skattekontot aldrig importerats.
 - **Differens** – bokfört minus Skatteverkets saldo. Skilt från noll betyder normalt att nyare
   rader inte importerats eller att importerade rader ännu inte bokförts.
-- **Nästa dragning** – datum och belopp för nästa förväntade dragning inom 30 dagar: obetald
-  moms på 2650, arbetsgivaravgifter och personalskatt på 2731/2710 samt den preliminärskatt som
-  angetts under [Företagsinställningar](11-foretagsinstallningar.md#redigera-företagsuppgifter).
+- **Nästa dragning** – datum och totalbelopp för nästa förväntade dragning inom 30 dagar, med
+  raderna under: **Moms** (obetald moms på 2650), **Avdragen skatt** (2710),
+  **Arbetsgivaravgift** (2731) och **Debiterad preliminärskatt** (beloppet som angetts under
+  [Företagsinställningar](11-foretagsinstallningar.md#redigera-företagsuppgifter)). Samma
+  uppdelning som Skatteverkets "Kommande transaktioner".
 
 Täcker det bokförda saldot inte dragningarna de närmaste 30 dagarna visas en varning i rutan,
 "Saldot täcker inte dragningen …", och notisklockan får posten **Skattekontot täcker inte nästa

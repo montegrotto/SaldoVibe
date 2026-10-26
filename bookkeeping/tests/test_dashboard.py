@@ -246,6 +246,11 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
 
         response = self.client.get(reverse("bookkeeping:dashboard"))
 
+        summary = response.context["tax_account"]
+        self.assertEqual(summary["next_debit_date"], today)
+        self.assertEqual(summary["next_debit_items"], [("Moms", Decimal("12000.00"))])
+        self.assertContains(response, 'ps-3">Moms</dt>')
+
         chart = response.context["liquidity_chart"]
         # Payroll liabilities land on the next Skatteverket due date, VAT with no closed period
         # falls due at once, and F-skatt is drawn every month in the 10-week window.
@@ -293,6 +298,7 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertEqual(summary["imported_balance"], Decimal("1250.00"))
         self.assertEqual(summary["difference"], Decimal("-250.00"))
         self.assertEqual(summary["next_debit_amount"], Decimal("5000.00"))
+        self.assertEqual(summary["next_debit_items"], [("Debiterad preliminärskatt", Decimal("5000.00"))])
         self.assertEqual(summary["shortfall_amount"], Decimal("4000.00"))
         self.assertContains(response, "Saldo enligt Skatteverket")
         self.assertContains(response, "Saldot täcker inte dragningen")

@@ -34,26 +34,27 @@ def _account_balance(company, numbers):
     return (totals["debit"] or Decimal("0.00")) - (totals["credit"] or Decimal("0.00"))
 
 
-def tax_account_payment_events(company, today, end_date):
-    """Expected skattekonto debits (date -> amount) from today through end_date.
+def tax_account_payment_items(company, today, end_date):
+    """Expected skattekonto debits as (date, label, amount) from today through end_date.
 
-    Three sources: the unpaid VAT on 2650 (due at the filing deadline of the latest closed
-    period), unpaid employer contributions and withheld tax on 2731/2710 (due the next
-    Skatteverket due date), and the monthly F-skatt from company settings.
+    Four sources: the unpaid VAT on 2650 (due at the filing deadline of the latest closed
+    period), withheld tax on 2710 and employer contributions on 2731 (due the next Skatteverket
+    due date), and the monthly F-skatt from company settings.
     """
     from vat.models import VatCloseSnapshot
 
-    events = defaultdict(lambda: Decimal("0.00"))
+    items = []
 
     vat_due = -_account_balance(company, ["2650"])
     if vat_due:
         latest_close = VatCloseSnapshot.objects.filter(company=company).order_by("-period_end").first()
         due = vat_filing_deadline(latest_close.period_end) if latest_close else today
-        events[max(due, today)] += vat_due
+        items.append((max(due, today), "Moms", vat_due))
 
-    payroll_due = -_account_balance(company, ["2710", "2731"])
-    if payroll_due:
-        events[next_skatteverket_due_date(today)] += payroll_due
+    for numbers, label in ((["2710"], "Avdragen skatt"), (["2731"], "Arbetsgivaravgift")):
+        due_amount = -_account_balance(company, numbers)
+        if due_amount:
+            items.append((next_skatteverket_due_date(today), label, due_amount))
 
     if company.preliminary_tax_monthly:
         year, month = today.year, today.month
@@ -62,10 +63,18 @@ def tax_account_payment_events(company, today, end_date):
             if due > end_date:
                 break
             if due >= today:
-                events[due] += company.preliminary_tax_monthly
+                items.append((due, "Debiterad preliminärskatt", company.preliminary_tax_monthly))
             year, month = (year + 1, 1) if month == 12 else (year, month + 1)
 
-    return {day: amount for day, amount in events.items() if day <= end_date}
+    return sorted((item for item in items if item[0] <= end_date), key=lambda item: item[0])
+
+
+def tax_account_payment_events(company, today, end_date):
+    """Expected skattekonto debits summed per date (date -> amount) for the liquidity forecast."""
+    events = defaultdict(lambda: Decimal("0.00"))
+    for day, _label, amount in tax_account_payment_items(company, today, end_date):
+        events[day] += amount
+    return dict(events)
 
 
 def first_shortfall(balance, events):
@@ -95,7 +104,10 @@ def tax_account_summary(company, today):
         .order_by("-imported_at")
         .first()
     )
-    events = tax_account_payment_events(company, today, today + timedelta(days=SHORTFALL_HORIZON_DAYS))
+    items = tax_account_payment_items(company, today, today + timedelta(days=SHORTFALL_HORIZON_DAYS))
+    events = defaultdict(lambda: Decimal("0.00"))
+    for day, _label, amount in items:
+        events[day] += amount
     next_debit_date = min(events) if events else None
     shortfall = first_shortfall(booked_balance, events)
     return {
@@ -106,6 +118,7 @@ def tax_account_summary(company, today):
         "last_import_at": latest_import.imported_at if latest_import else None,
         "next_debit_date": next_debit_date,
         "next_debit_amount": events[next_debit_date] if next_debit_date else Decimal("0.00"),
+        "next_debit_items": [(label, amount) for day, label, amount in items if day == next_debit_date],
         "shortfall_date": shortfall[0] if shortfall else None,
         "shortfall_amount": shortfall[1] if shortfall else None,
     }
