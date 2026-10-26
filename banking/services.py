@@ -134,8 +134,10 @@ def get_tax_account_quick_booking_suggestion(*, company, bank_tx):
             "rule_label": "Debiterad preliminärskatt",
         },
         {
+            # Samma konto som lönekörningen lägger skulden på (payroll: employer_liability),
+            # annars nollas skulden aldrig och likviditetsprognosen räknar den dubbelt.
             "prefix": "arbetsgivaravgift",
-            "account_number": "2730",
+            "account_number": "2731",
             "name_contains": "Avräkning lagstadgade sociala avgifter",
             "rule_label": "Arbetsgivaravgift",
         },

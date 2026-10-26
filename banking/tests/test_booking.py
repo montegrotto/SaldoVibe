@@ -173,9 +173,17 @@ class BankBookingTests(BankingTestCase):
             account_class=AccountClass.EQUITY_LIABILITY,
             is_active=True,
         )
-        ag_account = Account.objects.create(
+        # 2731 är kontot lönekörningen krediterar; 2730 finns också men ska inte väljas.
+        Account.objects.create(
             company=self.company,
             number="2730",
+            name="Lagstadgade sociala avgifter och särskild löneskatt",
+            account_class=AccountClass.EQUITY_LIABILITY,
+            is_active=True,
+        )
+        ag_account = Account.objects.create(
+            company=self.company,
+            number="2731",
             name="Avräkning lagstadgade sociala avgifter",
             account_class=AccountClass.EQUITY_LIABILITY,
             is_active=True,
