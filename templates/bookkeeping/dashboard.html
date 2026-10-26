@@ -138,6 +138,10 @@
           {% endif %}
           <dt class="col-7">Nästa dragning{% if tax_account.next_debit_date %} ({{ tax_account.next_debit_date|date:"Y-m-d" }}){% endif %}</dt>
           <dd class="col-5 text-end fw-semibold">{% if tax_account.next_debit_date %}{{ tax_account.next_debit_amount|floatformat:"2g" }} kr{% else %}<span class="text-muted">Ingen inom 30 dagar</span>{% endif %}</dd>
+          {% for label, amount in tax_account.next_debit_items %}
+          <dt class="col-7 fw-normal text-muted ps-3">{{ label }}</dt>
+          <dd class="col-5 text-end text-muted">{{ amount|floatformat:"2g" }} kr</dd>
+          {% endfor %}
         </dl>
         {% if tax_account.shortfall_date %}
         <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small">
