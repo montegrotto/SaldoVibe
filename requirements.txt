@@ -1,8 +1,8 @@
 Django==5.2.18
 python-dotenv==1.2.4
 qrcode==8.2
-certifi==2026.10.19
-xhtml2pdf==0.2.26
+certifi==2026.10.23
+xhtml2pdf==0.2.27
 gunicorn==26.2.0
 whitenoise==6.12.0
 psycopg[binary]==3.3.6
@@ -16,7 +16,7 @@ rfc3161ng==2.1.3
 # G-004/G-009). Also arrives transitively via rfc3161ng, but that is incidental.
 cryptography==50.0.2
 # Renders docs/user-guide/*.md for the in-app help section (bookkeeping/help_docs.py).
-Markdown==3.11.1
+Markdown==3.11.2
 # ReInvGrabber's field-extraction logic (attachments/extraction_client.py), pulled
 # in-process instead of run as a separate service - see its own repo
 # (https://github.com/montegrotto/ReInvGrabber) for the extraction code and the
