@@ -297,9 +297,12 @@ class TaxAccountNoticeTests(CompanyTestCase):
         self.company.preliminary_tax_monthly = Decimal("5000.00")
         self.company.save(update_fields=["preliminary_tax_monthly"])
 
-        lines, count, signature = get_tax_account_shortfall_state(self.company, TODAY)
+        # 25 aug 2026: nästa dragning är 14 september (12:e = lördag), 20 dagar bort - för tidigt.
+        _, count, _ = get_tax_account_shortfall_state(self.company, TODAY)
+        self.assertEqual(count, 0)
 
-        # 25 aug 2026: nästa dragning är 14 september (12:e = lördag).
+        # 9 september: 5 dagar kvar, nu ska påminnelsen komma.
+        lines, count, signature = get_tax_account_shortfall_state(self.company, datetime.date(2026, 9, 9))
         self.assertEqual(count, 1)
         self.assertEqual(lines, ["Skattekontot täcker inte dragningen 2026-09-14, saknas 4000.00 kr."])
         self.assertEqual(signature, "2026-09-14:4000.00")

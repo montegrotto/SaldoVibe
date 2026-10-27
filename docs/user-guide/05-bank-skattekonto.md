@@ -74,8 +74,8 @@ Startsidan har en ruta **Skattekonto** som ställer bokföringen mot Skatteverke
   uppdelning som Skatteverkets "Kommande transaktioner".
 
 Täcker det bokförda saldot inte dragningarna de närmaste 30 dagarna visas en varning i rutan,
-"Saldot täcker inte dragningen …", och notisklockan får posten **Skattekontot täcker inte nästa
-dragning**. Har det gått mer än 35 dagar sedan senaste skattekontoimport får klockan posten
+"Saldot täcker inte dragningen …". Fem dagar före dragningen får även notisklockan posten
+**Skattekontot täcker inte nästa dragning**, så påfyllningen hinner fram. Har det gått mer än 35 dagar sedan senaste skattekontoimport får klockan posten
 **Skattekontot behöver importeras** – den visas bara för företag som importerat skattekontot minst
 en gång. Båda ingår i den dagliga notisdigesten.
 
