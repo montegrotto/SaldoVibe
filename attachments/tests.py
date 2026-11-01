@@ -158,6 +158,16 @@ class AttachmentViewTests(CompanyTestCase):
         self.assertEqual(attachment.uploaded_by, self.user)
         self.assertEqual(attachment.file_name, "receipt.pdf")
 
+    def test_picker_opened_from_document_posts_selection_straight_to_its_add_view(self):
+        picker = reverse("attachments:attachment_picker")
+
+        response = self.client.get(picker, {"return_to": "/transaktioner/1/", "attach_url": "/x/lagg-till/"})
+        self.assertContains(response, 'action="/x/lagg-till/"')
+
+        # An off-site attach_url would post the CSRF token elsewhere – it must be dropped.
+        response = self.client.get(picker, {"attach_url": "//evil.example/"})
+        self.assertNotContains(response, "evil.example")
+
     def test_list_download_link_goes_through_protected_view(self):
         # /media/ serveras inte publikt (nginx) – nedladdning måste gå via den inloggade vyn.
         attachment = TransactionAttachment.objects.create(

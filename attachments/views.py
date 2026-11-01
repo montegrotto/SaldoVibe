@@ -202,6 +202,9 @@ def attachment_picker(request, company):
     default_return_to = reverse("supplier_invoices:invoice_create")
     incoming_return_to = request.GET.get("return_to") if request.method == "GET" else request.POST.get("return_to")
     return_to = incoming_return_to if is_safe_return_to(incoming_return_to) else default_return_to
+    # Set when opened from an existing document: the selection posts straight to its add view.
+    incoming_attach_url = request.GET.get("attach_url") if request.method == "GET" else request.POST.get("attach_url")
+    attach_url = incoming_attach_url if is_safe_return_to(incoming_attach_url) else ""
 
     if request.method == "POST":
         if "upload" in request.POST:
@@ -217,7 +220,7 @@ def attachment_picker(request, company):
                 selected_ids = list(dict.fromkeys(selected_ids))
                 picker_url = reverse("attachments:attachment_picker")
                 return redirect(
-                    f"{picker_url}?{urlencode({'return_to': return_to, 'selected': ','.join(str(v) for v in selected_ids)})}"
+                    f"{picker_url}?{urlencode({'return_to': return_to, 'attach_url': attach_url, 'selected': ','.join(str(v) for v in selected_ids)})}"
                 )
             messages.error(request, "Kunde inte ladda upp bilagan. Kontrollera filformat.")
         else:
@@ -254,6 +257,7 @@ def attachment_picker(request, company):
             "selected_ids": selected_ids,
             "selected_ids_csv": ",".join(str(v) for v in selected_ids),
             "return_to": return_to,
+            "attach_url": attach_url,
         },
     )
 

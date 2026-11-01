@@ -29,25 +29,8 @@
     {% if period_locked %}
       <div class="text-muted small"><i class="bi bi-lock me-1"></i>Perioden är låst - bilagor kan inte läggas till eller tas bort.</div>
     {% else %}
-      {% if pending_attachments %}
-        <div class="border rounded p-2 mb-2">
-          <div class="small text-muted mb-1">Valda bilagor att lägga till:</div>
-          <ul class="list-unstyled mb-2">
-            {% for attachment in pending_attachments %}
-              <li class="small"><i class="bi bi-file-earmark me-1"></i>{{ attachment.file_name }}</li>
-            {% endfor %}
-          </ul>
-          <form method="post" action="{{ attach_url }}" class="d-inline">
-            {% csrf_token %}
-            <input type="hidden" name="selected_attachment_ids" value="{{ pending_attachment_ids_csv }}">
-            <button type="submit" class="btn btn-primary btn-sm">
-              <i class="bi bi-check2-circle me-1"></i>Lägg till valda bilagor
-            </button>
-          </form>
-        </div>
-      {% endif %}
       <a
-        href="{% url 'attachments:attachment_picker' %}?return_to={{ return_to|urlencode }}&selected={{ pending_attachment_ids_csv }}"
+        href="{% url 'attachments:attachment_picker' %}?return_to={{ return_to|urlencode }}&attach_url={{ attach_url|urlencode }}"
         class="btn btn-outline-primary btn-sm"
       >
         <i class="bi bi-paperclip me-1"></i>Välj bilaga

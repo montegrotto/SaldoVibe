@@ -82,7 +82,7 @@ class ExpenseClaimDetailTests(CompanyTestCase):
 
         response = self.client.post(
             reverse("expenses:expense_attachment_add", args=[claim.pk]),
-            {"selected_attachment_ids": str(self.attachment.pk)},
+            {"attachment_ids": str(self.attachment.pk)},
         )
 
         self.assertRedirects(response, reverse("expenses:expense_detail", args=[claim.pk]))
@@ -117,7 +117,7 @@ class ExpenseClaimDetailTests(CompanyTestCase):
 
         add_response = self.client.post(
             reverse("expenses:expense_attachment_add", args=[claim.pk]),
-            {"selected_attachment_ids": str(other_attachment.pk)},
+            {"attachment_ids": str(other_attachment.pk)},
         )
         self.assertRedirects(add_response, reverse("expenses:expense_detail", args=[claim.pk]))
         self.assertEqual(claim.attachments.count(), 1)
