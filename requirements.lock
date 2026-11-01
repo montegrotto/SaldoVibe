@@ -8,9 +8,9 @@ asgiref==3.12.1 \
     --hash=sha256:59dcb51c272ad209d59bed5708a64a333083e86017d7fcdd67498eeab7784340 \
     --hash=sha256:fe386d1c2bff7259ea95929266d12a8cf9a8b5a1c2598402967d8792e7a7c094
     # via django
-certifi==2026.10.19 \
-    --hash=sha256:035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae \
-    --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b
+certifi==2026.10.23 \
+    --hash=sha256:a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd \
+    --hash=sha256:e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1
     # via
     #   -r requirements.txt
     #   requests
@@ -555,9 +555,9 @@ lxml==6.1.2 \
     --hash=sha256:fa813b0247d0543a563b993ac3dba6168eef59e3a61448432cf5453300c2412b \
     --hash=sha256:feda2ef68c339987dfb370af3a4b785dbc40f925723fe2365e68e43c2640f85a
     # via svglib
-markdown==3.11.1 \
-    --hash=sha256:496f4f80f9ebd3395a04c8ec9595c40bbe8ec19e9c67d21fe071a1643e876606 \
-    --hash=sha256:f1fa378ba5d682900c9ecb55ccceacca936016dda7c3b27097e8ae03ff78feb5
+markdown==3.11.2 \
+    --hash=sha256:87bf5d90f2d2882e2c02fcda182c2800456b985bff38913867c49706481514b0 \
+    --hash=sha256:f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5
     # via -r requirements.txt
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
@@ -853,7 +853,7 @@ whitenoise==6.12.0 \
     --hash=sha256:f723ebb76a112e98816ff80fcea0a6c9b8ecde835f8ddda25df7a30a3c2db6ad \
     --hash=sha256:fc5e8c572e33ebf24795b47b6a7da8da3c00cff2349f5b04c02f28d0cc5a3cc2
     # via -r requirements.txt
-xhtml2pdf==0.2.26 \
-    --hash=sha256:02f4720b6161a1f990bc50ed899700af88f4a34cb116ba9fe8e6e337ef4df655 \
-    --hash=sha256:110d15ed04ddaf0d3a67dbce290ac2c104f58fb197045b15be9d4ff91cd8af7a
+xhtml2pdf==0.2.27 \
+    --hash=sha256:00e0472f35f2a4b7a9a8b89b5988091c7b73911df9563b7bfd9edd043068edb5 \
+    --hash=sha256:7ece3664b2c6535792fcc2295915b9fc929853590124c9fbb6d94e6fd1d5a0ce
     # via -r requirements.txt
