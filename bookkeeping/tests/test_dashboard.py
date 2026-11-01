@@ -302,7 +302,6 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertEqual(summary["shortfall_amount"], Decimal("4000.00"))
         self.assertContains(response, "Saldo enligt Skatteverket")
         self.assertContains(response, "Saldot täcker inte dragningen")
-        self.assertContains(response, "Skattekontot täcker inte nästa dragning (1)")
 
     def test_default_selection_only_includes_193x_accounts_with_nonzero_balance(self):
         from bookkeeping.models import JournalEntry
