@@ -1,8 +1,8 @@
 """Request-level helpers for linking attachments to a document.
 
 Verifikationer, kundfakturor, leverantörsfakturor and utlägg all carry the same
-attachment panel: pick files in the separate picker page, come back, link them, unlink
-them again from the detail page. The only things that differ per document are how it is
+attachment panel: pick files in the separate picker page (which posts straight to the
+document's add view), unlink them again from the detail page. The only things that differ per document are how it is
 fetched, which date decides whether its period is locked, where to redirect afterwards,
 and the noun used in the messages.
 
@@ -55,7 +55,9 @@ def add_attachments(request, *, company, document, period_date, redirect_url):
         messages.error(request, "Perioden är låst. Bilagor kan inte läggas till.")
         return redirect(redirect_url)
 
-    attachments = selectable_attachments(company, parse_attachment_ids(request.POST.get("selected_attachment_ids")))
+    attachments = selectable_attachments(
+        company, parse_attachment_ids(",".join(request.POST.getlist("attachment_ids")))
+    )
     if attachments.exists():
         document.attachments.add(*attachments)
         messages.success(request, "Bilagorna har lagts till.")
@@ -88,22 +90,11 @@ def remove_attachment(request, *, company, document, period_date, redirect_url, 
 def attachment_panel_context(request, *, company, document, period_date, attach_url, detach_url):
     """Context the shared attachment panel needs on a document's detail page.
 
-    "Pending" attachments are the ones the user just picked and came back with, but that
-    are not linked yet — they arrive as `?selected_attachments=` and are shown as a
-    staged selection until the form is posted.
+    The picker is opened with `attach_url`, so picking an attachment links it at once.
     """
-    linked_ids = document.attachments.values_list("pk", flat=True)
-    pending_attachments = TransactionAttachment.objects.filter(
-        company=company,
-        deleted_at__isnull=True,
-        id__in=parse_attachment_ids(request.GET.get("selected_attachments")),
-    ).exclude(pk__in=linked_ids)
-
     return {
         "attach_url": attach_url,
         "detach_url": detach_url,
         "return_to": request.path,
-        "pending_attachments": pending_attachments,
-        "pending_attachment_ids_csv": ",".join(str(a.pk) for a in pending_attachments),
         "period_locked": is_date_locked(company, period_date),
     }
