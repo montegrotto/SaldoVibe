@@ -119,6 +119,8 @@ steg:
    Årets resultat står kvar på 2099/2019 i ingående balans; omföringen (S2) är daterad på nästa
    års första dag och syns i nästa års saldon.
 6. **Helårslåsning** – hela året låses så att inga poster kan ändras. Detta är sista steget.
+7. **Årsredovisning** (bara aktiebolag) – länk till
+   [årsredovisningen](10-rapporter.md#årsredovisning-aktiebolag-k2), som byggs ur bokföringen.
 
 Formell vinstdisposition för aktiebolag (utdelning, avsättning till reservfond) ingår inte i
 flödet – S2 balanserar alltid hela beloppet i ny räkning; vill du dela upp dispositionen gör du

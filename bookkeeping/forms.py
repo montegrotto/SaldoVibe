@@ -14,6 +14,7 @@ from .models import (
     Account,
     AccountClass,
     AccountingYear,
+    AnnualReport,
     BudgetLine,
     Company,
     CompanyMembership,
@@ -950,3 +951,22 @@ class CompanyMemberForm(forms.Form):
             raise forms.ValidationError("Användaren är redan kopplad till företaget.")
         cleaned["user"] = user
         return cleaned
+
+
+class AnnualReportForm(forms.ModelForm):
+    class Meta:
+        model = AnnualReport
+        exclude = ("accounting_year",)
+        widgets = {
+            "business_description": forms.Textarea(attrs={"rows": 4}),
+            "significant_events": forms.Textarea(attrs={"rows": 3}),
+            "signatories": forms.Textarea(attrs={"rows": 3}),
+            "signing_date": forms.DateInput(attrs={"type": "date"}),
+            "agm_date": forms.DateInput(attrs={"type": "date"}),
+            "certification_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")

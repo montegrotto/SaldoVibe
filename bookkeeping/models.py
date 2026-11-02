@@ -444,6 +444,72 @@ class AccountingYear(models.Model):
                 raise ValidationError("Räkenskapsåret överlappar ett befintligt räkenskapsår.")
 
 
+class AnnualReport(models.Model):
+    """Årsredovisningens fritexter och underskrifter för ett räkenskapsår (K2, aktiebolag).
+
+    Siffrorna beräknas alltid ur huvudboken (bookkeeping/annual_report.py); här finns bara
+    det som en människa måste skriva.
+    """
+
+    accounting_year = models.OneToOneField(
+        AccountingYear,
+        on_delete=models.CASCADE,
+        related_name="annual_report",
+        verbose_name="Räkenskapsår",
+    )
+    business_description = models.TextField("Allmänt om verksamheten", blank=True)
+    significant_events = models.TextField("Väsentliga händelser under räkenskapsåret", blank=True)
+    dividend = models.DecimalField(
+        "Föreslagen utdelning",
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Resten av det fria egna kapitalet balanseras i ny räkning.",
+    )
+    average_employees = models.PositiveIntegerField(
+        "Medelantal anställda",
+        null=True,
+        blank=True,
+        help_text="Lämna tomt för att räkna ut från löneregistret.",
+    )
+    pledged_assets = models.CharField("Ställda säkerheter", max_length=200, default="Inga")
+    contingent_liabilities = models.CharField("Eventualförpliktelser", max_length=200, default="Inga")
+    signing_place = models.CharField("Ort för underskrift", max_length=100, blank=True)
+    signing_date = models.DateField("Datum för underskrift", null=True, blank=True)
+    signatories = models.TextField(
+        "Undertecknare",
+        blank=True,
+        help_text="En per rad: Namn, roll (t.ex. Anna Andersson, Styrelseledamot).",
+    )
+    auditor_text = models.CharField(
+        "Revisorspåteckning",
+        max_length=300,
+        blank=True,
+        help_text="Lämnas tom utan revisor. Annars t.ex. 'Min revisionsberättelse har lämnats den 2027-04-10. Anna Revisor, Auktoriserad revisor'.",
+    )
+    agm_date = models.DateField(
+        "Årsstämmans datum",
+        null=True,
+        blank=True,
+        help_text="Fylls i efter stämman – då skrivs fastställelseintyget ut som sista sida.",
+    )
+    certifier = models.CharField(
+        "Intygande företrädare",
+        max_length=200,
+        blank=True,
+        help_text="Namn, roll – den styrelseledamot eller VD som skriver under fastställelseintyget.",
+    )
+    certification_date = models.DateField("Fastställelseintygets datum", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Årsredovisning"
+        verbose_name_plural = "Årsredovisningar"
+
+    def __str__(self):
+        return f"Årsredovisning {self.accounting_year}"
+
+
 class PeriodLock(models.Model):
     company = models.ForeignKey(
         Company,

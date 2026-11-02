@@ -1,5 +1,5 @@
 ---
-description: "Balansräkning, resultaträkning, resultatprognos, huvudbok, SRU-underlag, bokslut, händelselogg och compliance-översikt i SaldoVibe."
+description: "Balansräkning, resultaträkning, resultatprognos, huvudbok, SRU-underlag, årsredovisning, händelselogg och compliance-översikt i SaldoVibe."
 ---
 
 # 10. Rapporter
@@ -127,6 +127,49 @@ som byggs styrs av **Bolagsform** i [företagsinställningarna](11-foretagsinsta
 fältkod. Fixa de fel diagnostiken visar innan du exporterar – **Ladda ner** hämtar SRU-underlaget
 som en zip-fil (`info.sru` + `blanketter.sru`), och en separat diagnostikrapport kan laddas ner
 fristående för att stämma av innan inlämning.
+
+## Årsredovisning (aktiebolag, K2)
+
+**Räkenskapsår → Årsredovisning** (knappen på årets rad, bara för aktiebolag – finns också som
+steg 7 på bokslutssidan) bygger en komplett årsredovisning enligt K2 (BFNAR 2016:10) ur
+bokföringen: förvaltningsberättelse med flerårsöversikt, förändringar i eget kapital och
+resultatdisposition, kostnadsslagsindelad resultaträkning, balansräkning, noter och
+underskrifter. Jämförelseåret är närmast föregående räkenskapsår; saknas det visas bara en
+kolumn. Belopp i hela kronor.
+
+Siffrorna styrs av kontonumren: varje post är ett intervall av BAS-konton (3000–3799 =
+Nettoomsättning, 5000–6999 = Övriga externa kostnader, 1900–1989 = Kassa och bank osv.).
+Kontoklass 4 redovisas som *Råvaror och förnödenheter*, utom 4960–4969 och 4980–4999 som är
+*Handelsvaror*. Poster utan belopp båda åren utelämnas. *Årets resultat* visas alltid på egen
+rad och *Balanserat resultat* räknas utan det, oavsett om bokslutsverifikationen är bokförd –
+tills den är det märks dokumentet **UTKAST**. Konton med saldo som inte ingår i uppställningen
+(t.ex. enskild firmas 2010-serie) listas som varning. Öresavrundningens differens mellan
+balansräkningens sidor läggs på *Kassa och bank*.
+
+Vänstra kolumnen är det du själv fyller i; till höger är förhandsgranskningen av dokumentet:
+
+- **Förvaltningsberättelse** – *Allmänt om verksamheten*, *Väsentliga händelser under
+  räkenskapsåret* (tomt ger "Inga väsentliga händelser har inträffat under räkenskapsåret.")
+  och *Föreslagen utdelning* – resten av det fria egna kapitalet balanseras i ny räkning.
+  Sätet hämtas från företagets ort.
+- **Noter** – *Medelantal anställda* räknas från löneregistret om fältet lämnas tomt
+  (sysselsättningsgrad viktad med anställningstid under året, bara aktiva anställda), samt
+  *Ställda säkerheter* och *Eventualförpliktelser*. Avskrivningstiderna i not 1 hämtas från
+  anläggningsregistret; anläggningsnoterna (anskaffningsvärden, avskrivningar, redovisat
+  värde) från kontona i gruppen, där xxx9 är ackumulerade avskrivningar och xxx8
+  nedskrivningar.
+- **Underskrifter** – ort, datum och en undertecknare per rad som `Namn, roll`. Rollen
+  *VD* eller *Verkställande direktör* gör att inledningen nämner verkställande direktören.
+  *Revisorspåteckning* lämnas tom utan revisor.
+- **Fastställelseintyg** – fylls i efter årsstämman (*Årsstämmans datum*, *Intygande
+  företrädare*, *Fastställelseintygets datum*) och skrivs då ut som sista sida. Texten
+  förutsätter att stämman godkände styrelsens förslag till resultatdisposition.
+
+**Spara** sparar uppgifterna (ändringar auditloggas); **Ladda ner PDF** hämtar dokumentet.
+Inlämning: skriv ut, låt styrelsen (och VD) underteckna originalet, och skicka en kopia med
+undertecknat fastställelseintyg till Bolagsverket. Digital inlämning kräver ett program som
+är anslutet till Bolagsverkets API, vilket SaldoVibe inte är – vill du lämna in digitalt kan
+du [exportera SIE](#exportera-bokföring) till en ansluten tjänst.
 
 ## Händelselogg (auditlogg)
 

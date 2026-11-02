@@ -40,7 +40,11 @@ Alla fyra punkter klara (se "Klart" ovan).
 
 ### Stora — bara vid faktisk efterfrågan
 
-- **Årsredovisning K2** — naturligt steg efter bokslutet, men mycket mall och regelverk.
+- ~~Årsredovisning K2~~ — `bookkeeping:annual_report`, byggs ur kontonummerintervall
+  (`bookkeeping/annual_report.py`) och levereras som PDF. Digital inlämning (iXBRL via
+  Bolagsverkets API) medvetet utanför: e-tjänsten tar bara emot filer från program med avtal
+  med Bolagsverket (uppstartsmöte, granskning i månader); SIE-export till en ansluten tjänst
+  täcker behovet.
 - **Kostnadsställe/projekt** — ingen dimension i modellerna eller SIE-exporten (`#DIM`/`#OBJEKT`).
 - **Valutahantering** — löst utan kursmodell (2026-10-06): fakturan registreras i SEK med
   kortets/bankens belopp, och en differens vid betalning bokförs som avvikelse mot 3960/7960
