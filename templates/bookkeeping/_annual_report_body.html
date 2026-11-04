@@ -1,0 +1,166 @@
+{% comment %}Årsredovisningens kropp - delad mellan förhandsgranskningen (webb) och PDF:en
+(xhtml2pdf). Bara tabeller och enkel CSS, så att pisa klarar den; `pdf` är satt i PDF-kontexten.{% endcomment %}
+<div class="ar-cover">
+  <div class="ar-h1">Årsredovisning</div>
+  <p class="ar-lead">för <strong>{{ company.name }}</strong>{% if company.org_number %}<br>Org.nr {{ company.org_number }}{% endif %}</p>
+  <p class="ar-lead">Räkenskapsåret {{ year.start_date }} – {{ year.end_date }}</p>
+  {% if not is_closed %}<p class="ar-draft">UTKAST – räkenskapsåret är inte avslutat</p>{% endif %}
+  <p class="ar-muted">Belopp i hela kronor.</p>
+</div>
+
+<h3 class="ar-h2">Förvaltningsberättelse</h3>
+<p>Styrelsen{% if has_ceo %} och verkställande direktören{% endif %} för {{ company.name }} får härmed avge årsredovisning för räkenskapsåret {{ year.start_date }} – {{ year.end_date }}.</p>
+
+<h4 class="ar-h3">Verksamheten</h4>
+<p class="ar-sub">Allmänt om verksamheten</p>
+{% if report.business_description %}<p>{{ report.business_description|linebreaksbr }}</p>{% endif %}
+{% if company.city %}<p>Företaget har sitt säte i {{ company.city }}.</p>{% endif %}
+<p class="ar-sub">Väsentliga händelser under räkenskapsåret</p>
+<p>{% if report.significant_events %}{{ report.significant_events|linebreaksbr }}{% else %}Inga väsentliga händelser har inträffat under räkenskapsåret.{% endif %}</p>
+
+<h4 class="ar-h3">Flerårsöversikt</h4>
+<table class="report-table ar-table">
+  <thead>
+    <tr><th></th>{% for column in multi_year %}<th class="num">{{ column.year.name }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    <tr><td>Nettoomsättning</td>{% for column in multi_year %}<td class="num">{{ column.net_sales|floatformat:"0g" }}</td>{% endfor %}</tr>
+    <tr><td>Resultat efter finansiella poster</td>{% for column in multi_year %}<td class="num">{{ column.result_after_financial|floatformat:"0g" }}</td>{% endfor %}</tr>
+    <tr><td>Soliditet (%)</td>{% for column in multi_year %}<td class="num">{% if column.solidity is not None %}{{ column.solidity|floatformat:"1" }}{% else %}–{% endif %}</td>{% endfor %}</tr>
+  </tbody>
+</table>
+
+<h4 class="ar-h3">Förändringar i eget kapital</h4>
+<table class="report-table ar-table">
+  <thead>
+    <tr><th></th>{% for column in equity_changes.columns %}<th class="num">{{ column }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for label, values in equity_changes.rows %}
+    <tr{% if forloop.last %} class="subtotal-row"{% endif %}><td>{{ label }}</td>{% for value in values %}<td class="num">{{ value|floatformat:"0g" }}</td>{% endfor %}</tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h4 class="ar-h3">Resultatdisposition</h4>
+<p>Till årsstämmans förfogande står följande {% if disposition.total >= 0 %}vinstmedel{% else %}ansamlade förlust{% endif %}:</p>
+<table class="report-table ar-table ar-narrow">
+  <tbody>
+    <tr><td>Balanserat resultat</td><td class="num">{{ disposition.retained|floatformat:"0g" }}</td></tr>
+    <tr><td>Årets resultat</td><td class="num">{{ disposition.result|floatformat:"0g" }}</td></tr>
+    <tr class="subtotal-row"><td>Summa</td><td class="num">{{ disposition.total|floatformat:"0g" }}</td></tr>
+  </tbody>
+</table>
+<p>Styrelsen föreslår att {% if disposition.total >= 0 %}vinstmedlen{% else %}den ansamlade förlusten{% endif %} disponeras så att:</p>
+<table class="report-table ar-table ar-narrow">
+  <tbody>
+    {% if disposition.dividend %}<tr><td>till aktieägarna utdelas</td><td class="num">{{ disposition.dividend|floatformat:"0g" }}</td></tr>{% endif %}
+    <tr><td>i ny räkning balanseras</td><td class="num">{{ disposition.carried_forward|floatformat:"0g" }}</td></tr>
+    <tr class="subtotal-row"><td>Summa</td><td class="num">{{ disposition.total|floatformat:"0g" }}</td></tr>
+  </tbody>
+</table>
+
+{% if pdf %}<pdf:nextpage />{% endif %}
+<h3 class="ar-h2">Resultaträkning</h3>
+<table class="report-table ar-table ar-statement">
+  <thead>
+    <tr><th></th><th class="num ar-note-col">Not</th><th class="num ar-amount-col">{{ year.start_date }}<br>– {{ year.end_date }}</th><th class="num ar-amount-col">{% if prev_year %}{{ prev_year.start_date }}<br>– {{ prev_year.end_date }}{% endif %}</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rr_rows %}{% include "bookkeeping/_annual_report_row.html" %}{% endfor %}
+  </tbody>
+</table>
+
+{% if pdf %}<pdf:nextpage />{% endif %}
+<h3 class="ar-h2">Balansräkning</h3>
+<table class="report-table ar-table ar-statement">
+  <thead>
+    <tr><th></th><th class="num ar-note-col">Not</th><th class="num ar-amount-col">{{ year.end_date }}</th><th class="num ar-amount-col">{% if prev_year %}{{ prev_year.end_date }}{% endif %}</th></tr>
+  </thead>
+  <tbody>
+    {% for row in br_rows %}{% include "bookkeeping/_annual_report_row.html" %}{% endfor %}
+  </tbody>
+</table>
+
+{% if pdf %}<pdf:nextpage />{% endif %}
+<h3 class="ar-h2">Noter</h3>
+{% for note in notes %}
+<h4 class="ar-h3">Not {{ note.number }} {{ note.title }}</h4>
+{% if note.kind == "policies" %}
+  <p>Årsredovisningen är upprättad i enlighet med årsredovisningslagen och Bokföringsnämndens allmänna råd (BFNAR 2016:10) om årsredovisning i mindre företag.</p>
+  {% if note.policies %}
+  <p>Materiella och immateriella anläggningstillgångar redovisas till anskaffningsvärde minskat med ackumulerade avskrivningar. Avskrivning sker linjärt över tillgångens beräknade nyttjandeperiod:</p>
+  <table class="report-table ar-table ar-narrow">
+    <tbody>
+      {% for label, years in note.policies %}<tr><td>{{ label }}</td><td class="num">{{ years }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+{% elif note.kind == "employees" %}
+  <table class="report-table ar-table ar-statement">
+    <tbody>
+      <tr><td>Medelantal anställda</td><td class="num ar-note-col"></td><td class="num ar-amount-col">{{ note.cur }}</td><td class="num ar-amount-col">{{ note.prev|default_if_none:"" }}</td></tr>
+    </tbody>
+  </table>
+{% elif note.kind == "fixed_asset" %}
+  <table class="report-table ar-table ar-statement">
+    <thead><tr><th></th><th class="num ar-note-col"></th><th class="num ar-amount-col">{{ year.end_date }}</th><th class="num ar-amount-col">{% if prev_year %}{{ prev_year.end_date }}{% endif %}</th></tr></thead>
+    <tbody>
+      <tr><td>Ingående anskaffningsvärde</td><td></td><td class="num">{{ note.cur.acq_open|floatformat:"0g" }}</td><td class="num">{{ note.prev.acq_open|floatformat:"0g" }}</td></tr>
+      <tr><td>Inköp</td><td></td><td class="num">{{ note.cur.purchases|floatformat:"0g" }}</td><td class="num">{{ note.prev.purchases|floatformat:"0g" }}</td></tr>
+      <tr><td>Försäljningar/utrangeringar</td><td></td><td class="num">{{ note.cur.disposals|floatformat:"0g" }}</td><td class="num">{{ note.prev.disposals|floatformat:"0g" }}</td></tr>
+      <tr class="subtotal-row"><td>Utgående anskaffningsvärde</td><td></td><td class="num">{{ note.cur.acq_close|floatformat:"0g" }}</td><td class="num">{{ note.prev.acq_close|floatformat:"0g" }}</td></tr>
+      <tr><td>Ingående avskrivningar</td><td></td><td class="num">{{ note.cur.dep_open|floatformat:"0g" }}</td><td class="num">{{ note.prev.dep_open|floatformat:"0g" }}</td></tr>
+      <tr><td>Årets avskrivningar</td><td></td><td class="num">{{ note.cur.dep_year|floatformat:"0g" }}</td><td class="num">{{ note.prev.dep_year|floatformat:"0g" }}</td></tr>
+      <tr class="subtotal-row"><td>Utgående avskrivningar</td><td></td><td class="num">{{ note.cur.dep_close|floatformat:"0g" }}</td><td class="num">{{ note.prev.dep_close|floatformat:"0g" }}</td></tr>
+      {% if note.has_impairment %}
+      <tr><td>Ingående nedskrivningar</td><td></td><td class="num">{{ note.cur.imp_open|floatformat:"0g" }}</td><td class="num">{{ note.prev.imp_open|floatformat:"0g" }}</td></tr>
+      <tr><td>Årets nedskrivningar</td><td></td><td class="num">{{ note.cur.imp_year|floatformat:"0g" }}</td><td class="num">{{ note.prev.imp_year|floatformat:"0g" }}</td></tr>
+      <tr class="subtotal-row"><td>Utgående nedskrivningar</td><td></td><td class="num">{{ note.cur.imp_close|floatformat:"0g" }}</td><td class="num">{{ note.prev.imp_close|floatformat:"0g" }}</td></tr>
+      {% endif %}
+      <tr class="grand"><td>Redovisat värde</td><td></td><td class="num">{{ note.cur.book_value|floatformat:"0g" }}</td><td class="num">{{ note.prev.book_value|floatformat:"0g" }}</td></tr>
+    </tbody>
+  </table>
+{% elif note.kind == "text" %}
+  <table class="report-table ar-table ar-narrow">
+    <tbody>
+      {% for label, value in note.lines %}<tr><td>{{ label }}</td><td class="num">{{ value }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endfor %}
+
+{% if pdf %}<pdf:nextpage />{% endif %}
+<h3 class="ar-h2">Underskrifter</h3>
+<p>{{ report.signing_place }}{% if report.signing_date %} den {{ report.signing_date }}{% endif %}</p>
+<table class="ar-signatures">
+  {% for person in signatories %}
+    {% if forloop.counter0|divisibleby:2 %}<tr>{% endif %}
+    <td class="ar-signature">
+      <div class="ar-signature-line">&nbsp;</div>
+      <div>{{ person.name }}</div>
+      <div class="ar-muted">{{ person.role }}</div>
+    </td>
+    {% if forloop.counter|divisibleby:2 or forloop.last %}</tr>{% endif %}
+  {% empty %}
+    <tr><td class="ar-muted">Inga undertecknare angivna.</td></tr>
+  {% endfor %}
+</table>
+{% if report.auditor_text %}<p class="ar-auditor">{{ report.auditor_text }}</p>{% endif %}
+
+{% if report.agm_date and certifier %}
+{% if pdf %}<pdf:nextpage />{% endif %}
+<h3 class="ar-h2">Fastställelseintyg</h3>
+<p>Undertecknad {{ certifier.0.role|lower|default:"styrelseledamot" }} i {{ company.name }} intygar att resultaträkningen och balansräkningen i årsredovisningen har fastställts på årsstämma den {{ report.agm_date }}. Årsstämman beslutade att godkänna styrelsens förslag till resultatdisposition.</p>
+<p>Jag intygar att innehållet i dessa handlingar överensstämmer med originalet och att originalet undertecknats av samtliga personer som enligt lag ska underteckna dessa.</p>
+<p>{{ report.signing_place }}{% if report.certification_date %} den {{ report.certification_date }}{% endif %}</p>
+<table class="ar-signatures">
+  <tr>
+    <td class="ar-signature">
+      <div class="ar-signature-line">&nbsp;</div>
+      <div>{{ certifier.0.name }}</div>
+      <div class="ar-muted">{{ certifier.0.role }}</div>
+    </td>
+  </tr>
+</table>
+{% endif %}

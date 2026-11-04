@@ -1,0 +1,7 @@
+{# En rad i resultat-/balansräkningen: rubrik, post, summa, delresultat eller slutsumma. #}
+<tr class="ar-{{ row.kind }}{% if row.kind == "sum" or row.kind == "subtotal" %} subtotal-row{% elif row.kind == "total" %} grand{% endif %}">
+  <td style="padding-left: {% widthratio row.level 1 4 %}mm;">{{ row.label }}</td>
+  <td class="num">{{ row.note|default_if_none:"" }}</td>
+  <td class="num">{{ row.cur|floatformat:"0g" }}</td>
+  <td class="num">{{ row.prev|floatformat:"0g" }}</td>
+</tr>

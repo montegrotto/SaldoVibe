@@ -138,6 +138,10 @@ När du registrerar t.ex. en leverantörsfaktura kan du öppna bilage-väljaren 
 upp en ny fil direkt i flödet, eller markera en eller flera redan uppladdade bilagor att koppla till
 posten. Väljaren tar dig sedan tillbaka till formuläret du kom ifrån med bilagorna förvalda.
 
+Öppnar du väljaren via **Välj bilaga** på en redan sparad post (en bokförd verifikation,
+kundfaktura, leverantörsfaktura eller ett utlägg) kopplas bilagan direkt när du väljer den – du
+kommer tillbaka till posten med bilagan på plats. Det går så länge postens period inte är låst.
+
 ## E-postimport av bilagor
 
 Om e-postimport är konfigurerat för företaget (`Inställningar → Företag`: Gmail eller en annan

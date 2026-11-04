@@ -380,7 +380,7 @@ class SupplierInvoiceWorkflowTests(CompanyTestCase):
 
         response = self.client.post(
             reverse("supplier_invoices:invoice_attachment_add", args=[invoice.pk]),
-            {"selected_attachment_ids": str(self.attachment.pk)},
+            {"attachment_ids": str(self.attachment.pk)},
         )
 
         self.assertRedirects(response, reverse("supplier_invoices:invoice_detail", args=[invoice.pk]))
@@ -420,7 +420,7 @@ class SupplierInvoiceWorkflowTests(CompanyTestCase):
 
         add_response = self.client.post(
             reverse("supplier_invoices:invoice_attachment_add", args=[invoice.pk]),
-            {"selected_attachment_ids": str(other_attachment.pk)},
+            {"attachment_ids": str(other_attachment.pk)},
         )
         self.assertRedirects(add_response, reverse("supplier_invoices:invoice_detail", args=[invoice.pk]))
         self.assertEqual(invoice.attachments.count(), 1)

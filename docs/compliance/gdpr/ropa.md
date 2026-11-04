@@ -147,6 +147,7 @@ hela registret.
 | bookkeeping.voucherseriesrule | A8 | inga |
 | bookkeeping.periodlock | A8 | inga |
 | bookkeeping.budgetline | A8 | inga |
+| bookkeeping.annualreport | A8 | namn och roll på undertecknare och intygande företrädare (styrelse/VD) |
 | banking.bankaccount | A8 | inga |
 | banking.bankimport | A8 | i förbigående (kontoutdragsrader) |
 | banking.banktransaction | A8 | i förbigående (betalare-/mottagartext) |

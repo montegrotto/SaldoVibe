@@ -113,7 +113,7 @@ class TransactionPostTests(CompanyTestCase):
 
         response = self.client.post(
             reverse("bookkeeping:transaction_attachment_add", args=[txn.pk]),
-            {"selected_attachment_ids": str(attachment.pk)},
+            {"attachment_ids": str(attachment.pk)},
         )
 
         self.assertRedirects(response, reverse("bookkeeping:transaction_detail", args=[txn.pk]))
@@ -160,7 +160,7 @@ class TransactionPostTests(CompanyTestCase):
 
         add_response = self.client.post(
             reverse("bookkeeping:transaction_attachment_add", args=[txn.pk]),
-            {"selected_attachment_ids": str(other_attachment.pk)},
+            {"attachment_ids": str(other_attachment.pk)},
         )
         self.assertRedirects(add_response, reverse("bookkeeping:transaction_detail", args=[txn.pk]))
         self.assertEqual(txn.attachments.count(), 1)

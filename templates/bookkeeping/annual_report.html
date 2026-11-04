@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Årsredovisning {{ year.name }} – SaldoVibe{% endblock %}
+{% block page_title %}Årsredovisning {{ year.name }}{% endblock %}
+{% block nav_years %}active{% endblock %}
+
+{% block content %}
+<style>
+  .ar-body { font-size: 0.9rem; }
+  .ar-body .ar-h1 { font-size: 1.8rem; font-weight: 700; color: #1a2340; }
+  .ar-body .ar-h2 { font-size: 1.25rem; font-weight: 700; color: #1a2340; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
+  .ar-body .ar-h3 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; }
+  .ar-body .ar-sub { font-weight: 600; margin-bottom: 0.25rem; }
+  .ar-body .ar-muted { color: #6b7280; font-size: 0.8rem; }
+  .ar-body .ar-draft { color: #b91c1c; font-weight: 700; }
+  .ar-body .ar-table { width: 100%; margin-bottom: 1rem; }
+  .ar-body .ar-narrow { max-width: 420px; }
+  .ar-body .ar-table th, .ar-body .ar-table td { padding: 0.25rem 0.5rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  .ar-body .ar-table th { font-size: 0.75rem; color: #6b7280; text-align: left; }
+  .ar-body .num { text-align: right; white-space: nowrap; }
+  .ar-body .ar-note-col { width: 3rem; }
+  .ar-body .ar-amount-col { width: 9rem; }
+  .ar-body tr.ar-heading td { font-weight: 600; border-bottom: none; padding-top: 0.75rem; }
+  .ar-body tr.subtotal-row td { font-weight: 600; background: #f3f4f6; }
+  .ar-body tr.grand td { font-weight: 700; background: #1a2340; color: #fff; }
+  .ar-body .ar-signatures { width: 100%; margin-top: 2rem; }
+  .ar-body .ar-signature { width: 50%; padding: 0 1.5rem 1.5rem 0; vertical-align: bottom; }
+  .ar-body .ar-signature-line { border-bottom: 1px solid #111827; height: 2.5rem; margin-bottom: 0.25rem; }
+</style>
+
+<div class="row g-4">
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold">Uppgifter</h6>
+        <a href="{% url 'bookkeeping:year_end_close' year.pk %}" class="small">Till bokslutet</a>
+      </div>
+      <div class="card-body">
+        {% if warnings %}
+          <div class="alert alert-warning small py-2">
+            <ul class="mb-0 ps-3">
+              {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+        <form method="post">
+          {% csrf_token %}
+          {% for field in form %}
+            {% if field.name == "business_description" %}<h6 class="text-muted text-uppercase small mt-1">Förvaltningsberättelse</h6>
+            {% elif field.name == "average_employees" %}<h6 class="text-muted text-uppercase small mt-4">Noter</h6>
+            {% elif field.name == "signing_place" %}<h6 class="text-muted text-uppercase small mt-4">Underskrifter</h6>
+            {% elif field.name == "agm_date" %}<h6 class="text-muted text-uppercase small mt-4">Fastställelseintyg (efter årsstämman)</h6>
+            {% endif %}
+            <div class="mb-3">
+              <label class="form-label mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Spara</button>
+            <a href="{% url 'bookkeeping:annual_report_pdf' year.pk %}" class="btn btn-outline-success">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Ladda ner PDF
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Förhandsgranskning</h6>
+      </div>
+      <div class="card-body ar-body">
+        {% include "bookkeeping/_annual_report_body.html" %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -217,6 +217,24 @@
       </div>
     </div>
 
+    {# Steg 7: Årsredovisning (bara aktiebolag) #}
+    {% if is_ab %}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">7. Årsredovisning</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">
+          Förvaltningsberättelse, resultat- och balansräkning och noter enligt K2 byggs ur bokföringen –
+          du skriver bara fritexterna och vilka som skriver under.
+        </p>
+        <a href="{% url 'bookkeeping:annual_report' year.pk %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-file-earmark-text me-1"></i>Öppna årsredovisningen
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}

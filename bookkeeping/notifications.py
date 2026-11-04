@@ -14,6 +14,8 @@ from .models import SentEmail
 
 VAT_DEADLINE_WARNING_DAYS = 14
 TAX_IMPORT_STALE_DAYS = 35
+# Startsidan varnar 30 dagar i förväg; klockan och digesten först när det är dags att fylla på.
+TAX_SHORTFALL_WARNING_DAYS = 5
 
 
 def get_overdue_customer_invoice_state(company, today):
@@ -133,6 +135,8 @@ def get_tax_account_shortfall_state(company, today):
 
     summary = tax_account_summary(company, today)
     if summary["shortfall_date"] is None:
+        return [], 0, ""
+    if summary["shortfall_date"] > today + datetime.timedelta(days=TAX_SHORTFALL_WARNING_DAYS):
         return [], 0, ""
     line = (
         f"Skattekontot täcker inte dragningen {summary['shortfall_date']}, saknas {summary['shortfall_amount']:.2f} kr."

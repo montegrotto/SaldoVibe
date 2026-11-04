@@ -64,6 +64,11 @@
                     <a href="{% url 'bookkeeping:year_end_close' year.pk %}" class="btn btn-outline-primary btn-sm">
                       <i class="bi bi-journal-check me-1"></i>Bokslut
                     </a>
+                    {% if active_company.legal_form == "aktiebolag" %}
+                      <a href="{% url 'bookkeeping:annual_report' year.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-file-earmark-text me-1"></i>Årsredovisning
+                      </a>
+                    {% endif %}
                     <a href="{% url 'bookkeeping:accounting_year_delete' year.pk %}" class="btn btn-outline-danger btn-sm">
                       <i class="bi bi-trash me-1"></i>Ta bort
                     </a>
