@@ -110,8 +110,8 @@
         <h6 class="mb-0 fw-semibold">Fakturor per vecka</h6>
         <small class="text-muted">5 veckor bakåt, nu, 3 veckor framåt</small>
       </div>
-      <div class="card-body">
-        <div style="height: 320px;">
+      <div class="card-body d-flex flex-column">
+        <div class="flex-grow-1 position-relative" style="min-height: 320px;">
           <canvas id="invoiceStatusChart"></canvas>
         </div>
       </div>
@@ -173,6 +173,47 @@
       return;
     }
 
+    // Gemensamt utseende: sidans typsnitt, dämpade axlar och rutnät, rundad tooltip.
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = "#6c757d";
+    Chart.defaults.borderColor = "#eef0f2";
+    Object.assign(Chart.defaults.plugins.tooltip, {
+      backgroundColor: "rgba(33, 37, 41, 0.92)",
+      padding: 10,
+      cornerRadius: 8,
+      boxPadding: 4,
+      usePointStyle: true,
+    });
+    Object.assign(Chart.defaults.plugins.legend.labels, { usePointStyle: true, pointStyle: "rectRounded" });
+
+    // Nollinjen tydligare än övriga stödlinjer.
+    const zeroLineGrid = {
+      color: function (context) {
+        return context.tick && context.tick.value === 0 ? "#adb5bd" : Chart.defaults.borderColor;
+      },
+      drawTicks: false,
+    };
+
+    // Lodrät hjälplinje vid veckan som hovras.
+    const crosshair = {
+      id: "crosshair",
+      beforeDatasetsDraw: function (chart) {
+        const active = chart.tooltip ? chart.tooltip.getActiveElements() : [];
+        if (!active.length) {
+          return;
+        }
+        const { ctx: c, chartArea } = chart;
+        c.save();
+        c.strokeStyle = "rgba(108, 117, 125, 0.45)";
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(active[0].element.x, chartArea.top);
+        c.lineTo(active[0].element.x, chartArea.bottom);
+        c.stroke();
+        c.restore();
+      },
+    };
+
     const data = JSON.parse(payloadElement.textContent || "{}");
     const labels = data.labels || [];
     const projectedBalance = data.projected_balance || [];
@@ -183,11 +224,16 @@
 
     const ctx = chartElement.getContext("2d");
     const gradient = ctx.createLinearGradient(0, 0, 0, 320);
-    gradient.addColorStop(0, "rgba(13, 110, 253, 0.30)");
+    gradient.addColorStop(0, "rgba(13, 110, 253, 0.22)");
     gradient.addColorStop(1, "rgba(13, 110, 253, 0.02)");
+
+    const pointBorderColor = function (context) {
+      return context.dataIndex === 0 ? "#198754" : "#ffffff";
+    };
 
     new Chart(ctx, {
       type: "line",
+      plugins: [crosshair],
       data: {
         labels,
         datasets: [
@@ -195,24 +241,22 @@
             label: "Saldo",
             data: projectedBalance,
             borderColor: "#0d6efd",
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0,
-            borderWidth: 3,
+            borderWidth: 2,
+            cubicInterpolationMode: "monotone",
+            // Blå yta över noll, röd under – ett negativt saldo syns direkt.
+            fill: { target: { value: 0 }, above: gradient, below: "rgba(220, 53, 69, 0.14)" },
             pointRadius: function (context) {
-              return context.dataIndex === 0 ? 6 : 4;
+              return context.dataIndex === 0 ? 5 : 3.5;
             },
-            pointHoverRadius: function (context) {
-              return context.dataIndex === 0 ? 8 : 6;
-            },
-            pointBorderWidth: function (context) {
-              return context.dataIndex === 0 ? 3 : 2;
-            },
+            pointHoverRadius: 6,
+            pointBorderWidth: 2,
+            pointBorderColor: pointBorderColor,
+            pointHoverBorderColor: pointBorderColor,
             pointBackgroundColor: function (context) {
-              return context.dataIndex === 0 ? "#ffffff" : "#0d6efd";
-            },
-            pointBorderColor: function (context) {
-              return context.dataIndex === 0 ? "#198754" : "#0d6efd";
+              if (context.dataIndex === 0) {
+                return "#ffffff";
+              }
+              return context.raw < 0 ? "#dc3545" : "#0d6efd";
             },
           },
         ],
@@ -276,15 +320,17 @@
         },
         scales: {
           x: {
+            offset: true,
             grid: {
               display: false,
             },
             ticks: {
               maxTicksLimit: 10,
+              maxRotation: 0,
               callback: function (value) {
                 const label = this.getLabelForValue(value);
                 if (value === 0) {
-                  return label + " (nu)";
+                  return [label, "(nu)"];
                 }
                 return label;
               },
@@ -292,6 +338,8 @@
           },
           y: {
             beginAtZero: true,
+            border: { display: false },
+            grid: zeroLineGrid,
             ticks: {
               callback: function (value) {
                 return Number(value).toLocaleString("sv-SE") + " kr";
@@ -317,56 +365,57 @@
     const supplierPaid = invoiceData.supplier_paid || [];
     const supplierUnpaid = invoiceData.supplier_unpaid || [];
 
+    // Svagt band bakom innevarande vecka.
+    const currentWeekBand = {
+      id: "currentWeekBand",
+      beforeDatasetsDraw: function (chart) {
+        if (currentWeekIndex < 0 || currentWeekIndex >= weekLabels.length) {
+          return;
+        }
+        const { ctx: c, chartArea, scales } = chart;
+        const slot = scales.x.width / weekLabels.length;
+        c.save();
+        c.fillStyle = "rgba(13, 110, 253, 0.06)";
+        c.fillRect(
+          scales.x.getPixelForValue(currentWeekIndex) - slot / 2,
+          chartArea.top,
+          slot,
+          chartArea.bottom - chartArea.top,
+        );
+        c.restore();
+      },
+    };
+
+    // Betalt = hel färg, obetalt = ljus ton av samma färg ovanpå. Bara stapelns topp rundas.
+    const invoiceBars = function (label, data, stack, color, roundTop) {
+      return {
+        label,
+        data,
+        stack,
+        backgroundColor: color,
+        borderRadius: roundTop,
+        maxBarThickness: 24,
+        barPercentage: 0.85,
+        categoryPercentage: 0.7,
+      };
+    };
+    const roundUnlessCovered = function (covering) {
+      return function (context) {
+        return covering[context.dataIndex] ? 0 : 4;
+      };
+    };
+
     const invoiceCtx = invoiceChartElement.getContext("2d");
     new Chart(invoiceCtx, {
       type: "bar",
+      plugins: [currentWeekBand],
       data: {
         labels: weekLabels,
         datasets: [
-          {
-            label: "Kundfakturor betalda",
-            data: customerPaid,
-            stack: "customer",
-            backgroundColor: "rgba(25, 135, 84, 0.90)",
-            borderColor: "#198754",
-            borderWidth: 1,
-            borderRadius: 2,
-            barPercentage: 0.9,
-            categoryPercentage: 0.6,
-          },
-          {
-            label: "Kundfakturor obetalda",
-            data: customerUnpaid,
-            stack: "customer",
-            backgroundColor: "rgba(255, 255, 255, 0)",
-            borderColor: "#198754",
-            borderWidth: 2,
-            borderRadius: 2,
-            barPercentage: 0.9,
-            categoryPercentage: 0.6,
-          },
-          {
-            label: "Leverantörsfakturor betalda",
-            data: supplierPaid,
-            stack: "supplier",
-            backgroundColor: "rgba(220, 53, 69, 0.90)",
-            borderColor: "#dc3545",
-            borderWidth: 1,
-            borderRadius: 2,
-            barPercentage: 0.9,
-            categoryPercentage: 0.6,
-          },
-          {
-            label: "Leverantörsfakturor obetalda",
-            data: supplierUnpaid,
-            stack: "supplier",
-            backgroundColor: "rgba(255, 255, 255, 0)",
-            borderColor: "#dc3545",
-            borderWidth: 2,
-            borderRadius: 2,
-            barPercentage: 0.9,
-            categoryPercentage: 0.6,
-          },
+          invoiceBars("Kundfakturor betalda", customerPaid, "customer", "#198754", roundUnlessCovered(customerUnpaid)),
+          invoiceBars("Kundfakturor obetalda", customerUnpaid, "customer", "rgba(25, 135, 84, 0.3)", 4),
+          invoiceBars("Leverantörsfakturor betalda", supplierPaid, "supplier", "#dc3545", roundUnlessCovered(supplierUnpaid)),
+          invoiceBars("Leverantörsfakturor obetalda", supplierUnpaid, "supplier", "rgba(220, 53, 69, 0.3)", 4),
         ],
       },
       options: {
@@ -379,11 +428,12 @@
         plugins: {
           legend: {
             position: "bottom",
-            labels: {
-              boxWidth: 14,
-            },
           },
           tooltip: {
+            // Dölj veckans nollrader; en vecka helt utan fakturor visar ingen tooltip.
+            filter: function (item) {
+              return item.parsed.y !== 0;
+            },
             callbacks: {
               title: function (items) {
                 if (!items || items.length === 0) {
@@ -395,11 +445,7 @@
                 return items[0].label;
               },
               label: function (context) {
-                const value = Number(context.parsed.y || 0);
-                if (value === 0) {
-                  return undefined;
-                }
-                return context.dataset.label + ": " + formatAmount(value) + " kr";
+                return context.dataset.label + ": " + formatAmount(context.parsed.y) + " kr";
               },
             },
           },
@@ -411,10 +457,11 @@
               display: false,
             },
             ticks: {
+              maxRotation: 0,
               callback: function (value) {
                 const label = this.getLabelForValue(value);
                 if (value === currentWeekIndex) {
-                  return label + " (nu)";
+                  return [label, "(nu)"];
                 }
                 return label;
               },
@@ -422,6 +469,8 @@
           },
           y: {
             stacked: true,
+            border: { display: false },
+            grid: zeroLineGrid,
             ticks: {
               callback: function (value) {
                 return Number(value).toLocaleString("sv-SE") + " kr";
