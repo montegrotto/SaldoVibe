@@ -119,6 +119,27 @@ class TransactionPostTests(CompanyTestCase):
         self.assertRedirects(response, reverse("bookkeeping:transaction_detail", args=[txn.pk]))
         self.assertEqual(txn.attachments.count(), 1)
 
+    def test_attachment_flow_keeps_the_detail_pages_return_to(self):
+        txn = Transaction.objects.create(
+            accounting_year=self.year, date="2026-06-26", description="Bokförd", created_by=self.user
+        )
+        attachment = TransactionAttachment.objects.create(
+            company=self.company,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("a.pdf", b"%PDF-1.4 a", content_type="application/pdf"),
+        )
+        detail = reverse("bookkeeping:transaction_detail", args=[txn.pk])
+        back = "/banking/transaktioner/?bank_account=2&visa=alla"
+
+        panel = self.client.get(detail, {"return_to": back}).context
+        self.assertIn("return_to=", panel["attach_url"])
+        self.assertIn("return_to=", panel["detach_url"])
+
+        response = self.client.post(panel["attach_url"], {"attachment_ids": str(attachment.pk)})
+        self.assertEqual(
+            response.url, f"{detail}?return_to=%2Fbanking%2Ftransaktioner%2F%3Fbank_account%3D2%26visa%3Dalla"
+        )
+
     def test_attachment_cannot_be_added_or_removed_when_period_is_locked(self):
         from attachments.models import TransactionAttachment
         from bookkeeping.models import PeriodLock
