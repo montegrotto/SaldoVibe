@@ -31,6 +31,7 @@ TRACKED_MODELS = {
     "bookkeeping.journalentry": {"name": "Konteringsrad", "company_path": "transaction.accounting_year.company"},
     "bookkeeping.voucherseriesrule": {"name": "Verifikationsserieregel", "company_path": "company"},
     "bookkeeping.periodlock": {"name": "Periodlås", "company_path": "company"},
+    "bookkeeping.annualreport": {"name": "Årsredovisning", "company_path": "accounting_year.company"},
     "bookkeeping.budgetline": {"name": "Budgetrad", "company_path": "company"},
     "banking.bankaccount": {"name": "Bankkälla", "company_path": "company"},
     "banking.bankimport": {"name": "Bankimport", "company_path": "company"},

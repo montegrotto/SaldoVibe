@@ -17,6 +17,10 @@ from .accounts import (
     accounting_year_list,
     accounting_year_update,
 )
+from .annual_report import (
+    annual_report,
+    annual_report_pdf,
+)
 from .companies import (
     company_create,
     company_delete,
@@ -103,6 +107,8 @@ __all__ = [
     "account_balances_lookup",
     "account_create",
     "account_list",
+    "annual_report",
+    "annual_report_pdf",
     "account_suggest_codes",
     "account_update",
     "accounting_year_create",
