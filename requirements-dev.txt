@@ -1,5 +1,5 @@
 -r requirements.txt
-ruff==0.17.1
+ruff==0.17.2
 # Regenerates requirements.lock / requirements-dev.txt's lock. Pinned so two
 # developers regenerating the same input get the same resolution.
-uv==0.13.4
+uv==0.13.5
