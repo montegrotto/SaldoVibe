@@ -18,19 +18,20 @@ TAX_ACCOUNT_NUMBER = "1630"
 SHORTFALL_HORIZON_DAYS = 30
 
 
-def next_skatteverket_due_date(today):
-    due = skatteverket_due_date(today.year, today.month)
-    if due >= today:
-        return due
-    year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
-    return skatteverket_due_date(year, month)
+def _skatteverket_due_dates(today, end_date):
+    year, month = today.year, today.month
+    while (due := skatteverket_due_date(year, month)) <= end_date:
+        if due >= today:
+            yield due
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
 
 
-def _account_balance(company, numbers):
+def _account_balance(company, numbers, before=None):
     """Debit minus credit across the given accounts, all years (opening balances are booked)."""
-    totals = JournalEntry.objects.filter(
-        transaction__accounting_year__company=company, account__number__in=numbers
-    ).aggregate(debit=Sum("debit"), credit=Sum("credit"))
+    entries = JournalEntry.objects.filter(transaction__accounting_year__company=company, account__number__in=numbers)
+    if before:
+        entries = entries.filter(transaction__date__lt=before)
+    totals = entries.aggregate(debit=Sum("debit"), credit=Sum("credit"))
     return (totals["debit"] or Decimal("0.00")) - (totals["credit"] or Decimal("0.00"))
 
 
@@ -38,8 +39,8 @@ def tax_account_payment_items(company, today, end_date):
     """Expected skattekonto debits as (date, label, amount) from today through end_date.
 
     Four sources: the unpaid VAT on 2650 (due at the filing deadline of the latest closed
-    period), withheld tax on 2710 and employer contributions on 2731 (due the next Skatteverket
-    due date), and the monthly F-skatt from company settings.
+    period), withheld tax on 2710 and employer contributions on 2731 (salary paid in month M is due
+    on the Skatteverket due date in M+1), and the monthly F-skatt from company settings.
     """
     from vat.models import VatCloseSnapshot
 
@@ -51,20 +52,19 @@ def tax_account_payment_items(company, today, end_date):
         due = vat_filing_deadline(latest_close.period_end) if latest_close else today
         items.append((max(due, today), "Moms", vat_due))
 
-    for numbers, label in ((["2710"], "Avdragen skatt"), (["2731"], "Arbetsgivaravgift")):
-        due_amount = -_account_balance(company, numbers)
-        if due_amount:
-            items.append((next_skatteverket_due_date(today), label, due_amount))
+    for number, label in (("2710", "Avdragen skatt"), ("2731", "Arbetsgivaravgift")):
+        # Each due date takes what was booked before its month and isn't already allotted to an
+        # earlier one, so a booked next-month salary doesn't double the upcoming debit.
+        allotted = Decimal("0.00")
+        for due in _skatteverket_due_dates(today, end_date):
+            outstanding = -_account_balance(company, [number], before=due.replace(day=1))
+            if outstanding > allotted:
+                items.append((due, label, outstanding - allotted))
+                allotted = outstanding
 
     if company.preliminary_tax_monthly:
-        year, month = today.year, today.month
-        while True:
-            due = skatteverket_due_date(year, month)
-            if due > end_date:
-                break
-            if due >= today:
-                items.append((due, "Debiterad preliminärskatt", company.preliminary_tax_monthly))
-            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        for due in _skatteverket_due_dates(today, end_date):
+            items.append((due, "Debiterad preliminärskatt", company.preliminary_tax_monthly))
 
     return sorted((item for item in items if item[0] <= end_date), key=lambda item: item[0])
 

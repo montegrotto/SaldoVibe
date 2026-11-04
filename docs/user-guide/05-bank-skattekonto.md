@@ -71,7 +71,9 @@ Startsidan har en ruta **Skattekonto** som ställer bokföringen mot Skatteverke
   raderna under: **Moms** (obetald moms på 2650), **Avdragen skatt** (2710),
   **Arbetsgivaravgift** (2731) och **Debiterad preliminärskatt** (beloppet som angetts under
   [Företagsinställningar](11-foretagsinstallningar.md#redigera-företagsuppgifter)). Samma
-  uppdelning som Skatteverkets "Kommande transaktioner".
+  uppdelning som Skatteverkets "Kommande transaktioner". Skatt och avgifter för en lön dras på
+  förfallodagen månaden efter utbetalningen – bokför du nästa månads lön i förväg räknas den
+  alltså inte in i den närmaste dragningen.
 
 Täcker det bokförda saldot inte dragningarna de närmaste 30 dagarna visas en varning i rutan,
 "Saldot täcker inte dragningen …". Fem dagar före dragningen får även notisklockan posten

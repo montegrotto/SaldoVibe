@@ -202,11 +202,14 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertEqual(response.context["supplier_total"], Decimal("500.00"))
         self.assertEqual(response.context["incoming_total"], Decimal("0.00"))
 
-    def _book(self, account, debit="0.00", credit="0.00", description="Bokning"):
+    def _book(self, account, debit="0.00", credit="0.00", description="Bokning", date=None):
         from bookkeeping.models import JournalEntry
 
         txn = Transaction.objects.create(
-            accounting_year=self.year, date=timezone.localdate(), description=description, created_by=self.user
+            accounting_year=self.year,
+            date=date or timezone.localdate(),
+            description=description,
+            created_by=self.user,
         )
         JournalEntry.objects.create(transaction=txn, account=account, debit=Decimal(debit), credit=Decimal(credit))
         JournalEntry.objects.create(
@@ -226,8 +229,42 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         included_account_ids = [row["account"].pk for row in response.context["account_balances"]]
         self.assertEqual(included_account_ids, [tax_account.pk, self.bank_account.pk])
 
+    def test_payroll_liabilities_fall_due_the_month_after_the_salary(self):
+        import datetime
+
+        from bookkeeping.notifications import skatteverket_due_date
+        from bookkeeping.tax_account import tax_account_payment_items
+
+        year = timezone.localdate().year
+        accounts = create_accounts(
+            self.company,
+            [
+                ("2710", "Personalskatt", AccountClass.EQUITY_LIABILITY),
+                ("2731", "Avräkning lagstadgade sociala avgifter", AccountClass.EQUITY_LIABILITY),
+            ],
+        )
+        for day, tax, fees in (
+            (datetime.date(year, 10, 25), "3000.00", "2000.00"),
+            (datetime.date(year, 11, 25), "3100.00", "2100.00"),
+        ):
+            self._book(accounts["2710"], credit=tax, description="Lönekörning", date=day)
+            self._book(accounts["2731"], credit=fees, description="Lönekörning", date=day)
+
+        items = tax_account_payment_items(self.company, datetime.date(year, 11, 4), datetime.date(year, 12, 31))
+
+        november, december = skatteverket_due_date(year, 11), skatteverket_due_date(year, 12)
+        self.assertEqual(
+            items,
+            [
+                (november, "Avdragen skatt", Decimal("3000.00")),
+                (november, "Arbetsgivaravgift", Decimal("2000.00")),
+                (december, "Avdragen skatt", Decimal("3100.00")),
+                (december, "Arbetsgivaravgift", Decimal("2100.00")),
+            ],
+        )
+
     def test_forecast_subtracts_expected_tax_account_debits(self):
-        from bookkeeping.tax_account import next_skatteverket_due_date
+        from bookkeeping.notifications import skatteverket_due_date
 
         today = timezone.localdate()
         accounts = create_accounts(
@@ -252,9 +289,9 @@ class DashboardLiquidityForecastTests(CompanyTestCase):
         self.assertContains(response, 'ps-3">Moms</dt>')
 
         chart = response.context["liquidity_chart"]
-        # Payroll liabilities land on the next Skatteverket due date, VAT with no closed period
+        # Payroll booked this month lands on next month's due date, VAT with no closed period
         # falls due at once, and F-skatt is drawn every month in the 10-week window.
-        next_due = next_skatteverket_due_date(today)
+        next_due = skatteverket_due_date(*((today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)))
         week_index = (next_due - (today - timedelta(days=today.weekday()))).days // 7
         self.assertGreaterEqual(chart["tax_payments"][week_index], 5000.0 + 5000.0)
         self.assertGreaterEqual(chart["tax_payments"][0], 12000.0)
