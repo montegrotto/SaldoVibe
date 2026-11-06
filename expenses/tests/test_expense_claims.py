@@ -7,7 +7,7 @@ from django.urls import reverse
 from bookkeeping.models import AccountClass, JournalEntry
 from bookkeeping.payables import register_manual_payment
 from expenses.models import ExpenseClaim, ExpenseClaimPayment
-from saldovibe.testing import CompanyTestCase, create_accounts
+from saldovibe.testing import CompanyTestCase, create_account, create_accounts
 
 
 class ExpenseClaimTestCase(CompanyTestCase):
@@ -228,3 +228,88 @@ class ExpenseClaimDoubleBookingTests(ExpenseClaimTestCase):
         first = type(claim).objects.get(pk=claim.pk).register_and_bookkeep(self.user)
         second = type(claim).objects.get(pk=claim.pk).register_and_bookkeep(self.user)
         self.assertEqual(first.pk, second.pk)
+
+
+class ExpenseClaimReverseChargeTests(ExpenseClaimTestCase):
+    company_fields = {"vat_reporting_period": "quarterly"}
+
+    def setUp(self):
+        super().setUp()
+        self.eu_service_account = create_account(
+            self.company,
+            "4535",
+            "Inköp av tjänster från annat EU-land, 25 %",
+            AccountClass.COST_OF_GOODS,
+            vat_field_code="21",
+        )
+        accounts = create_accounts(
+            self.company,
+            [
+                ("2614", "Utgående moms omvänd betalskyldighet, 25 %", AccountClass.EQUITY_LIABILITY),
+                ("2645", "Beräknad ingående moms på förvärv från utlandet", AccountClass.EQUITY_LIABILITY),
+            ],
+        )
+        self.output_vat_account = accounts["2614"]
+        self.calculated_vat_account = accounts["2645"]
+
+    def _post(self, **overrides):
+        data = {
+            "person_name": "Mattias Utläggare",
+            "description": "Server från Tyskland",
+            "expense_date": "2026-07-05",
+            "expense_account": str(self.eu_service_account.pk),
+            "total_amount": "4853.90",
+            "vat_amount": "1213.48",
+            "vat_type": "reverse_charge",
+            "register": "1",
+        }
+        data.update(overrides)
+        return self.client.post(reverse("expenses:expense_create"), {k: v for k, v in data.items() if v is not None})
+
+    def test_reverse_charge_books_output_vat_against_calculated_input_vat(self):
+        self._post()
+
+        claim = ExpenseClaim.objects.get(company=self.company, description="Server från Tyskland")
+        self.assertTrue(claim.is_registered)
+        self.assertTrue(claim.is_reverse_charge)
+        # Fakturan är utan moms: hela beloppet är kostnad och skuld, momsen beräknas ovanpå.
+        self.assertEqual(claim.amount_ex_vat, Decimal("4853.90"))
+        self.assertEqual(claim.vat_account, self.calculated_vat_account)
+        rows = {
+            (entry.account.number, entry.debit, entry.credit)
+            for entry in JournalEntry.objects.filter(transaction=claim.registered_transaction).select_related("account")
+        }
+        self.assertEqual(
+            rows,
+            {
+                ("4535", Decimal("4853.90"), Decimal("0.00")),
+                ("2645", Decimal("1213.48"), Decimal("0.00")),
+                ("2614", Decimal("0.00"), Decimal("1213.48")),
+                ("2820", Decimal("0.00"), Decimal("4853.90")),
+            },
+        )
+
+        response = self.client.get(reverse("expenses:expense_detail", args=[claim.pk]))
+        self.assertContains(response, "Inköp från utlandet (omvänd skattskyldighet)")
+        self.assertContains(response, "Beräknad moms")
+
+    def test_reverse_charge_requires_cost_account_in_boxes_20_to_22(self):
+        response = self._post(expense_account=str(self.expense_account.pk))
+
+        self.assertContains(response, "måste kostnadskontot ha momsfält 20, 21 eller 22")
+        self.assertFalse(ExpenseClaim.objects.filter(company=self.company).exists())
+
+    def test_reverse_charge_requires_calculated_vat(self):
+        response = self._post(vat_amount="0")
+
+        self.assertContains(response, "Ange beräknad moms")
+        self.assertFalse(ExpenseClaim.objects.filter(company=self.company).exists())
+
+    def test_vat_type_defaults_to_domestic_when_omitted(self):
+        # Mobilappen postar ingen momstyp: utkastet blir svensk moms som tidigare.
+        self._post(vat_type=None, expense_account=str(self.expense_account.pk), total_amount="1250", vat_amount="250")
+
+        claim = ExpenseClaim.objects.get(company=self.company, description="Server från Tyskland")
+        self.assertEqual(claim.vat_type, ExpenseClaim.VatType.DOMESTIC)
+        self.assertEqual(claim.vat_account, self.vat_account)
+        self.assertEqual(claim.amount_ex_vat, Decimal("1000.00"))
