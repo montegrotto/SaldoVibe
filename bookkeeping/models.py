@@ -268,7 +268,14 @@ class Account(models.Model):
         FIELD_37 = "37", "37"
         FIELD_38 = "38", "38"
         FIELD_39 = "39", "39"
+        FIELD_40 = "40", "40"
+        FIELD_41 = "41", "41"
+        FIELD_42 = "42", "42"
         FIELD_48 = "48", "48"
+        FIELD_50 = "50", "50"
+        FIELD_60 = "60", "60"
+        FIELD_61 = "61", "61"
+        FIELD_62 = "62", "62"
 
     company = models.ForeignKey(
         Company,
