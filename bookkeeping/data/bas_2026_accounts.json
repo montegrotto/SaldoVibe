@@ -2804,7 +2804,7 @@
     "name": "Utgående moms import av varor, 25 %",
     "account_class": "2",
     "sru_code": "7369",
-    "vat_field_code": "30"
+    "vat_field_code": "60"
   },
   {
     "number": "2616",
@@ -2860,7 +2860,7 @@
     "name": "Utgående moms import av varor, 12 %",
     "account_class": "2",
     "sru_code": "7369",
-    "vat_field_code": "31"
+    "vat_field_code": "61"
   },
   {
     "number": "2626",
@@ -2916,7 +2916,7 @@
     "name": "Utgående moms import av varor, 6 %",
     "account_class": "2",
     "sru_code": "7369",
-    "vat_field_code": "32"
+    "vat_field_code": "62"
   },
   {
     "number": "2636",
@@ -3567,7 +3567,7 @@
     "name": "Försäljning inom Sverige, momsfri",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": "08"
+    "vat_field_code": "42"
   },
   {
     "number": "3100",
@@ -3581,21 +3581,21 @@
     "name": "Försäljning varor till land utanför EU",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": ""
+    "vat_field_code": "36"
   },
   {
     "number": "3106",
     "name": "Försäljning varor till annat EU-land, momspliktig",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": ""
+    "vat_field_code": "05"
   },
   {
     "number": "3108",
     "name": "Försäljning varor till annat EU-land, momsfri",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": ""
+    "vat_field_code": "35"
   },
   {
     "number": "3200",
@@ -3623,7 +3623,7 @@
     "name": "Försäljning inom byggsektorn, omvänd betalningsskyldighet moms",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": "39"
+    "vat_field_code": "41"
   },
   {
     "number": "3300",
@@ -3637,14 +3637,14 @@
     "name": "Försäljning tjänster till land utanför EU",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": ""
+    "vat_field_code": "40"
   },
   {
     "number": "3308",
     "name": "Försäljning tjänster till annat EU-land",
     "account_class": "3",
     "sru_code": "7410",
-    "vat_field_code": ""
+    "vat_field_code": "39"
   },
   {
     "number": "3400",
@@ -4036,14 +4036,14 @@
     "name": "Frivilligt momspliktiga hyresintäkter",
     "account_class": "3",
     "sru_code": "7413",
-    "vat_field_code": ""
+    "vat_field_code": "08"
   },
   {
     "number": "3914",
     "name": "Övriga momspliktiga hyresintäkter",
     "account_class": "3",
     "sru_code": "7413",
-    "vat_field_code": ""
+    "vat_field_code": "05"
   },
   {
     "number": "3920",
@@ -4253,7 +4253,7 @@
     "name": "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "23"
   },
   {
     "number": "4065",
@@ -4281,7 +4281,7 @@
     "name": "Inköp av handelsvaror från annat EU-land",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "20"
   },
   {
     "number": "4075",
@@ -4316,28 +4316,28 @@
     "name": "Import av handelsvaror",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4085",
     "name": "Import av handelsvaror, 25 % moms",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4086",
     "name": "Import av handelsvaror, 12 % moms",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4087",
     "name": "Import av handelsvaror, 6 % moms",
     "account_class": "4",
     "sru_code": "7512",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4090",
@@ -4421,7 +4421,7 @@
     "name": "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "23"
   },
   {
     "number": "4415",
@@ -4449,7 +4449,7 @@
     "name": "Inköp av tjänster i Sverige, omvänd betalningsskyldighet",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "24"
   },
   {
     "number": "4425",
@@ -4484,7 +4484,7 @@
     "name": "Inköp av råvaror och material från annat EU-land",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "20"
   },
   {
     "number": "4515",
@@ -4575,28 +4575,28 @@
     "name": "Import av råvaror och material",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4545",
     "name": "Import av råvaror och material, 25 % moms",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4546",
     "name": "Import av råvaror och material, 12 % moms",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4547",
     "name": "Import av råvaror och material, 6 % moms",
     "account_class": "4",
     "sru_code": "7511",
-    "vat_field_code": ""
+    "vat_field_code": "50"
   },
   {
     "number": "4600",

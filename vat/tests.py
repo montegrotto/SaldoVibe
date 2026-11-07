@@ -34,15 +34,33 @@ class VatRoundingTests(SimpleTestCase):
         self.assertEqual(round_to_whole_krona(ZERO), 0)
 
 
-class ReverseChargeVatFieldCodeTests(SimpleTestCase):
-    def test_boxes_30_31_32_follow_the_vat_rate(self):
+class BasVatFieldCodeTests(SimpleTestCase):
+    """The BAS chart ships with the SKV 4700 box each account reports in."""
+
+    def _assert_codes(self, expected):
         from bookkeeping.bas_accounts import lookup_bas_account
 
-        # Ruta 30/31/32 = utgående moms på inköp 25/12/6 %, for both omvänd
-        # skattskyldighet (261x/263x) and import (26x5).
-        expected = {"2614": "30", "2615": "30", "2624": "31", "2625": "31", "2634": "32", "2635": "32"}
         for number, code in expected.items():
             self.assertEqual(lookup_bas_account(number)["vat_field_code"], code, number)
+
+    def test_output_vat_on_reverse_charge_and_import_follow_the_vat_rate(self):
+        # Ruta 30/31/32 = utgående moms på inköp i ruta 20-24, ruta 60/61/62 = utgående moms på import.
+        self._assert_codes({"2614": "30", "2624": "31", "2634": "32", "2615": "60", "2625": "61", "2635": "62"})
+
+    def test_imported_goods_are_the_taxable_basis_in_box_50(self):
+        self._assert_codes(
+            {number: "50" for number in ("4080", "4085", "4086", "4087", "4540", "4545", "4546", "4547")}
+        )
+
+    def test_reverse_charge_head_accounts_share_their_sub_accounts_box(self):
+        # 4530 covers both EU and non-EU services, so it cannot pick a box.
+        self._assert_codes({"4060": "23", "4070": "20", "4410": "23", "4420": "24", "4510": "20", "4530": ""})
+
+    def test_exempt_sales_follow_section_e_of_skv_4700(self):
+        self._assert_codes(
+            {"3105": "36", "3106": "05", "3108": "35", "3231": "41", "3305": "40", "3308": "39", "3004": "42"}
+        )
+        self._assert_codes({"3913": "08", "3914": "05"})
 
 
 class VatFieldGroupingTests(SimpleTestCase):
@@ -131,7 +149,7 @@ class VatGroupCCalculationTests(TestCase):
         response = self.client.get(reverse("vat:report"), {"year": accounting_year.pk, "period": period_key})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Momspliktiga inköp där köparen är skattskyldig")
+        self.assertContains(response, "Momspliktiga inköp vid omvänd skattskyldighet")
         # Debit (1000) minus credit (200) = net 800.00, not the raw debit total.
         self._assert_contains_amount(response, 800)
 
@@ -193,7 +211,7 @@ class VatGroupCCalculationTests(TestCase):
         self.assertIn("<InkopVaruMellan3p>500</InkopVaruMellan3p>", content)
         self.assertIn("<ForsVaruMellan3p>0</ForsVaruMellan3p>", content)
 
-    def test_refund_period_reports_box_50_in_the_export_instead_of_being_dropped(self):
+    def test_refund_period_reports_a_negative_box_49_in_the_export(self):
         company = create_company(
             "Refund AB",
             "556100-0014",
@@ -252,6 +270,90 @@ class VatGroupCCalculationTests(TestCase):
         self.assertNotIn("MomsFaTillbaka", content)
 
 
+class VatImportAndExemptSalesTests(TestCase):
+    def setUp(self):
+        self.user = create_user("import-user@example.com", is_staff=True)
+        self.client.force_login(self.user)
+        self.company = create_company(
+            "Import AB", "556100-0017", vat_reporting_period=Company.VatReportingPeriod.MONTHLY
+        )
+        self.company.users.add(self.user)
+        set_active_company(self.client, self.company)
+        self.year = AccountingYear.objects.create(company=self.company, start_date="2026-01-01", end_date="2026-12-31")
+        self.period = {"year": self.year.pk, "period": "2026-01-01:2026-01-31"}
+
+    def _account(self, number, vat_field_code="", account_class=AccountClass.EQUITY_LIABILITY):
+        return Account.objects.create(
+            company=self.company,
+            number=number,
+            name=number,
+            account_class=account_class,
+            vat_field_code=vat_field_code,
+            is_active=True,
+        )
+
+    def _book(self, description, *rows):
+        txn = Transaction.objects.create(
+            accounting_year=self.year, date="2026-01-15", description=description, created_by=self.user
+        )
+        for account, debit, credit in rows:
+            JournalEntry.objects.create(transaction=txn, account=account, debit=debit, credit=credit)
+        return txn
+
+    def _export(self):
+        response = self.client.get(reverse("vat:export_skatteverket"), self.period)
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode("iso-8859-1")
+
+    def test_imported_goods_fill_boxes_50_and_60_and_the_import_vat_is_closed_against_2650(self):
+        goods = self._account("4545", "50", AccountClass.COST_OF_GOODS)
+        import_vat = self._account("2615", "60")
+        input_vat = self._account("2645", "48")
+        supplier = self._account("2440")
+        self._account("2650")
+        # Faktura 10 000 från leverantör utanför EU; importmomsen 2 500 redovisas och dras av.
+        self._book("Import server", (goods, "10000.00", "0.00"), (supplier, "0.00", "10000.00"))
+        self._book("Importmoms", (input_vat, "2500.00", "0.00"), (import_vat, "0.00", "2500.00"))
+
+        response = self.client.get(reverse("vat:report"), self.period)
+        self.assertContains(response, "H. Import")
+        self.assertContains(response, "I. Utgående moms på import i ruta 50")
+
+        content = self._export()
+        self.assertIn("<MomsUlagImport>10000</MomsUlagImport>", content)
+        self.assertIn("<MomsImportUtgHog>2500</MomsImportUtgHog>", content)
+        self.assertIn("<MomsInkopUtgHog>0</MomsInkopUtgHog>", content)
+        self.assertIn("<MomsIngAvdr>2500</MomsIngAvdr>", content)
+        self.assertIn("<MomsBetala>0</MomsBetala>", content)
+
+        self.client.post(reverse("vat:close_period"), self.period)
+        closing = Transaction.objects.get(reference="VATCLOSE:2026-01-01:2026-01-31")
+        self.assertEqual(closing.entries.get(account=import_vat).debit, Decimal("2500.00"))
+        self.assertEqual(closing.entries.get(account=input_vat).credit, Decimal("2500.00"))
+
+    def test_exempt_sales_land_in_the_section_e_tags_of_skv_4700(self):
+        receivable = self._account("1510", "", AccountClass.ASSET)
+        sales = [
+            ("3108", "35", "ForsVaruAnnatEg"),
+            ("3105", "36", "ForsVaruUtomEg"),
+            ("3107", "38", "ForsVaruMellan3p"),
+            ("3308", "39", "ForsTjSkskAnnatEg"),
+            ("3305", "40", "ForsTjOvrUtomEg"),
+            ("3231", "41", "ForsKopareSkskSverige"),
+            ("3004", "42", "ForsOvrigt"),
+        ]
+        for amount, (number, code, _tag) in enumerate(sales, start=1):
+            account = self._account(number, code, AccountClass.REVENUE)
+            self._book(
+                f"Försäljning ruta {code}", (account, "0.00", f"{amount}00.00"), (receivable, f"{amount}00.00", "0.00")
+            )
+
+        content = self._export()
+        for amount, (_number, _code, tag) in enumerate(sales, start=1):
+            self.assertIn(f"<{tag}>{amount}00</{tag}>", content)
+        self.assertIn("<MomsBetala>0</MomsBetala>", content)
+
+
 class WholeKronaVatBoxesTests(SimpleTestCase):
     def test_box_49_is_derived_from_floored_boxes(self):
         # Unrounded net 92981.25 + 3406.00 - 9235.60 = 87151.65 would floor to 87151, but
@@ -259,11 +361,14 @@ class WholeKronaVatBoxesTests(SimpleTestCase):
         boxes = whole_krona_vat_boxes({"10": Decimal("92981.25"), "30": Decimal("3406.00"), "48": Decimal("9235.60")})
         self.assertEqual((boxes["10"], boxes["30"], boxes["48"]), (92981, 3406, 9235))
         self.assertEqual(boxes["49"], 87152)
-        self.assertEqual(boxes["50"], 0)
 
-    def test_refund_goes_to_box_50(self):
+    def test_refund_is_a_negative_box_49(self):
         boxes = whole_krona_vat_boxes({"10": Decimal("100.90"), "48": Decimal("500.10")})
-        self.assertEqual((boxes["49"], boxes["50"]), (0, 400))
+        self.assertEqual(boxes["49"], -400)
+
+    def test_import_vat_in_boxes_60_to_62_counts_towards_box_49(self):
+        boxes = whole_krona_vat_boxes({"60": Decimal("2500.00"), "61": Decimal("12.00"), "48": Decimal("2512.00")})
+        self.assertEqual(boxes["49"], 0)
 
 
 class VatPeriodBuilderTests(SimpleTestCase):
@@ -997,32 +1102,15 @@ class EskdExportValidationTests(SimpleTestCase):
 
         self.assertEqual(result["errors"], [])
 
-    def test_paying_and_reclaiming_vat_in_the_same_period_is_rejected(self):
-        """Box 49 (moms att betala) and box 50 (moms att få tillbaka) are the two
-        outcomes of one period; both being positive means the calculation is wrong
-        and the return would be invalid."""
+    def test_a_refund_period_with_a_negative_box_49_passes(self):
         result = validate_eskd_export(
             Company(name="Moms AB", org_number="556677-8899"),
             date(2026, 1, 1),
             date(2026, 3, 31),
-            self._complete_boxes(**{"49": Decimal("1250.00"), "50": Decimal("400.00")}),
+            self._complete_boxes(**{"49": Decimal("-400.00")}),
         )
 
-        self.assertTrue(
-            any("49" in error and "50" in error for error in result["errors"]),
-            f"expected a 49/50 conflict error, got {result['errors']}",
-        )
-
-    def test_only_one_of_box_49_and_50_being_set_is_fine(self):
-        for code in ("49", "50"):
-            with self.subTest(box=code):
-                result = validate_eskd_export(
-                    Company(name="Moms AB", org_number="556677-8899"),
-                    date(2026, 1, 1),
-                    date(2026, 3, 31),
-                    self._complete_boxes(**{code: Decimal("999.00")}),
-                )
-                self.assertEqual(result["errors"], [])
+        self.assertEqual(result["errors"], [])
 
     def test_a_missing_organisation_number_is_rejected(self):
         result = validate_eskd_export(
