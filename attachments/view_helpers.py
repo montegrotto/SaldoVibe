@@ -55,6 +55,15 @@ def _keep_return_to(request, redirect_url):
     return replace_query_param(redirect_url, "return_to", return_to if is_safe_return_to(return_to) else "")
 
 
+def redirect_after_create(request, default):
+    """Redirect after a create form saved: back to the safe `return_to` (e.g. bilagelistan), else `default`.
+
+    The create forms post to their own URL, so the GET query's `return_to` is still on the POST.
+    """
+    return_to = request.GET.get("return_to")
+    return redirect(return_to if is_safe_return_to(return_to) else default)
+
+
 def add_attachments(request, *, company, document, period_date, redirect_url):
     """Link the attachments picked in the picker to `document`."""
     redirect_url = _keep_return_to(request, redirect_url)

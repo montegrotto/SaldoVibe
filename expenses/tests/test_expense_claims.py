@@ -86,6 +86,23 @@ class ExpenseClaimRegistrationTests(ExpenseClaimTestCase):
         self.assertEqual(claim.liability_account, self.liability_account)
         self.assertEqual(claim.amount_ex_vat, Decimal("500.00"))
 
+    def test_create_view_returns_to_safe_return_to(self):
+        data = {
+            "person_name": "Extern Person",
+            "description": "Tågbiljett",
+            "expense_date": "2026-07-05",
+            "expense_account": str(self.expense_account.pk),
+            "total_amount": "500.00",
+        }
+        url = reverse("expenses:expense_create")
+        back = reverse("attachments:attachment_list")
+
+        response = self.client.post(f"{url}?return_to={back}", data)
+        self.assertRedirects(response, back, fetch_redirect_response=False)
+
+        response = self.client.post(f"{url}?return_to=https://evil.example/", data)
+        self.assertRedirects(response, reverse("expenses:expense_list"), fetch_redirect_response=False)
+
     def test_vat_field_is_only_offered_when_company_reports_vat(self):
         # Testbolaget har standardvärdet "Ingen momsredovisning".
         response = self.client.get(reverse("expenses:expense_create"))
