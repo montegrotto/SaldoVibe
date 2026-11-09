@@ -13,6 +13,8 @@
       <div class="card-body">
         <form method="post" enctype="multipart/form-data" data-email-provider-form>
           {% csrf_token %}
+          {# Enter i ett fält klickar formulärets första submit-knapp: den ska spara, inte testa ett konto. #}
+          <button type="submit" class="d-none" tabindex="-1" aria-hidden="true"></button>
           <div class="mb-3">
             <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
             {{ form.name }}
@@ -149,6 +151,12 @@
             <label class="form-label" for="{{ form.email_fetch_folder.id_for_label }}">{{ form.email_fetch_folder.label }}</label>
             {{ form.email_fetch_folder }}
           </div>
+          {% if company %}
+          <div class="mb-3">
+            <button type="submit" name="test_email_account" value="fetch" class="btn btn-outline-secondary btn-sm">Spara och testa anslutningen</button>
+            <div class="form-text">Sparar formuläret, loggar in och öppnar mappen. Inga mejl hämtas.</div>
+          </div>
+          {% endif %}
           <hr>
           <h6 class="fw-semibold">Utgående e-post</h6>
           <p class="text-muted small mb-3">Används för att skicka fakturor och betalningspåminnelser till kunder via e-post.</p>
@@ -190,6 +198,12 @@
               se kapitlet Företagsinställningar i hjälpen.
             </div>
           </div>
+          {% if company %}
+          <div class="mb-3">
+            <button type="submit" name="test_email_account" value="send" class="btn btn-outline-secondary btn-sm">Spara och skicka testmejl</button>
+            <div class="form-text">Sparar formuläret och skickar ett testmejl till {{ user.email }}.</div>
+          </div>
+          {% endif %}
 
           <hr>
           <h6 class="fw-semibold">Notiser till användare</h6>
@@ -232,6 +246,12 @@
               från avsändarbrevlådan ovan).
             </div>
           </div>
+          {% if company %}
+          <div class="mb-3">
+            <button type="submit" name="test_email_account" value="notify" class="btn btn-outline-secondary btn-sm">Spara och skicka testmejl</button>
+            <div class="form-text">Sparar formuläret och skickar ett testmejl till {{ user.email }}.</div>
+          </div>
+          {% endif %}
 
           {% if user.is_staff %}
           <div class="form-check mb-3">
