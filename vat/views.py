@@ -92,28 +92,27 @@ def _build_eskd_moms_xml(company, selected_period, vat_boxes):
         "InkopTjanstUtomEg": boxes["22"],
         "InkopVaruSverige": boxes["23"],
         "InkopTjanstSverige": boxes["24"],
-        "MomsUlagImport": 0,
+        "MomsUlagImport": boxes["50"],
         "ForsVaruAnnatEg": boxes["35"],
         "ForsVaruUtomEg": boxes["36"],
         "InkopVaruMellan3p": boxes["37"],
-        "ForsVaruMellan3p": 0,
-        "ForsTjSkskAnnatEg": boxes["38"],
-        "ForsTjOvrUtomEg": boxes["39"],
-        "ForsKopareSkskSverige": 0,
-        "ForsOvrigt": 0,
+        "ForsVaruMellan3p": boxes["38"],
+        "ForsTjSkskAnnatEg": boxes["39"],
+        "ForsTjOvrUtomEg": boxes["40"],
+        "ForsKopareSkskSverige": boxes["41"],
+        "ForsOvrigt": boxes["42"],
         "MomsUtgHog": boxes["10"],
         "MomsUtgMedel": boxes["11"],
         "MomsUtgLag": boxes["12"],
         "MomsInkopUtgHog": boxes["30"],
         "MomsInkopUtgMedel": boxes["31"],
         "MomsInkopUtgLag": boxes["32"],
-        "MomsImportUtgHog": 0,
-        "MomsImportUtgMedel": 0,
-        "MomsImportUtgLag": 0,
+        "MomsImportUtgHog": boxes["60"],
+        "MomsImportUtgMedel": boxes["61"],
+        "MomsImportUtgLag": boxes["62"],
         "MomsIngAvdr": boxes["48"],
-        # eSKDUpload 6.0 has no separate box-50 element: MomsBetala is signed, negative
-        # when VAT is to be refunded.
-        "MomsBetala": boxes["49"] - boxes["50"],
+        # MomsBetala is signed: negative when VAT is to be refunded.
+        "MomsBetala": boxes["49"],
     }
 
     lines = [
@@ -405,10 +404,10 @@ def vat_close_period(request, company):
         start_date=effective_start_date,
         end_date=selected_period["end_date"],
     )
-    # 2650 tar det deklarerade heltalsbeloppet (ruta 49/50, det som debiteras/krediteras
+    # 2650 tar det deklarerade heltalsbeloppet (ruta 49, det som debiteras/krediteras
     # skattekontot); öresskillnaden mot de bokförda momssaldona går till 3740.
     declared = whole_krona_vat_boxes(vat_boxes)
-    declared_net = Decimal(declared["49"] - declared["50"])
+    declared_net = Decimal(declared["49"])
     booked_net = sum(-row["balance"] if row["field_code"] == "48" else row["balance"] for row in closing_balances)
     rounding_difference = declared_net - booked_net
     rounding_account = company.accounts.filter(number="3740", is_active=True).first()
