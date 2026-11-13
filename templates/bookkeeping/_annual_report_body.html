@@ -132,6 +132,7 @@
 
 {% if pdf %}<pdf:nextpage />{% endif %}
 <h3 class="ar-h2">Underskrifter</h3>
+{% if report.adoption_date %}<p>Årsredovisningens innehåll fastställdes av styrelsen den {{ report.adoption_date }}.</p>{% endif %}
 <p>{{ report.signing_place }}{% if report.signing_date %} den {{ report.signing_date }}{% endif %}</p>
 <table class="ar-signatures">
   {% for person in signatories %}

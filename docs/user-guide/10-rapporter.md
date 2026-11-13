@@ -158,7 +158,10 @@ Vänstra kolumnen är det du själv fyller i; till höger är förhandsgransknin
   anläggningsregistret; anläggningsnoterna (anskaffningsvärden, avskrivningar, redovisat
   värde) från kontona i gruppen, där xxx9 är ackumulerade avskrivningar och xxx8
   nedskrivningar.
-- **Underskrifter** – ort, datum och en undertecknare per rad som `Namn, roll`. Rollen
+- **Underskrifter** – ort, datum för underskrift, *Datum då årsredovisningen gjordes klar*
+  (dagen styrelsen bestämde det slutliga innehållet – Bolagsverket kräver den som en egen
+  rad för räkenskapsår som inleddes 1 juli 2024 eller senare) och en undertecknare per rad
+  som `Namn, roll`. Rollen
   *VD* eller *Verkställande direktör* gör att inledningen nämner verkställande direktören.
   *Revisorspåteckning* lämnas tom utan revisor.
 - **Fastställelseintyg** – fylls i efter årsstämman (*Årsstämmans datum*, *Intygande

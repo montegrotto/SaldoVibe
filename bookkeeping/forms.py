@@ -962,6 +962,7 @@ class AnnualReportForm(forms.ModelForm):
             "significant_events": forms.Textarea(attrs={"rows": 3}),
             "signatories": forms.Textarea(attrs={"rows": 3}),
             "signing_date": forms.DateInput(attrs={"type": "date"}),
+            "adoption_date": forms.DateInput(attrs={"type": "date"}),
             "agm_date": forms.DateInput(attrs={"type": "date"}),
             "certification_date": forms.DateInput(attrs={"type": "date"}),
         }
