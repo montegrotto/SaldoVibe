@@ -759,6 +759,11 @@ def build_annual_report_context(company, year, report):
     if not parse_signatories(report.signatories):
         warnings.append("Ange vilka som skriver under årsredovisningen (styrelsen och eventuell VD).")
 
+    if not report.adoption_date:
+        warnings.append(
+            "Ange datum då årsredovisningen gjordes klar – Bolagsverket kräver en egen datering utöver underskriftsdatumet."
+        )
+
     signatories = parse_signatories(report.signatories)
     return {
         "company": company,
