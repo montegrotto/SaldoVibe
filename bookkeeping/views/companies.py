@@ -9,7 +9,7 @@ from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from attachments.email_import import import_email_attachments_for_company
+from attachments.email_import import check_email_fetch_connection, import_email_attachments_for_company
 from expenses.models import ExpenseCategory
 from invoicing.models import Invoice
 from payroll.models import PayrollRun
@@ -37,8 +37,11 @@ from ..models import (
     VerificationTemplate,
     VoucherSeriesRule,
 )
+from ..outgoing_mail import send_test_email
 
 logger = logging.getLogger(__name__)
+
+EMAIL_TEST_ACCOUNTS = {"fetch", "send", "notify"}
 
 
 @login_required
@@ -170,6 +173,17 @@ def company_create(request):
     )
 
 
+def _run_email_account_test(company, account, user):
+    """Testa ett av företagets e-postkonton. Returnerar ett meddelande, kastar vid fel."""
+    if account == "fetch":
+        check_email_fetch_connection(company)
+        return f"Anslutningen till {company.email_fetch_address} fungerar."
+    if not user.email:
+        raise ValueError("Din användare saknar e-postadress att skicka testmejlet till.")
+    send_test_email(company, account, [user.email])
+    return f"Testmejl skickat till {user.email}. Kontrollera att det kommer fram."
+
+
 @login_required
 def company_update(request, pk):
     company = get_object_or_404(Company, pk=pk)
@@ -206,6 +220,15 @@ def company_update(request, pk):
                 extra={"company_id": updated.id, "user_id": request.user.id, "company_name": updated.name},
             )
             messages.success(request, f"Företaget {updated.name} har uppdaterats.")
+
+            test_account = request.POST.get("test_email_account")
+            if test_account in EMAIL_TEST_ACCOUNTS:
+                try:
+                    messages.success(request, _run_email_account_test(updated, test_account, request.user))
+                except Exception as exc:
+                    logger.exception("Email account test failed", extra={"company_id": updated.id})
+                    messages.error(request, f"Testet misslyckades: {exc}")
+                return redirect("bookkeeping:company_update", pk=updated.pk)
 
             should_fetch = request.POST.get("fetch_email_attachments") == "1"
             if should_fetch:

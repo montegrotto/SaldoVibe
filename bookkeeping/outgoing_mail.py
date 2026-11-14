@@ -5,7 +5,8 @@ konto (SMTP eller Microsoft Graph, konfigurerat i företagsinställningarna).
 Systemmail (notisdigest) skickas via företagets notiskonto om ett är valt —
 eget SMTP/Graph-konto eller samma som utgående — annars via det globala
 kontot i EMAIL_*-settings. Varje utskick loggas som en SentEmail-rad —
-funktionerna kastar aldrig, kontrollera radens status.
+funktionerna kastar aldrig, kontrollera radens status. Undantag: testmejl
+(send_test_email) kastar vid fel och loggas inte.
 """
 
 import logging
@@ -18,6 +19,9 @@ from attachments import graph_mail
 from .models import Company, SentEmail
 
 logger = logging.getLogger(__name__)
+
+# Skickas i webbrequesten; under Gunicorns 30 s så att ett svarslöst konto blir ett läsbart fel.
+SMTP_TIMEOUT_SECONDS = 20
 
 
 def _smtp_configured(company, prefix):
@@ -53,6 +57,7 @@ def _send_smtp(company, prefix, *, subject, body, to, attachments):
         password=getattr(company, f"{prefix}smtp_password"),
         use_tls=getattr(company, f"{prefix}smtp_use_tls") and port != 465,
         use_ssl=port == 465,
+        timeout=SMTP_TIMEOUT_SECONDS,
     )
     message = django_mail.EmailMessage(
         subject=subject,
@@ -95,6 +100,20 @@ def _send_via_company_account(company, provider, prefix, *, subject, body, to, a
         raise ValueError("Utgående e-post är inte konfigurerad för företaget.")
 
 
+def _send_via_notify_account(company, *, subject, body, to):
+    notify_provider = company.email_notify_provider
+    if notify_provider == Company.EmailNotifyProvider.OUTGOING:
+        _send_via_company_account(
+            company, company.email_send_provider, "email_send_", subject=subject, body=body, to=to, attachments=()
+        )
+    elif notify_provider in (Company.EmailNotifyProvider.SMTP, Company.EmailNotifyProvider.GRAPH):
+        _send_via_company_account(
+            company, notify_provider, "email_notify_", subject=subject, body=body, to=to, attachments=()
+        )
+    else:
+        django_mail.send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, to)
+
+
 def _log(company, *, purpose, to, subject, error, invoice, user):
     return SentEmail.objects.create(
         company=company,
@@ -132,18 +151,25 @@ def send_system_email(company, *, purpose, to, subject, body):
     globala kontot i EMAIL_*-settings. Returnerar SentEmail-raden."""
     error = ""
     try:
-        notify_provider = company.email_notify_provider
-        if notify_provider == Company.EmailNotifyProvider.OUTGOING:
-            _send_via_company_account(
-                company, company.email_send_provider, "email_send_", subject=subject, body=body, to=to, attachments=()
-            )
-        elif notify_provider in (Company.EmailNotifyProvider.SMTP, Company.EmailNotifyProvider.GRAPH):
-            _send_via_company_account(
-                company, notify_provider, "email_notify_", subject=subject, body=body, to=to, attachments=()
-            )
-        else:
-            django_mail.send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, to)
+        _send_via_notify_account(company, subject=subject, body=body, to=to)
     except Exception as exc:
         logger.exception("Systemutskick misslyckades för företag %s", company.pk)
         error = str(exc)[:2000]
     return _log(company, purpose=purpose, to=to, subject=subject, error=error, invoice=None, user=None)
+
+
+def send_test_email(company, account, to):
+    """Skicka ett testmejl via kontot "send" eller "notify". Kastar vid fel och loggar
+    ingen SentEmail-rad: resultatet visas direkt och ska inte hamna i notisklockan."""
+    body = f"Det här är ett testmejl från SaldoVibe för {company.name}. Kontot fungerar."
+    if account == "send":
+        subject = f"SaldoVibe: test av utgående e-post för {company.name}"
+        _send_via_company_account(
+            company, company.email_send_provider, "email_send_", subject=subject, body=body, to=to, attachments=()
+        )
+        return
+    # Utan EMAIL_HOST hamnar mejlet bara i loggen, vilket annars skulle se ut som ett lyckat test.
+    if company.email_notify_provider == Company.EmailNotifyProvider.SYSTEM and not settings.EMAIL_HOST:
+        raise ValueError("Systemkontot är inte konfigurerat (EMAIL_HOST saknas), så inga notismejl skickas.")
+    subject = f"SaldoVibe: test av notiskontot för {company.name}"
+    _send_via_notify_account(company, subject=subject, body=body, to=to)
