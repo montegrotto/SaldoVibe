@@ -80,6 +80,16 @@ class ExpenseClaim(PayableMixin):
     }
     DEFAULT_LIABILITY_ACCOUNT_NUMBERS = ("2820", "2890")
     DEFAULT_VAT_ACCOUNT_NUMBER = "2640"
+    # Omvänd skattskyldighet (inköp från utlandet utan moms på fakturan): momsen beräknas ovanpå det
+    # betalda beloppet och bokförs som utgående moms (2614, ruta 30) mot beräknad ingående (2645, ruta 48).
+    REVERSE_CHARGE_VAT_ACCOUNT_NUMBER = "2645"
+    REVERSE_CHARGE_OUTPUT_VAT_ACCOUNT_NUMBER = "2614"
+    # Momsfält kostnadskontot måste ha för att inköpet ska hamna i ruta 20–22 i momsdeklarationen.
+    REVERSE_CHARGE_VAT_FIELD_CODES = ("20", "21", "22")
+
+    class VatType(models.TextChoices):
+        DOMESTIC = "domestic", "Svensk moms"
+        REVERSE_CHARGE = "reverse_charge", "Inköp från utlandet (omvänd skattskyldighet)"
 
     company = models.ForeignKey(
         "bookkeeping.Company",
@@ -142,6 +152,7 @@ class ExpenseClaim(PayableMixin):
         blank=True,
         verbose_name="Momskonto",
     )
+    vat_type = models.CharField("Momstyp", max_length=20, choices=VatType.choices, default=VatType.DOMESTIC)
 
     amount_ex_vat = models.DecimalField("Belopp exkl. moms", max_digits=15, decimal_places=2, default=Decimal("0.00"))
     vat_amount = models.DecimalField("Moms", max_digits=15, decimal_places=2, default=Decimal("0.00"))
@@ -203,6 +214,10 @@ class ExpenseClaim(PayableMixin):
 
     def __str__(self):
         return f"{self.description} - {self.person_display_name}"
+
+    @property
+    def is_reverse_charge(self):
+        return self.vat_type == self.VatType.REVERSE_CHARGE
 
     @property
     def person_display_name(self):

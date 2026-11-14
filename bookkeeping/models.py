@@ -268,7 +268,14 @@ class Account(models.Model):
         FIELD_37 = "37", "37"
         FIELD_38 = "38", "38"
         FIELD_39 = "39", "39"
+        FIELD_40 = "40", "40"
+        FIELD_41 = "41", "41"
+        FIELD_42 = "42", "42"
         FIELD_48 = "48", "48"
+        FIELD_50 = "50", "50"
+        FIELD_60 = "60", "60"
+        FIELD_61 = "61", "61"
+        FIELD_62 = "62", "62"
 
     company = models.ForeignKey(
         Company,
@@ -476,6 +483,12 @@ class AnnualReport(models.Model):
     contingent_liabilities = models.CharField("Eventualförpliktelser", max_length=200, default="Inga")
     signing_place = models.CharField("Ort för underskrift", max_length=100, blank=True)
     signing_date = models.DateField("Datum för underskrift", null=True, blank=True)
+    adoption_date = models.DateField(
+        "Datum då årsredovisningen gjordes klar",
+        null=True,
+        blank=True,
+        help_text="Dagen då de som ska skriva under bestämde det slutliga innehållet. Krav för räkenskapsår som inleddes 1 juli 2024 eller senare.",
+    )
     signatories = models.TextField(
         "Undertecknare",
         blank=True,

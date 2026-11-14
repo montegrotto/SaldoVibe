@@ -12,6 +12,8 @@ from bookkeeping.models import JournalEntry
 ZERO = Decimal("0.00")
 VAT_CLOSING_REFERENCE_PREFIX = "VATCLOSE:"
 
+# Rutorna på Skatteverkets momsdeklaration (SKV 4700), avsnitt A–I. 49 är ingen kontokod utan
+# räknas fram (signerad: negativ = moms att få tillbaka).
 SKATTEVERKET_FIELD_CODES = [
     "05",
     "06",
@@ -33,28 +35,40 @@ SKATTEVERKET_FIELD_CODES = [
     "37",
     "38",
     "39",
+    "40",
+    "41",
+    "42",
     "48",
     "49",
     "50",
+    "60",
+    "61",
+    "62",
 ]
 
 # Purchase/expense-side boxes grow with debit rather than the default credit-minus-debit
 # convention used for sales and VAT-liability boxes. Box 37 is a purchase amount too
 # (Mellanmans INKÖP av varor vid trepartshandel) even though it sits in the form's "E"
-# (sales) section, so it follows the same debit-minus-credit convention.
-PURCHASE_SIDE_FIELD_CODES = {"20", "21", "22", "23", "24", "37", "48"}
+# (sales) section, and box 50 is the taxable basis of imported goods (a cost), so both
+# follow the same debit-minus-credit convention.
+PURCHASE_SIDE_FIELD_CODES = {"20", "21", "22", "23", "24", "37", "48", "50"}
+
+# Utgående moms (avsnitt B, D och I) – det som tillsammans med ingående moms (48) ger ruta 49
+# och förs om mot 2650 när momsperioden stängs.
+OUTPUT_VAT_FIELD_CODES = ("10", "11", "12", "30", "31", "32", "60", "61", "62")
 
 # Grouping of Skatteverket's momsdeklaration boxes into the sections used on the official
-# form (SKV 4700) — codes 40-42 (övrig undantagen försäljning) aren't tracked by this
-# application, so group E stops at 39.
+# form (SKV 4700).
 SKATTEVERKET_FIELD_GROUPS = [
     ("A", "Momspliktig försäljning eller uttag exklusive moms", ["05", "06", "07", "08"]),
     ("B", "Utgående moms på försäljning eller uttag i ruta 05-08", ["10", "11", "12"]),
-    ("C", "Momspliktiga inköp där köparen är skattskyldig", ["20", "21", "22", "23", "24"]),
+    ("C", "Momspliktiga inköp vid omvänd skattskyldighet", ["20", "21", "22", "23", "24"]),
     ("D", "Utgående moms på inköp i ruta 20-24", ["30", "31", "32"]),
-    ("E", "Försäljning m.m. som är undantagen från moms", ["35", "36", "37", "38", "39"]),
-    ("F", "Ingående moms att dra av", ["48"]),
-    ("G", "Moms att betala eller få tillbaka", ["49", "50"]),
+    ("E", "Försäljning m.m. som är undantagen från moms", ["35", "36", "37", "38", "39", "40", "41", "42"]),
+    ("F", "Ingående moms", ["48"]),
+    ("G", "Moms att betala eller få tillbaka", ["49"]),
+    ("H", "Import", ["50"]),
+    ("I", "Utgående moms på import i ruta 50", ["60", "61", "62"]),
 ]
 
 SKATTEVERKET_FIELD_LABELS = {
@@ -67,20 +81,26 @@ SKATTEVERKET_FIELD_LABELS = {
     "12": "Utgående moms 6 %",
     "20": "Inköp av varor från annat EU-land",
     "21": "Inköp av tjänster från annat EU-land enligt huvudregeln",
-    "22": "Inköp av tjänster från länder utanför EU",
+    "22": "Inköp av tjänster från land utanför EU",
     "23": "Inköp av varor i Sverige (omvänd skattskyldighet)",
-    "24": "Övriga inköp av tjänster (omvänd skattskyldighet)",
-    "30": "Utgående moms på inköp i ruta 20-24",
-    "31": "Utgående moms på inköp i ruta 20-24",
-    "32": "Utgående moms på inköp i ruta 20-24",
+    "24": "Övriga inköp av tjänster i Sverige (omvänd skattskyldighet)",
+    "30": "Utgående moms 25 % på inköp i ruta 20-24",
+    "31": "Utgående moms 12 % på inköp i ruta 20-24",
+    "32": "Utgående moms 6 % på inköp i ruta 20-24",
     "35": "Försäljning av varor till annat EU-land",
     "36": "Försäljning av varor utanför EU",
     "37": "Mellanmans inköp av varor vid trepartshandel",
-    "38": "Tjänsteförsäljning till annat EU-land",
-    "39": "Övrig försäljning av tjänster omsatta utanför Sverige",
+    "38": "Mellanmans försäljning av varor vid trepartshandel",
+    "39": "Försäljning av tjänster till beskattningsbar person i annat EU-land enligt huvudregeln",
+    "40": "Övrig försäljning av tjänster omsatta utom landet",
+    "41": "Försäljning när köparen är betalningsskyldig i Sverige",
+    "42": "Övrig försäljning m.m.",
     "48": "Ingående moms att dra av",
-    "49": "Moms att betala",
-    "50": "Moms att få tillbaka",
+    "49": "Moms att betala eller få tillbaka",
+    "50": "Beskattningsunderlag vid import",
+    "60": "Utgående moms 25 % på import i ruta 50",
+    "61": "Utgående moms 12 % på import i ruta 50",
+    "62": "Utgående moms 6 % på import i ruta 50",
 }
 
 # Common BAS accounts used for Swedish VAT reporting.
@@ -108,7 +128,7 @@ INFERRED_VAT_FIELD_PREFIXES = [
     ("30", "05"),
 ]
 
-VAT_CLOSING_FIELD_CODES = {"10", "11", "12", "30", "31", "32", "48"}
+VAT_CLOSING_FIELD_CODES = {*OUTPUT_VAT_FIELD_CODES, "48"}
 
 
 def build_vat_periods(accounting_year, reporting_period, today, vat_start_date=None):
@@ -186,12 +206,8 @@ def calculate_vat_boxes(company, start_date, end_date):
         elif field_code in boxes:
             boxes[field_code] += total_credit - total_debit
 
-    box48 = boxes["48"]
-    output_vat_total = boxes["10"] + boxes["11"] + boxes["12"] + boxes["30"] + boxes["31"] + boxes["32"]
-    net_vat = output_vat_total - box48
-
-    boxes["49"] = net_vat if net_vat > ZERO else ZERO
-    boxes["50"] = -net_vat if net_vat < ZERO else ZERO
+    # Ruta 49 är signerad: positiv = moms att betala, negativ = moms att få tillbaka.
+    boxes["49"] = sum(boxes[code] for code in OUTPUT_VAT_FIELD_CODES) - boxes["48"]
 
     def money(value):
         return value.quantize(Decimal("0.01"))
@@ -254,13 +270,11 @@ def round_to_whole_krona(value):
 
 
 def whole_krona_vat_boxes(vat_boxes):
-    """Boxes as reported to Skatteverket: every box floored to whole kronor, and 49/50
-    derived from the floored boxes so 49 = 10+11+12+30+31+32 - 48 holds exactly —
-    Skatteverket rejects a declaration where it doesn't."""
+    """Boxes as reported to Skatteverket: every box floored to whole kronor, and 49 derived
+    from the floored boxes so 49 = 10+11+12+30+31+32+60+61+62 - 48 holds exactly —
+    Skatteverket rejects a declaration where it doesn't. 49 is signed (negative = refund)."""
     boxes = {code: round_to_whole_krona(vat_boxes.get(code, ZERO)) for code in SKATTEVERKET_FIELD_CODES}
-    net_vat = sum(boxes[code] for code in ("10", "11", "12", "30", "31", "32")) - boxes["48"]
-    boxes["49"] = max(net_vat, 0)
-    boxes["50"] = max(-net_vat, 0)
+    boxes["49"] = sum(boxes[code] for code in OUTPUT_VAT_FIELD_CODES) - boxes["48"]
     return boxes
 
 
@@ -284,8 +298,8 @@ def get_skatteverket_field_groups(vat_boxes):
 
 
 def get_field_account_prefixes(field_code):
-    if field_code in {"49", "50"}:
-        return ["10", "11", "12", "30", "31", "32", "48"]
+    if field_code == "49":
+        return [*OUTPUT_VAT_FIELD_CODES, "48"]
     if field_code in SKATTEVERKET_FIELD_CODES:
         return [field_code]
     return []
@@ -398,17 +412,14 @@ def validate_eskd_export(company, start_date, end_date, vat_boxes):
     if missing_codes:
         errors.append("Momsfalt saknas i berakningen: " + ", ".join(missing_codes))
 
-    if vat_boxes.get("49", ZERO) > ZERO and vat_boxes.get("50", ZERO) > ZERO:
-        errors.append("Bade MomsBetala (49) och Moms att fa tillbaka (50) ar satta samtidigt.")
-
     return {"errors": errors, "warnings": warnings}
 
 
 def get_transaction_field_amount(entries, field_code):
     """Amount a voucher contributes to a momsdeklaration box, using the same signs as
-    calculate_vat_boxes (49 = net VAT to pay, 50 = net VAT to be refunded)."""
+    calculate_vat_boxes (49 = signed net VAT, negative when VAT is refunded)."""
     codes = set(get_field_account_prefixes(field_code))
-    net_box = field_code in {"49", "50"}
+    net_box = field_code == "49"
     total = ZERO
     for entry in entries:
         code = get_effective_vat_field_code(entry.account.number, entry.account.vat_field_code)
@@ -418,7 +429,7 @@ def get_transaction_field_amount(entries, field_code):
         if code in PURCHASE_SIDE_FIELD_CODES and not net_box:
             amount = -amount
         total += amount
-    return -total if field_code == "50" else total
+    return total
 
 
 def _get_vat_entry_queryset(*, company, start_date, end_date):
