@@ -126,7 +126,7 @@ def dashboard(request, company):
 
     # Liquidity forecast: weekly closing balance from current week and 10 weeks ahead.
     current_week_start = today - timedelta(days=today.weekday())
-    projection_end_date = current_week_start + timedelta(weeks=10, days=6)
+    projection_end_date = current_week_start + timedelta(weeks=9, days=6)
 
     incoming_invoice_events = {}
     incoming_invoices = Invoice.objects.filter(
