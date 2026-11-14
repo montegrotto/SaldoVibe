@@ -20,6 +20,7 @@ from attachments.view_helpers import (
     add_attachments,
     attachment_panel_context,
     picker_selection,
+    redirect_after_create,
     remove_attachment,
 )
 
@@ -213,7 +214,7 @@ def transaction_add(request, company):
                 messages.error(request, "Kunde inte spara verifikationen. Kontrollera formuläret och försök igen.")
 
         if saved:
-            return redirect("bookkeeping:transaction_list")
+            return redirect_after_create(request, reverse("bookkeeping:transaction_list"))
     else:
         selected_template = None
         entries_initial = None

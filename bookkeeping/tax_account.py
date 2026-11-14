@@ -14,8 +14,10 @@ from .models import JournalEntry
 from .notifications import skatteverket_due_date, vat_filing_deadline
 
 TAX_ACCOUNT_NUMBER = "1630"
-# Hur långt fram startsidan och notisen letar efter en dragning som saldot inte täcker.
-SHORTFALL_HORIZON_DAYS = 30
+# Hur långt fram startsidan och notisen letar efter en dragning som saldot inte täcker. Två
+# förfallodagar kan ligga upp till 37 dagar isär (12:e till 17:e plus helg), så kortare fönster
+# tappar nästa dragning dagarna efter en förfallodag.
+SHORTFALL_HORIZON_DAYS = 40
 
 
 def _skatteverket_due_dates(today, end_date):

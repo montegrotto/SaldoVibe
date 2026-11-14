@@ -183,6 +183,7 @@ class AnnualReportTestCase(CompanyTestCase):
                 "contingent_liabilities": "Inga",
                 "signing_place": "Umeå",
                 "signing_date": "2027-03-15",
+                "adoption_date": "2027-03-14",
                 "signatories": "Anna Andersson, Styrelseledamot",
                 "auditor_text": "",
                 "certifier": "",
@@ -190,6 +191,7 @@ class AnnualReportTestCase(CompanyTestCase):
         )
         self.assertRedirects(response, url)
         self.assertEqual(self.year.annual_report.business_description, "Konsultverksamhet inom IT.")
+        self.assertContains(self.client.get(url), "fastställdes av styrelsen den")
 
         response = self.client.get(reverse("bookkeeping:annual_report_pdf", kwargs={"pk": self.year.pk}))
         self.assertEqual(response.status_code, 200)

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 EMAIL_ALLOWED_EXTENSIONS = {"pdf"}
 PDF_CONTENT_TYPES = {"application/pdf", "application/x-pdf"}
 GMAIL_IMAP_HOST = "imap.gmail.com"
+CONNECTION_TEST_TIMEOUT_SECONDS = 20
 
 
 def _decode_subject(raw_subject):
@@ -108,20 +109,25 @@ def _store_attachment(company, user, counters, payload, file_name, message_id, a
     )
 
 
+def _imap_host_and_port(company):
+    if company.email_fetch_provider == "gmail":
+        return GMAIL_IMAP_HOST, 993
+    return company.email_fetch_imap_host.strip(), company.email_fetch_imap_port
+
+
+def _imap_login(mail, company):
+    mail.login(company.email_fetch_imap_username.strip() or company.email_fetch_address, company.email_fetch_password)
+
+
 def _import_imap_attachments_for_company(company, user, max_messages, folder):
     counters = _ImportCounters()
 
-    if company.email_fetch_provider == "gmail":
-        host, port = GMAIL_IMAP_HOST, 993
-    else:
-        host, port = company.email_fetch_imap_host.strip(), company.email_fetch_imap_port
+    host, port = _imap_host_and_port(company)
     # ponytail: alltid implicit TLS (IMAPS); STARTTLS på port 143 får läggas till om någon leverantör kräver det.
     mail = imaplib.IMAP4_SSL(host, port)
     try:
         logger.debug("Connecting to IMAP host", extra={"host": host, "port": port, "company_id": company.id})
-        mail.login(
-            company.email_fetch_imap_username.strip() or company.email_fetch_address, company.email_fetch_password
-        )
+        _imap_login(mail, company)
         logger.debug("IMAP login successful", extra={"company_id": company.id})
 
         status, _ = mail.select(folder)
@@ -293,9 +299,7 @@ def _import_graph_attachments_for_company(company, user, max_messages, folder):
     return counters.as_dict()
 
 
-def import_email_attachments_for_company(company, user, max_messages=100):
-    if not company.email_fetch_enabled:
-        raise ValueError("E-posthämtning är inte aktiverad för företaget.")
+def _validate_fetch_settings(company):
     if company.email_fetch_provider not in {"gmail", "imap", "outlook"}:
         raise ValueError("Välj Gmail, Outlook eller annan IMAP-server som e-postleverantör i företagsinställningarna.")
     if not company.email_fetch_address:
@@ -318,6 +322,41 @@ def import_email_attachments_for_company(company, user, max_messages=100):
         ]
         if missing:
             raise ValueError(f"Outlook kräver {', '.join(missing)} i företagsinställningarna.")
+
+
+def check_email_fetch_connection(company):
+    """Logga in och öppna mappen utan att importera något. Kastar vid fel.
+    Kräver inte att hämtningen är aktiverad, så att kontot kan testas innan den slås på."""
+    _validate_fetch_settings(company)
+    folder = company.email_fetch_folder or "INBOX"
+
+    if company.email_fetch_provider == "outlook":
+        access_token = graph_mail.fetch_access_token(
+            tenant_id=company.email_fetch_oauth_tenant_id.strip(),
+            client_id=company.email_fetch_oauth_client_id.strip(),
+            client_secret=company.email_fetch_oauth_client_secret,
+        )
+        graph_mail.resolve_folder(access_token, company.email_fetch_address, folder)
+        return
+
+    host, port = _imap_host_and_port(company)
+    mail = imaplib.IMAP4_SSL(host, port, timeout=CONNECTION_TEST_TIMEOUT_SECONDS)
+    try:
+        _imap_login(mail, company)
+        status, _ = mail.select(folder, readonly=True)
+        if status != "OK":
+            raise ValueError(f"Kunde inte öppna mappen '{folder}'.")
+    finally:
+        try:
+            mail.logout()
+        except Exception:
+            pass
+
+
+def import_email_attachments_for_company(company, user, max_messages=100):
+    if not company.email_fetch_enabled:
+        raise ValueError("E-posthämtning är inte aktiverad för företaget.")
+    _validate_fetch_settings(company)
 
     folder = company.email_fetch_folder or "INBOX"
 
