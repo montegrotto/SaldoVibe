@@ -483,6 +483,12 @@ class AnnualReport(models.Model):
     contingent_liabilities = models.CharField("Eventualförpliktelser", max_length=200, default="Inga")
     signing_place = models.CharField("Ort för underskrift", max_length=100, blank=True)
     signing_date = models.DateField("Datum för underskrift", null=True, blank=True)
+    adoption_date = models.DateField(
+        "Datum då årsredovisningen gjordes klar",
+        null=True,
+        blank=True,
+        help_text="Dagen då de som ska skriva under bestämde det slutliga innehållet. Krav för räkenskapsår som inleddes 1 juli 2024 eller senare.",
+    )
     signatories = models.TextField(
         "Undertecknare",
         blank=True,
