@@ -84,8 +84,14 @@
               <th>Summa exkl. moms</th>
               <td class="text-end">{{ claim.amount_ex_vat|floatformat:"2g" }} kr</td>
             </tr>
+            {% if claim.is_reverse_charge %}
             <tr>
-              <th>Moms</th>
+              <th>Momstyp</th>
+              <td class="text-end">{{ claim.get_vat_type_display }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+              <th>{% if claim.is_reverse_charge %}Beräknad moms{% else %}Moms{% endif %}</th>
               <td class="text-end">{{ claim.vat_amount|floatformat:"2g" }} kr</td>
             </tr>
             <tr class="fw-bold">

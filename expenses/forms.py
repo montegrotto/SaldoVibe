@@ -4,6 +4,7 @@ from django import forms
 
 from bookkeeping.form_utils import normalize_decimal_fields
 from bookkeeping.models import AccountClass
+from vat.services import get_effective_vat_field_code
 
 from .models import ExpenseCategory, ExpenseClaim
 
@@ -55,6 +56,7 @@ class ExpenseClaimForm(forms.ModelForm):
             "expense_account",
             "total_amount",
             "vat_amount",
+            "vat_type",
         )
         widgets = {
             "employee": forms.Select(attrs={"class": "form-select"}),
@@ -67,6 +69,7 @@ class ExpenseClaimForm(forms.ModelForm):
             "expense_account": forms.Select(attrs={"class": "form-select"}),
             "total_amount": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.01", "min": "0"}),
             "vat_amount": forms.NumberInput(attrs={"class": "form-control text-end", "step": "0.01", "min": "0"}),
+            "vat_type": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -76,6 +79,8 @@ class ExpenseClaimForm(forms.ModelForm):
         normalize_decimal_fields(self)
 
         self.fields["employee"].required = False
+        # Mobilappen skickar ingen momstyp: utkastet får standardvärdet och typen väljs vid bokföring.
+        self.fields["vat_type"].required = False
         self.fields["person_name"].required = False
         self.fields["category"].empty_label = "Ingen kategori"
         # Mobilappen skickar bara kategori; kontot tas då från kategorin i clean().
@@ -93,6 +98,7 @@ class ExpenseClaimForm(forms.ModelForm):
         if company is not None and not company.vat_registered:
             # Ingen avdragsrätt utan momsredovisning – momsen är en del av kostnaden.
             del self.fields["vat_amount"]
+            del self.fields["vat_type"]
 
     def _get_default_account(self, *numbers):
         if self.company is None:
@@ -131,6 +137,25 @@ class ExpenseClaimForm(forms.ModelForm):
         if vat_amount > max(total_amount, Decimal("0")):
             self.add_error("vat_amount", "Moms kan inte vara större än totalbeloppet.")
 
+        reverse_charge = False
+        if "vat_type" in self.fields:
+            cleaned_data["vat_type"] = cleaned_data.get("vat_type") or ExpenseClaim.VatType.DOMESTIC
+            reverse_charge = cleaned_data["vat_type"] == ExpenseClaim.VatType.REVERSE_CHARGE
+        if reverse_charge:
+            account = cleaned_data.get("expense_account")
+            if account is not None and (
+                get_effective_vat_field_code(account.number, account.vat_field_code)
+                not in ExpenseClaim.REVERSE_CHARGE_VAT_FIELD_CODES
+            ):
+                self.add_error(
+                    "expense_account",
+                    "Vid omvänd skattskyldighet måste kostnadskontot ha momsfält 20, 21 eller 22, t.ex. 4515 "
+                    "(varor från annat EU-land), 4535 (tjänster från annat EU-land) eller 4531 (tjänster från "
+                    "land utanför EU).",
+                )
+            if vat_amount <= Decimal("0") and "vat_amount" not in self.errors:
+                self.add_error("vat_amount", "Ange beräknad moms, normalt 25 % av beloppet.")
+
         liability_account = self._get_default_account(*ExpenseClaim.DEFAULT_LIABILITY_ACCOUNT_NUMBERS)
         if liability_account is None:
             self.add_error(None, "Standardkonto 2820 (eller 2890) saknas i kontoplanen.")
@@ -138,11 +163,21 @@ class ExpenseClaimForm(forms.ModelForm):
             self.instance.liability_account = liability_account
 
         if vat_amount > Decimal("0"):
-            vat_account = self._get_default_account(ExpenseClaim.DEFAULT_VAT_ACCOUNT_NUMBER)
+            vat_number = (
+                ExpenseClaim.REVERSE_CHARGE_VAT_ACCOUNT_NUMBER
+                if reverse_charge
+                else ExpenseClaim.DEFAULT_VAT_ACCOUNT_NUMBER
+            )
+            vat_account = self._get_default_account(vat_number)
             if vat_account is None:
-                self.add_error(None, "Standardkonto 2640 saknas i kontoplanen.")
+                self.add_error(None, f"Standardkonto {vat_number} saknas i kontoplanen.")
             else:
                 self.instance.vat_account = vat_account
+            if (
+                reverse_charge
+                and self._get_default_account(ExpenseClaim.REVERSE_CHARGE_OUTPUT_VAT_ACCOUNT_NUMBER) is None
+            ):
+                self.add_error(None, "Standardkonto 2614 saknas i kontoplanen.")
         else:
             self.instance.vat_account = None
 
@@ -158,7 +193,8 @@ class ExpenseClaimForm(forms.ModelForm):
             else:
                 self.instance.accounting_year = accounting_year
 
-        self.instance.amount_ex_vat = total_amount - vat_amount
+        # Vid omvänd skattskyldighet är fakturan utan moms: hela beloppet är kostnad.
+        self.instance.amount_ex_vat = total_amount if reverse_charge else total_amount - vat_amount
 
         return cleaned_data
 

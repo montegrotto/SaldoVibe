@@ -27,6 +27,21 @@ bara väljer kategori – ändras med **Redigera utlägg** på utläggets sida. 
 kategorins konto; **Spara och bokför** bokför med det konto som står i formuläret. Bokförda
 utlägg och körrapporter kan inte redigeras.
 
+### Momstyp – inköp från utlandet
+
+Redovisar företaget moms finns valet **Momstyp** bredvid momsbeloppet. Standard är **Svensk
+moms**: momsen på kvittot bokförs som ingående moms (2640) och resten som kostnad. Välj **Inköp
+från utlandet (omvänd skattskyldighet)** när fakturan är utan moms från en säljare i ett annat
+EU-land eller utanför EU och företaget självt ska beräkna momsen. Momsfältet heter då **Beräknad
+moms (25 %)** och förifylls med 25 % av totalbeloppet (kan ändras). Hela totalbeloppet bokförs
+som kostnad och som skuld till den som gjort utlägget; momsen bokförs som utgående moms omvänd
+skattskyldighet (2614, ruta 30) mot beräknad ingående moms (2645, ruta 48) och tar ut sig själv.
+Kostnadskontot måste ha momsfält 20, 21 eller 22 så att inköpet hamnar i rätt ruta i
+[momsdeklarationen](03-momsrapport.md), t.ex. 4515 (varor från annat EU-land), 4535 (tjänster
+från annat EU-land) eller 4531 (tjänster från land utanför EU) – annars avvisas formuläret med
+"Vid omvänd skattskyldighet måste kostnadskontot ha momsfält 20, 21 eller 22 …". Utlägg från
+mobilappen sparas alltid med Svensk moms; byt momstyp med **Redigera utlägg** innan du bokför.
+
 ### Utläggskategorier
 
 Knappen **Kategorier** i utläggslistan visar företagets kategorier, t.ex. Hotell (5831), Bränsle

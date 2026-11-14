@@ -83,9 +83,18 @@
         </div>
         {% if form.vat_amount %}
         <div class="col-md-3">
-          <label class="form-label fw-semibold">{{ form.vat_amount.label }}</label>
+          <label class="form-label fw-semibold" id="vat-amount-label">{{ form.vat_amount.label }}</label>
           {{ form.vat_amount }}
           {{ form.vat_amount.errors }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.vat_type.label }}</label>
+          {{ form.vat_type }}
+          {{ form.vat_type.errors }}
+          <div class="form-text d-none" id="reverse-charge-help">
+            Fakturan är utan moms: momsen beräknas här och bokförs på 2614 mot 2645.
+            Kostnadskontot måste ha momsfält 20–22, t.ex. 4515 (varor EU) eller 4535 (tjänster EU).
+          </div>
         </div>
         {% endif %}
       </div>
@@ -155,6 +164,25 @@
           accountSelect.val(String(accountId)).trigger("change");
         }
       });
+
+      {% if form.vat_type %}
+      const vatType = $("#{{ form.vat_type.id_for_label }}");
+      const totalInput = $("#{{ form.total_amount.id_for_label }}");
+      const vatInput = $("#{{ form.vat_amount.id_for_label }}");
+      const syncReverseCharge = function (recalculate) {
+        const reverse = vatType.val() === "reverse_charge";
+        $("#vat-amount-label").text(reverse ? "Beräknad moms (25 %)" : "{{ form.vat_amount.label }}");
+        $("#reverse-charge-help").toggleClass("d-none", !reverse);
+        if (reverse && recalculate) {
+          const total = parseFloat(String(totalInput.val()).replace(/\s/g, "").replace(",", ".")) || 0;
+          // Räkna i ören så att t.ex. 4853,90 × 25 % blir 1213,48 och inte flyttalets 1213,47.
+          vatInput.val((Math.round(Math.round(total * 100) * 0.25) / 100).toFixed(2));
+        }
+      };
+      vatType.on("change", function () { syncReverseCharge(true); });
+      totalInput.on("input", function () { syncReverseCharge(true); });
+      syncReverseCharge(false);
+      {% endif %}
     }
 
     {% if claim %}return;{% endif %}
