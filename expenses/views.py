@@ -11,6 +11,7 @@ from attachments.view_helpers import (
     add_attachments,
     attachment_panel_context,
     picker_selection,
+    redirect_after_create,
     remove_attachment,
 )
 from bookkeeping.company_scope import require_company
@@ -101,7 +102,7 @@ def expense_create(request, company):
             else:
                 messages.success(request, "Utlägget har sparats som utkast.")
 
-            return redirect("expenses:expense_list")
+            return redirect_after_create(request, reverse("expenses:expense_list"))
     else:
         form = ExpenseClaimForm(company=company, initial={"expense_date": timezone.localdate()})
 
