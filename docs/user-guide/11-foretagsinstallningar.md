@@ -89,6 +89,21 @@ sidhuvudet) har ett eget kontoval under **Notiser till användare**:
   skapa en andra scope och rolltilldelning. Lämnas **Avsändaradress (notiser)** tom används
   e-postkontot för bilageimport.
 
+### Testa e-postkontona
+
+Varje e-postavsnitt i redigeringsformuläret har en testknapp. Knappen sparar först formuläret och
+testar sedan kontot med de sparade uppgifterna. Resultatet, eller felmeddelandet från
+e-postservern, visas högst upp på sidan.
+
+- **E-postbilagor – Spara och testa anslutningen** loggar in och öppnar mappen. Inga mejl hämtas,
+  och testet fungerar även om hämtningen inte är aktiverad.
+- **Utgående e-post** och **Notiser till användare – Spara och skicka testmejl** skickar ett
+  testmejl till din egen e-postadress. Kontrollera att det kommer fram, också i skräpposten. Är
+  notiskontot systemkontot och det inte är konfigurerat visas ett fel, eftersom notismejl då inte
+  skickas.
+
+Testmejl visas inte i notisklockan.
+
 ## Flera företag och att växla mellan dem
 
 Ett konto kan vara kopplat till flera företag. Byt aktivt företag via väljaren i sidhuvudet – se
