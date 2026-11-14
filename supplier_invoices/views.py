@@ -15,6 +15,7 @@ from attachments.view_helpers import (
     add_attachments,
     attachment_panel_context,
     picker_selection,
+    redirect_after_create,
     remove_attachment,
 )
 from bookkeeping.balances import build_account_balances
@@ -259,7 +260,7 @@ def invoice_create(request, company):
             else:
                 messages.success(request, "Leverantörsfakturan har sparats som utkast.")
 
-            return redirect("supplier_invoices:invoice_list")
+            return redirect_after_create(request, reverse("supplier_invoices:invoice_list"))
     else:
         extraction_suggestion = first_extraction_suggestion(selected_attachments)
         extraction_unmatched_vendor_name = ""

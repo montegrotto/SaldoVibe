@@ -88,17 +88,17 @@
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li>
-                  <a class="dropdown-item" href="{% url 'bookkeeping:transaction_add' %}?selected_attachments={{ attachment.id }}">
+                  <a class="dropdown-item" href="{% url 'bookkeeping:transaction_add' %}?selected_attachments={{ attachment.id }}&return_to={% url 'attachments:attachment_list' %}">
                     <i class="bi bi-journal-plus me-2"></i>Transaktion
                   </a>
                 </li>
                 <li>
-                  <a class="dropdown-item" href="{% url 'supplier_invoices:invoice_create' %}?selected_attachments={{ attachment.id }}">
+                  <a class="dropdown-item" href="{% url 'supplier_invoices:invoice_create' %}?selected_attachments={{ attachment.id }}&return_to={% url 'attachments:attachment_list' %}">
                     <i class="bi bi-receipt me-2"></i>Leverantörsfaktura
                   </a>
                 </li>
                 <li>
-                  <a class="dropdown-item" href="{% url 'expenses:expense_create' %}?selected_attachments={{ attachment.id }}">
+                  <a class="dropdown-item" href="{% url 'expenses:expense_create' %}?selected_attachments={{ attachment.id }}&return_to={% url 'attachments:attachment_list' %}">
                     <i class="bi bi-wallet2 me-2"></i>Utlägg
                   </a>
                 </li>
