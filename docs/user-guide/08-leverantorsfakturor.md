@@ -27,6 +27,21 @@ bara väljer kategori – ändras med **Redigera utlägg** på utläggets sida. 
 kategorins konto; **Spara och bokför** bokför med det konto som står i formuläret. Bokförda
 utlägg och körrapporter kan inte redigeras.
 
+### Korrigera ett bokfört utlägg
+
+Är ett bokfört utlägg fel (t.ex. fel konto, belopp eller moms) väljer du **Korrigera utlägg** på
+utläggets sida. Utläggets verifikation vänds då med en
+[korrigeringsverifikation](02-lopande-bokforing.md#korrigera-en-verifikation) med samma datum som
+originalet, och utlägget blir ett utkast igen. Rätta det med **Redigera utlägg** och bokför det på
+nytt – det får då en ny verifikation. Ett korrigerat utlägg tas också bort från en eventuell
+lönepost; lägg till det där igen efter ombokningen. En körrapport kan inte redigeras, men utkastet
+kan tas bort och en ny rapport skapas.
+
+- Knappen visas bara så länge inget är utbetalt. Har utlägget utbetalningar får du meddelandet
+  "Utlägget har utbetalningar. Ångra dem först och korrigera sedan utlägget." – ångra först
+  betalningen med **Ångra betalning** eller **Ångra manuell betalning**.
+- Ligger utläggsdatumet i en låst period får du "Perioden är låst – utlägget kan inte korrigeras."
+
 ### Momstyp – inköp från utlandet
 
 Redovisar företaget moms finns valet **Momstyp** bredvid momsbeloppet. Standard är **Svensk

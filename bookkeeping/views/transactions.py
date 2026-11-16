@@ -34,7 +34,6 @@ from ..forms import (
 from ..models import (
     Account,
     AccountingYear,
-    JournalEntry,
     Transaction,
     VerificationTemplate,
 )
@@ -569,25 +568,12 @@ def transaction_reverse(request, company, pk):
         messages.error(request, "Perioden är låst – verifikationen kan inte korrigeras.")
         return redirect("bookkeeping:transaction_detail", pk=txn.pk)
 
-    with db_transaction.atomic():
-        reversal = Transaction.objects.create(
-            accounting_year=txn.accounting_year,
-            date=txn.date,
-            description=f"Korrigering av verifikation {txn.reference or txn.pk}",
-            created_by=request.user,
-            correction_of=txn,
-        )
-
-        for entry in txn.entries.all():
-            JournalEntry.objects.create(
-                transaction=reversal,
-                account=entry.account,
-                debit=entry.credit,
-                credit=entry.debit,
-                description=f"Korrigering av {txn.reference or txn.pk}"[:300],
-            )
-
-        reversal.validate_balanced()
+    reversal = txn.create_reversal(
+        user=request.user,
+        date=txn.date,
+        description=f"Korrigering av verifikation {txn.reference or txn.pk}",
+        entry_description=f"Korrigering av {txn.reference or txn.pk}",
+    )
 
     messages.success(
         request,

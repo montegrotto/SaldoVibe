@@ -1181,25 +1181,13 @@ def undo_bank_payment(payment_transaction, *, user, company):
         )
 
     with db_transaction.atomic():
-        reversal = Transaction.objects.create(
-            accounting_year=payment_transaction.accounting_year,
+        reference = payment_transaction.reference or payment_transaction.pk
+        reversal = payment_transaction.create_reversal(
+            user=user,
             date=reversal_date,
-            description=(
-                f"Ångrad betalning – korrigering av verifikation "
-                f"{payment_transaction.reference or payment_transaction.pk}"
-            ),
-            created_by=user,
-            correction_of=payment_transaction,
+            description=f"Ångrad betalning – korrigering av verifikation {reference}",
+            entry_description=f"Ångrad betalning {reference}",
         )
-        for entry in payment_transaction.entries.all():
-            add_journal_entry(
-                transaction=reversal,
-                account=entry.account,
-                debit=entry.credit,
-                credit=entry.debit,
-                description=f"Ångrad betalning {payment_transaction.reference or payment_transaction.pk}"[:300],
-            )
-        reversal.validate_balanced()
 
         for _label, model, payment_model in _payable_type_registry():
             obj_ids = (

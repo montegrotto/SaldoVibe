@@ -50,6 +50,42 @@ def register_and_bookkeep_expense_claim(claim, user):
     )
 
 
+def correct_expense_claim(claim, user):
+    """Vänd utläggets verifikation och gör utlägget till ett utkast igen, så att det kan rättas och
+    bokföras om. Korrigeringen dateras som originalet, så momsen vänds i samma period."""
+    from django.db import transaction as db_transaction
+
+    from bookkeeping.period_locking import is_date_locked
+
+    with db_transaction.atomic():
+        claim = type(claim).objects.select_for_update().get(pk=claim.pk)
+        txn = claim.registered_transaction
+        if not claim.is_registered or txn is None:
+            raise ValidationError("Utlägget är inte bokfört.")
+        if claim.payments.filter(reversed_at__isnull=True).exists():
+            raise ValidationError("Utlägget har utbetalningar. Ångra dem först och korrigera sedan utlägget.")
+        if txn.corrections.exists():
+            raise ValidationError("Verifikationen har redan en registrerad korrigering.")
+        if is_date_locked(claim.company, txn.date):
+            raise ValidationError("Perioden är låst – utlägget kan inte korrigeras.")
+
+        reversal = txn.create_reversal(
+            user=user,
+            date=txn.date,
+            description=f"Korrigering av utlägg {claim.person_display_name}: {claim.description}"[:255],
+            entry_description=f"Korrigering av {txn.reference or txn.pk}",
+        )
+        claim.is_registered = False
+        claim.registered_at = None
+        claim.registered_transaction = None
+        # Ett utkast ska inte betalas ut med lönen; det läggs på löneposten igen efter ombokning.
+        claim.salary_record = None
+        claim.save(
+            update_fields=["is_registered", "registered_at", "registered_transaction", "salary_record", "updated_at"]
+        )
+        return reversal
+
+
 def _reverse_charge_vat_rows(claim, vat_amount, person):
     """Beräknad moms på inköp från utlandet: utgående 2614 (ruta 30) mot beräknad ingående 2645
     (ruta 48). Nettot är noll, men båda rutorna ska redovisas."""
