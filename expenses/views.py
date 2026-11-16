@@ -24,6 +24,7 @@ from bookkeeping.view_utils import (
 
 from .forms import ExpenseCategoryFormSet, ExpenseClaimForm
 from .models import ExpenseCategory, ExpenseClaim
+from .services import correct_expense_claim
 
 
 @login_required
@@ -238,6 +239,19 @@ def expense_register(request, company, claim_id):
         "Utlägget har registrerats och bokförts.",
     )
     return redirect("expenses:expense_list")
+
+
+@login_required
+@require_POST
+@require_company
+def expense_correct(request, company, claim_id):
+    claim = get_object_or_404(ExpenseClaim, pk=claim_id, company=company)
+    run_document_action(
+        request,
+        lambda: correct_expense_claim(claim, request.user),
+        "Utläggets verifikation har korrigerats. Utlägget är nu ett utkast som kan rättas och bokföras om.",
+    )
+    return redirect("expenses:expense_detail", claim.pk)
 
 
 @login_required

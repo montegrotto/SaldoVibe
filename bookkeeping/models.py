@@ -938,6 +938,28 @@ class Transaction(models.Model):
     def is_reversed(self):
         return self.correction_of_id is not None or self.corrections.exists()
 
+    def create_reversal(self, *, user, date, description, entry_description):
+        """Korrigeringsverifikation: originalets rader med debet/kredit omvända, kopplad via correction_of.
+        Originalet rörs aldrig (BFL 5 kap. 5 §)."""
+        with db_transaction.atomic():
+            reversal = Transaction.objects.create(
+                accounting_year=self.accounting_year,
+                date=date,
+                description=description,
+                created_by=user,
+                correction_of=self,
+            )
+            for entry in self.entries.all():
+                JournalEntry.objects.create(
+                    transaction=reversal,
+                    account=entry.account,
+                    debit=entry.credit,
+                    credit=entry.debit,
+                    description=entry_description[:300],
+                )
+            reversal.validate_balanced()
+            return reversal
+
     def validate_balanced(self):
         from django.core.exceptions import ValidationError
 

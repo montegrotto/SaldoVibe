@@ -21,6 +21,7 @@ urlpatterns = [
         name="expense_attachment_remove",
     ),
     path("utlagg/<int:claim_id>/registrera/", views.expense_register, name="expense_register"),
+    path("utlagg/<int:claim_id>/korrigera/", views.expense_correct, name="expense_correct"),
     path(
         "utlagg/<int:claim_id>/registrera-betalning/",
         views.expense_register_payment,
