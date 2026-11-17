@@ -6,7 +6,7 @@
   "description": "SaldoVibe frontend asset dependencies",
   "license": "UNLICENSED",
   "dependencies": {
-    "bootstrap": "5.3.8",
+    "bootstrap": "5.3.9",
     "bootstrap-icons": "1.13.2",
     "chart.js": "4.6.1",
     "jquery": "3.7.1",
