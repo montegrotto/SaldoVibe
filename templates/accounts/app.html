@@ -83,6 +83,50 @@
       </div>
     </div>
   </div>
+  <div class="col-12">
+    <div class="card shadow-sm border-0" id="agent-key-card">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-robot me-2"></i>API-nyckel för AI-agenter</h6>
+      </div>
+      <div class="card-body">
+        <p>
+          Med en API-nyckel kan Claude Desktop och andra MCP-agenter läsa och bokföra verifikationer åt dig.
+          Agenten agerar som du: verifikationerna står som skapade av dig och allt syns i behandlingshistoriken.
+          <a href="{% url 'bookkeeping:help_chapter' '13-mobilappen' %}#ai-agenter-claude-desktop-med-flera">Så kopplar du in en agent</a>.
+        </p>
+        {% if agent_key %}
+          <div class="alert alert-warning py-2 mb-2">
+            Kopiera nyckeln nu – den visas bara den här gången. Den gäller tills du återkallar den under Inloggade enheter.
+          </div>
+          <pre class="bg-light border rounded p-2 mb-3" id="agent-key-config">{
+  "mcpServers": {
+    "saldovibe": {
+      "command": "python3",
+      "args": ["/sökväg/till/SaldoVibe/scripts/saldovibe_mcp.py"],
+      "env": {
+        "SALDOVIBE_URL": "{{ server_url }}",
+        "SALDOVIBE_TOKEN": "{{ agent_key }}",
+        "SALDOVIBE_COMPANY_ID": "{{ active_company.pk }}"
+      }
+    }
+  }
+}</pre>
+        {% endif %}
+        <form method="post" class="row g-2 align-items-center mb-0">
+          {% csrf_token %}
+          <div class="col-sm-6 col-lg-4">
+            <label class="visually-hidden" for="agent-name">Namn</label>
+            <input type="text" name="agent_name" id="agent-name" class="form-control" maxlength="100" placeholder="T.ex. Claude Desktop">
+          </div>
+          <div class="col-auto">
+            <button type="submit" name="agent_key" value="1" class="btn btn-outline-primary">
+              <i class="bi bi-key me-1"></i>Skapa API-nyckel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 

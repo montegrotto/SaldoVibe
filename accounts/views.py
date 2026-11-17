@@ -16,6 +16,7 @@ from .models import ApiToken
 User = get_user_model()
 
 NEW_APP_TOKEN_SESSION_KEY = "new_api_token"
+NEW_AGENT_KEY_SESSION_KEY = "new_agent_api_key"
 
 
 def login_view(request):
@@ -39,15 +40,19 @@ def logout_view(request):
 
 @login_required
 def app_view(request):
-    """Mobilappen: a one-time QR code that logs the iPhone app in, and the list of the
-    user's app logins (accounts.ApiToken) with revocation. The clear-text token lives in
-    the session only until the page that shows the QR code has rendered."""
+    """Mobilappen: a one-time QR code that logs the iPhone app in, an API key for agents
+    (scripts/saldovibe_mcp.py), and the list of the user's logins (accounts.ApiToken) with
+    revocation. A clear-text token lives in the session only until the page that shows it
+    has rendered."""
     if request.method == "POST":
         revoke_id = request.POST.get("revoke", "")
         if revoke_id.isdigit():
             deleted, _ = request.user.api_tokens.filter(pk=int(revoke_id)).delete()
             if deleted:
                 messages.success(request, "Appinloggningen har återkallats.")
+        elif "agent_key" in request.POST:
+            name = request.POST.get("agent_name", "").strip() or "Agent"
+            request.session[NEW_AGENT_KEY_SESSION_KEY] = ApiToken.issue(request.user, name=name, expires_unused=False)
         else:
             request.session[NEW_APP_TOKEN_SESSION_KEY] = ApiToken.issue(request.user, name="QR-kod")
         return redirect("accounts:app")
@@ -68,6 +73,7 @@ def app_view(request):
             "login_link": login_link,
             "qr_svg": qr_svg,
             "qr_lifetime_minutes": int(ApiToken.UNUSED_LIFETIME.total_seconds() // 60),
+            "agent_key": request.session.pop(NEW_AGENT_KEY_SESSION_KEY, None),
             "tokens": request.user.api_tokens.all(),
         },
     )

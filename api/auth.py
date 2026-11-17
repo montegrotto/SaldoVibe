@@ -2,6 +2,7 @@
 
 import functools
 import json
+from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.http import Http404, JsonResponse, QueryDict
@@ -59,6 +60,16 @@ def form_data(data):
         else:
             query[key] = str(value)
     return query
+
+
+def parse_date(value, field):
+    """An ISO date from a query parameter, None when absent, ApiError when malformed."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ApiError(f"{field}: ange datum som ÅÅÅÅ-MM-DD.") from None
 
 
 def _bearer_token(request):

@@ -1,5 +1,5 @@
 ---
-description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, lägga in utlägg och körrapporter som utkast, se läget, läsa resultat- och balansräkningen och se leverantörs- och kundfakturor."
+description: "SaldoVibe-appen för iPhone: logga in med QR-kod eller lösenord, fotografera kvitton, lägga in utlägg och körrapporter som utkast, se läget, läsa resultat- och balansräkningen och se leverantörs- och kundfakturor. Dessutom: koppla in Claude Desktop eller en annan AI-agent med en API-nyckel."
 ---
 
 # 13. Mobilappen
@@ -102,6 +102,38 @@ uppgifter, kostnadskonton respektive fakturarader, betalningsstatus och bilagor.
 
 Fakturor skapas, bokförs, betalas, krediteras och tas bort på datorn – i appen går det inte,
 inte heller som utkast.
+
+## AI-agenter (Claude Desktop med flera)
+
+Från **Mobilappen** kan du också koppla in Claude Desktop eller en annan agent som stöder MCP
+(Model Context Protocol). Agenten kan då söka konton, läsa verifikationer, översikten och resultat-
+och balansräkningen, ladda upp bilagor och **bokföra verifikationer** åt dig.
+
+1. Skriv ett namn under **API-nyckel för AI-agenter**, t.ex. "Claude Desktop", och klicka på
+   **Skapa API-nyckel**. Nyckeln visas en gång, inbakad i en färdig konfiguration. Till skillnad
+   från QR-koden förfaller den inte om den inte används direkt; den gäller tills du återkallar den
+   under **Inloggade enheter**.
+2. Hämta `scripts/saldovibe_mcp.py` från källkoden till datorn där agenten körs. Skriptet behöver
+   bara Python 3 och inga extra paket.
+3. Klistra in konfigurationen i agentens MCP-inställningar (i Claude Desktop: **Inställningar →
+   Utvecklare → Redigera konfiguration**, filen `claude_desktop_config.json`), byt
+   `/sökväg/till/SaldoVibe` mot var skriptet ligger och starta om agenten.
+
+`SALDOVIBE_COMPANY_ID` är det företag som var aktivt när nyckeln skapades; agenten kan be om ett
+annat företag du har tillgång till.
+
+Agenten bokför som **du**: verifikationerna står som skapade av dig, hamnar i serien för manuella
+verifikationer och syns i behandlingshistoriken. Samma kontroller gäller som för **Ny
+verifikation** – balans, aktiva konton, ett räkenskapsår som täcker datumet och att perioden inte
+är låst. Agenten förhandsgranskar alltid verifikationen innan den bokför, och får samma varningar
+som formuläret visar för reskontrakonton och konton med bankkoppling. En bokförd verifikation kan
+inte ändras eller tas bort, bara rättas med en korrigeringsverifikation (se
+[Löpande bokföring](02-lopande-bokforing.md#korrigera-en-verifikation)). I Claude Desktop kan du låta
+förhandsgranskningen köras fritt och kräva godkännande för varje bokföring.
+
+Agenten ser bara de företag du själv ser, och med läsbehörighet kan den läsa men inte bokföra.
+Kopplingen går direkt från din dator till servern, så en server på det lokala nätverket fungerar
+utan att vara nåbar från internet.
 
 ## Felsökning
 
