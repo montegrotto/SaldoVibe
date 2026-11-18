@@ -102,6 +102,17 @@ def find_account_for_quick_booking(*, company, account_number=None, name_contain
 
 
 def get_quick_booking_suggestion(*, company, bank_tx):
+    # The other leg of an internal transfer is already booked → link, don't book it twice.
+    transfer_candidates = get_transfer_link_candidates(company=company, bank_tx=bank_tx)
+    if transfer_candidates:
+        candidate = transfer_candidates[0]
+        return {
+            "source_type": "transfer",
+            "transfer_transaction": candidate["transaction"],
+            "label": candidate["label"],
+            "rule_label": "Intern överföring",
+        }
+
     if bank_tx.bank_account.account_type == BankAccountType.TAX:
         return get_tax_account_quick_booking_suggestion(company=company, bank_tx=bank_tx)
 

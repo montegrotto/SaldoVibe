@@ -115,6 +115,11 @@ def _build_book_transaction_context(
         booking_mode = "manual"
         if quick_suggestion is not None and quick_suggestion.get("source_type") in ALLOC_MODE_PREFIXES:
             booking_mode = "match"
+        elif quick_suggestion is not None and quick_suggestion.get("source_type") == "transfer":
+            booking_mode = "transfer"
+            selected_transfer_transaction_id = selected_transfer_transaction_id or str(
+                quick_suggestion["transfer_transaction"].pk
+            )
 
     group_definitions = [
         ("customer_invoice", "Kundfakturor"),
@@ -986,6 +991,15 @@ def quick_book_transaction(request, company, transaction_id):
     suggestion = get_quick_booking_suggestion(company=company, bank_tx=bank_tx)
     if suggestion is None:
         messages.error(request, "Ingen snabbbokning finns för denna transaktion ännu.")
+        return _transaction_list_redirect_for_bank_account(bank_tx.bank_account_id)
+
+    if suggestion.get("source_type") == "transfer":
+        try:
+            link_bank_transaction_to_transaction(bank_tx=bank_tx, transaction=suggestion["transfer_transaction"])
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f"Kopplad som intern överföring till {suggestion['label']}.")
         return _transaction_list_redirect_for_bank_account(bank_tx.bank_account_id)
 
     try:

@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from banking.models import BankAccount, BankAccountType, BankTransaction
 from banking.services import (
+    get_quick_booking_suggestion,
     get_transfer_link_candidates,
     link_bank_transaction_to_transaction,
     undo_bank_payment,
@@ -136,6 +137,29 @@ class TransferLinkTests(BankingTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Intern överföring")
         self.assertContains(response, str(source_tx.booked_transaction.voucher_number))
+
+    def test_quick_suggestion_links_already_booked_transfer_instead_of_booking_again(self):
+        source_tx = self._book_source_transfer()
+        destination_tx = self._create_destination_tx()
+        destination_tx.description = "Inbetalning bokförd 260621"
+        destination_tx.save(update_fields=["description"])
+        verification = source_tx.booked_transaction
+
+        suggestion = get_quick_booking_suggestion(company=self.company, bank_tx=destination_tx)
+        self.assertEqual(suggestion["source_type"], "transfer")
+        self.assertEqual(suggestion["transfer_transaction"], verification)
+
+        form = self.client.get(reverse("banking:book_transaction", args=[destination_tx.pk]))
+        self.assertEqual(form.context["booking_mode"], "transfer")
+        self.assertEqual(form.context["selected_transfer_transaction_id"], str(verification.pk))
+
+        transactions_before = Transaction.objects.count()
+        response = self.client.post(reverse("banking:quick_book_transaction", args=[destination_tx.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        destination_tx.refresh_from_db()
+        self.assertEqual(destination_tx.booked_transaction_id, verification.pk)
+        self.assertEqual(Transaction.objects.count(), transactions_before)
 
     def test_link_view_without_selection_shows_error(self):
         destination_tx = self._create_destination_tx()

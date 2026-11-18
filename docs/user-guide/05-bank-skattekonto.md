@@ -49,6 +49,12 @@ Varje importerad rad bokförs på ett av två sätt:
 - **Manuell bokföring** – öppna transaktionen och välj konteringsrader själv, t.ex. när ingen
   automatisk matchning finns.
 
+Är transaktionen andra sidan av en överföring mellan två egna konton – t.ex. **Inbetalning
+bokförd** på skattekontot när uttaget från företagskontot redan är bokfört – blir förslaget
+**Intern överföring**. Snabbbokföringen kopplar då raden till den befintliga verifikationen
+i stället för att bokföra beloppet en gång till, och öppnar du transaktionen är läget
+**Intern överföring** med verifikationen redan förvalt.
+
 Matchar en banktransaktion en obetald kund- eller leverantörsfaktura markeras fakturan automatiskt
 som betald när bokföringen sker via snabbbokföring eller manuell bokföring med fakturakoppling.
 
