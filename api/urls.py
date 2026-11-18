@@ -23,4 +23,7 @@ urlpatterns = [
     path("leverantorsfakturor/<int:pk>/", views.supplier_invoice_detail, name="supplier_invoice_detail"),
     path("kundfakturor/", views.customer_invoices, name="customer_invoices"),
     path("kundfakturor/<int:pk>/", views.customer_invoice_detail, name="customer_invoice_detail"),
+    path("konton/", views.accounts, name="accounts"),
+    path("verifikationer/", views.vouchers, name="vouchers"),
+    path("verifikationer/<int:pk>/", views.voucher_detail, name="voucher_detail"),
 ]

@@ -5,12 +5,17 @@ as the web views (ExpenseClaimForm, MileageReportForm, MileageReport.submit), so
 cannot disagree on validation or default accounts. The app never posts to the ledger: expenses and
 körrapporter are saved as drafts (the app picks an ExpenseCategory, whose account is the
 suggestion) and are booked and paid on the web. Supplier and customer invoices are read-only.
+
+The one ledger write is `verifikationer/`, used by agents (scripts/saldovibe_mcp.py): manual
+vouchers through TransactionForm/JournalEntryFormSet and bookkeeping.vouchers, like the web's
+Ny verifikation.
 """
 
 from decimal import Decimal
 
 from django.contrib.auth import authenticate
 from django.db import transaction as db_transaction
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -21,11 +26,15 @@ from attachments.services import save_uploaded_attachment, soft_delete_attachmen
 from attachments.utils import exclude_used_attachments
 from attachments.view_helpers import selectable_attachments
 from attachments.views import attachment_file_response, attachment_thumbnail_response, uploaded_file_from_request
+from banking.services import get_managed_bank_accounts
 from bookkeeping.company_scope import get_user_companies, is_read_only_member
 from bookkeeping.context_processors import get_topbar_alert_state_for_company
-from bookkeeping.payables import quantize_amount
+from bookkeeping.forms import JournalEntryFormSet, TransactionForm
+from bookkeeping.models import Transaction
+from bookkeeping.payables import quantize_amount, reskontra_account_ids
 from bookkeeping.reports import build_balance_sheet_context, build_income_statement_context
 from bookkeeping.views.dashboard import dashboard_summary
+from bookkeeping.vouchers import check_manual_voucher, save_manual_voucher
 from expenses.forms import ExpenseClaimForm
 from expenses.models import ExpenseClaim
 from invoicing.models import Invoice
@@ -33,7 +42,7 @@ from payroll.forms import MileageReportForm
 from payroll.models import MileageReport
 from supplier_invoices.models import SupplierInvoice
 
-from .auth import ApiError, api_view, form_data, form_error, json_body
+from .auth import ApiError, api_view, form_data, form_error, json_body, parse_date
 
 LIST_LIMIT = 200
 
@@ -576,3 +585,149 @@ def balance_sheet(request, company):
     ]
     result = {"label": "Beräknat resultat", "amount": _amount(c["balance_difference"]), "note": None}
     return JsonResponse(_report_json(c, sections, result))
+
+
+# --- accounts and vouchers (agents) ----------------------------------------------------
+
+
+@api_view()
+def accounts(request, company):
+    """The company's active accounts; `?q=` matches a number prefix or part of the name."""
+    queryset = company.accounts.filter(is_active=True).order_by("number")
+    q = request.GET.get("q", "").strip()
+    if q:
+        queryset = queryset.filter(Q(number__startswith=q) | Q(name__icontains=q))
+    return JsonResponse([_account_json(a) for a in queryset], safe=False)
+
+
+def _voucher_json(txn):
+    data = {
+        "id": txn.pk,
+        "reference": txn.reference,
+        "date": _date(txn.date),
+        "description": txn.description,
+        "source": txn.get_source_display(),
+        "accounting_year": _year_json(txn.accounting_year),
+        "correction_of": txn.correction_of_id,
+        "corrections": [c.pk for c in txn.corrections.all()],
+        "rows": [
+            {"account": _account_json(e.account), "debit": _amount(e.debit), "credit": _amount(e.credit)}
+            for e in txn.entries.all()
+        ],
+    }
+    return _with_attachments(data, txn)
+
+
+def _vouchers(company):
+    return Transaction.objects.filter(accounting_year__company=company).prefetch_related(
+        "entries__account", "corrections", "attachments"
+    )
+
+
+def _voucher_forms(company, data):
+    """The web form pair, bound from `{"date", "description", "rows": [{"account": "6540",
+    "debit": "100.00"}, ...]}` - accounts by number, as an agent knows them."""
+    rows = data.get("rows")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ApiError("Ange rows som en lista med konteringsrader: {account, debit, credit}.")
+    account_ids = dict(company.accounts.filter(is_active=True).values_list("number", "pk"))
+    post = {
+        "date": data.get("date"),
+        "description": data.get("description"),
+        "entries-TOTAL_FORMS": len(rows),
+        "entries-INITIAL_FORMS": 0,
+    }
+    for index, row in enumerate(rows):
+        number = str(row.get("account") or "").strip()
+        if number not in account_ids:
+            raise ApiError(f"Rad {index + 1}: konto {number or '(saknas)'} finns inte eller är inaktivt.")
+        post[f"entries-{index}-account"] = account_ids[number]
+        post[f"entries-{index}-debit"] = row.get("debit") or "0"
+        post[f"entries-{index}-credit"] = row.get("credit") or "0"
+    query = form_data(post)
+    return TransactionForm(query, company=company), JournalEntryFormSet(query, form_kwargs={"company": company})
+
+
+def _voucher_form_error(form, formset):
+    errors = {field: [str(m) for m in messages] for field, messages in form.errors.items()}
+    for index, row in enumerate(formset.forms):
+        for field, messages in row.errors.items():
+            errors[f"rows.{index}.{field}"] = [f"Rad {index + 1}: {m}" for m in messages]
+    if formset.non_form_errors():
+        errors["rows"] = [str(m) for m in formset.non_form_errors()]
+    return ApiError(next(iter(errors.values()))[0], errors=errors)
+
+
+def _posting_warnings(company, accounts):
+    """The web form's per-row warnings (templates/bookkeeping/transaction_form.html)."""
+    managed = get_managed_bank_accounts(company)
+    reskontra = reskontra_account_ids(company)
+    warnings = []
+    for account in dict.fromkeys(accounts):
+        if account.pk in managed:
+            warnings.append(f"Konto {account.number} hanteras av en bankkoppling. Bokför hellre via Banktransaktioner.")
+        elif account.pk in reskontra:
+            warnings.append(
+                f"Konto {account.number} är ett reskontrakonto. Registrera betalningar av kund- och "
+                "leverantörsfakturor på fakturan (Registrera betalning) eller i Bank-vyn, annars stämmer "
+                "reskontran inte mot huvudboken."
+            )
+    return warnings
+
+
+@api_view(("GET", "POST"))
+def vouchers(request, company):
+    """GET: verifikationer, newest first, filtered by `from`/`to` (dates), `account` (number)
+    and `q` (description). POST: book one - see _voucher_forms. `"dry_run": true` runs every
+    check and answers with the preview instead of booking. `attachment_ids` links unlinked
+    bilagor; an id that isn't one is an error, so the agent never believes a voucher has its
+    underlag when it doesn't."""
+    if request.method == "GET":
+        queryset = _vouchers(company)
+        if date_from := parse_date(request.GET.get("from"), "from"):
+            queryset = queryset.filter(date__gte=date_from)
+        if date_to := parse_date(request.GET.get("to"), "to"):
+            queryset = queryset.filter(date__lte=date_to)
+        if account := request.GET.get("account", "").strip():
+            queryset = queryset.filter(entries__account__number=account).distinct()
+        if q := request.GET.get("q", "").strip():
+            queryset = queryset.filter(description__icontains=q)
+        return JsonResponse([_voucher_json(t) for t in queryset[:LIST_LIMIT]], safe=False)
+
+    data = json_body(request)
+    form, formset = _voucher_forms(company, data)
+    if not (form.is_valid() and formset.is_valid()):
+        raise _voucher_form_error(form, formset)
+    attachment_ids = {_int(value) for value in data.get("attachment_ids") or []}
+    attachments = selectable_attachments(company, attachment_ids - {None})
+    if attachments.count() != len(attachment_ids):
+        raise ApiError("En eller flera bilagor finns inte eller är redan kopplade till något annat.")
+    warnings = _posting_warnings(company, [row.cleaned_data["account"] for row in formset.forms])
+
+    if data.get("dry_run"):
+        year = check_manual_voucher(company, form)
+        return JsonResponse(
+            {
+                "dry_run": True,
+                "date": _date(form.cleaned_data["date"]),
+                "description": form.cleaned_data["description"],
+                "accounting_year": _year_json(year),
+                "rows": [
+                    {
+                        "account": _account_json(row.cleaned_data["account"]),
+                        "debit": _amount(row.cleaned_data["debit"]),
+                        "credit": _amount(row.cleaned_data["credit"]),
+                    }
+                    for row in formset.forms
+                ],
+                "attachments": [_attachment_json(a) for a in attachments],
+                "warnings": warnings,
+            }
+        )
+    txn = save_manual_voucher(company=company, user=request.user, form=form, formset=formset, attachments=attachments)
+    return JsonResponse({**_voucher_json(_vouchers(company).get(pk=txn.pk)), "warnings": warnings}, status=201)
+
+
+@api_view()
+def voucher_detail(request, company, pk):
+    return JsonResponse(_voucher_json(get_object_or_404(_vouchers(company), pk=pk)))

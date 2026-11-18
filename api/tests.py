@@ -1,4 +1,6 @@
+import importlib.util
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -17,11 +19,11 @@ from django.utils import timezone
 from accounts.models import ApiToken
 from attachments.models import TransactionAttachment
 from auditlog.models import AuditLogEntry
-from bookkeeping.models import CompanyMembership, JournalEntry, Transaction
+from bookkeeping.models import CompanyMembership, JournalEntry, PeriodLock, Transaction
 from expenses.models import ExpenseCategory, ExpenseClaim
 from invoicing.models import Article, Customer, Invoice, InvoiceLine
 from payroll.models import Employee
-from saldovibe.testing import DEFAULT_PASSWORD, CompanyTestCase, create_company, create_user
+from saldovibe.testing import DEFAULT_PASSWORD, CompanyTestCase, create_accounting_year, create_company, create_user
 from supplier_invoices.models import Supplier, SupplierInvoice, SupplierInvoiceCostLine
 
 PDF = b"%PDF-1.4 kvitto"
@@ -695,3 +697,174 @@ class SeedDemoTests(ApiTestCase):
             self.assertGreater(data["payables_open"]["count"], 0, company.name)
             self.assertGreater(Decimal(data["net_result"]), 0, company.name)
         self.assertTrue(all(t.is_balanced for t in Transaction.objects.filter(created_by=user)))
+
+
+class AccountTests(ApiTestCase):
+    def test_search_by_number_prefix_or_name(self):
+        numbers = [a["number"] for a in self.get("/api/v1/konton/", q="654").json()]
+        self.assertIn("6540", numbers)
+        self.assertTrue(all(n.startswith("654") for n in numbers))
+        self.assertIn("1930", [a["number"] for a in self.get("/api/v1/konton/", q="företagskonto").json()])
+
+
+class VoucherTests(ApiTestCase):
+    """verifikationer/: the agents' ledger write, through the web form's checks."""
+
+    URL = "/api/v1/verifikationer/"
+
+    def voucher(self, **overrides):
+        return {
+            "date": "2026-11-10",
+            "description": "Programvara",
+            "rows": [
+                {"account": "5420", "debit": "400.00"},
+                {"account": "2641", "debit": "100.00"},
+                {"account": "1930", "credit": "500.00"},
+            ],
+            **overrides,
+        }
+
+    def test_dry_run_previews_without_booking(self):
+        response = self.post(self.URL, self.voucher(dry_run=True))
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(data["accounting_year"]["id"], self.year.pk)
+        self.assertEqual([r["account"]["number"] for r in data["rows"]], ["5420", "2641", "1930"])
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_books_a_manual_voucher_with_its_attachment(self):
+        attachment = self.create_attachment()
+        response = self.post(self.URL, self.voucher(attachment_ids=[attachment.pk]))
+        self.assertEqual(response.status_code, 201, response.content)
+        txn = Transaction.objects.get()
+        self.assertEqual((txn.voucher_series, txn.created_by), ("A", self.user))
+        self.assertEqual(response.json()["reference"], txn.reference)
+        self.assertEqual(list(txn.attachments.all()), [attachment])
+        self.assertEqual(txn.total_debit, Decimal("500.00"))
+
+        listed = self.get(self.URL, account="2641", **{"from": "2026-11-01"}).json()
+        self.assertEqual([v["id"] for v in listed], [txn.pk])
+        self.assertEqual(self.get(self.URL, account="3001").json(), [])
+        self.assertEqual(self.get(f"{self.URL}{txn.pk}/").json()["attachments"][0]["id"], attachment.pk)
+
+    def test_rejects_what_the_web_form_rejects(self):
+        cases = [
+            (self.voucher(rows=[{"account": "5420", "debit": "1"}, {"account": "1930", "credit": "2"}]), "balans"),
+            (self.voucher(rows=[{"account": "9999", "debit": "1"}, {"account": "1930", "credit": "1"}]), "9999"),
+            (self.voucher(date="2027-02-01"), "räkenskapsår"),
+            (self.voucher(attachment_ids=[123456]), "bilagor"),
+            (self.voucher(rows="5420"), "rows"),
+        ]
+        for body, fragment in cases:
+            with self.subTest(fragment):
+                response = self.post(self.URL, body)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(fragment, response.json()["error"])
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_locked_period_is_refused_even_on_dry_run(self):
+        PeriodLock.objects.create(
+            company=self.company,
+            accounting_year=self.year,
+            period_start=date(2026, 11, 1),
+            period_end=date(2026, 11, 30),
+            reason="Stängd",
+            locked_by=self.user,
+        )
+        for dry_run in (True, False):
+            response = self.post(self.URL, self.voucher(dry_run=dry_run))
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("låst", response.json()["error"])
+
+    def test_warns_about_reskontra_accounts(self):
+        body = self.voucher(rows=[{"account": "2440", "debit": "500"}, {"account": "1930", "credit": "500"}])
+        warnings = self.post(self.URL, {**body, "dry_run": True}).json()["warnings"]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("2440 är ett reskontrakonto", warnings[0])
+
+    def test_read_only_member_cannot_book(self):
+        CompanyMembership.objects.filter(company=self.company, user=self.user).update(
+            role=CompanyMembership.Role.VIEWER
+        )
+        self.assertEqual(self.post(self.URL, self.voucher()).status_code, 403)
+
+    def test_other_companies_vouchers_are_not_found(self):
+        other = create_company("Annat AB", users=[create_user("annan@example.com")])
+        create_accounting_year(other)
+        txn = Transaction.objects.create(
+            accounting_year=other.accounting_years.get(), date="2026-11-10", description="x"
+        )
+        self.assertEqual(self.get(f"{self.URL}{txn.pk}/").status_code, 404)
+        self.assertEqual(self.get(self.URL).json(), [])
+
+
+class McpServerTests(ApiTestCase):
+    """scripts/saldovibe_mcp.py end to end: JSON-RPC in, the real API (via the test client) out."""
+
+    def setUp(self):
+        super().setUp()
+        path = Path(__file__).resolve().parent.parent / "scripts" / "saldovibe_mcp.py"
+        spec = importlib.util.spec_from_file_location("saldovibe_mcp", path)
+        self.mcp = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mcp)
+        self.mcp._http = self._http
+        env = {"SALDOVIBE_URL": "http://testserver", "SALDOVIBE_TOKEN": self.token}
+        env["SALDOVIBE_COMPANY_ID"] = str(self.company.pk)
+        environ = patch.dict(os.environ, env)
+        environ.start()
+        self.addCleanup(environ.stop)
+
+    def _http(self, method, url, headers, body):
+        headers = dict(headers)
+        content_type = headers.pop("Content-Type", "application/octet-stream")
+        response = self.client.generic(method, url, data=body or b"", content_type=content_type, headers=headers)
+        return response.status_code, response.content
+
+    def call(self, name, **arguments):
+        message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
+        result = self.mcp.handle(message)["result"]
+        return result["isError"], json.loads(result["content"][0]["text"])
+
+    def test_lists_tools_and_ignores_notifications(self):
+        self.assertIsNone(self.mcp.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}))
+        init = self.mcp.handle({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}})
+        self.assertIn("tools", init["result"]["capabilities"])
+        tools = self.mcp.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"]
+        self.assertIn("bokfor_verifikation", {t["name"] for t in tools})
+
+    def test_uploads_previews_and_books(self):
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as receipt:
+            receipt.write(PDF)
+            receipt.flush()
+            is_error, attachment = self.call("ladda_upp_bilaga", sokvag=receipt.name)
+        self.assertFalse(is_error, attachment)
+
+        voucher = {
+            "datum": "2026-11-10",
+            "beskrivning": "Kontorsmaterial",
+            "rader": [
+                {"konto": "6110", "debet": "80"},
+                {"konto": "2641", "debet": "20"},
+                {"konto": "1930", "kredit": "100"},
+            ],
+            "bilagor": [attachment["id"]],
+        }
+        is_error, preview = self.call("forhandsgranska_verifikation", **voucher)
+        self.assertFalse(is_error, preview)
+        self.assertFalse(Transaction.objects.exists())
+
+        is_error, booked = self.call("bokfor_verifikation", **voucher)
+        self.assertFalse(is_error, booked)
+        txn = Transaction.objects.get()
+        self.assertEqual(booked["id"], txn.pk)
+        self.assertEqual(txn.attachments.get().pk, attachment["id"])
+        self.assertEqual([v["id"] for v in self.call("lista_verifikationer", konto="6110")[1]], [txn.pk])
+
+    def test_api_errors_and_missing_files_are_tool_errors(self):
+        is_error, payload = self.call("bokfor_verifikation", datum="2026-11-10", beskrivning="x", rader=[])
+        self.assertTrue(is_error)
+        self.assertFalse(Transaction.objects.exists())
+        is_error, payload = self.call("ladda_upp_bilaga", sokvag="/finns/inte.pdf")
+        self.assertTrue(is_error)
+        self.assertIn("FileNotFoundError", payload["error"])

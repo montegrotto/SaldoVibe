@@ -51,7 +51,9 @@ class ApiToken(models.Model):
     """Mobilappens inloggning (api/). Bara SHA-256 av token sparas; klartexten lämnar
     servern en gång - i svaret på inloggningen eller i QR-koden - och lever sedan i
     appens nyckelring. En token som aldrig använts förfaller efter UNUSED_LIFETIME, så
-    en visad men aldrig skannad QR-kod inte blir en evig bakdörr."""
+    en visad men aldrig skannad QR-kod inte blir en evig bakdörr. Undantaget är API-nycklar
+    till agenter (expires_unused=False): de klistras in i en konfigfil och kan ligga
+    oanvända tills agenten först anropar ett verktyg."""
 
     UNUSED_LIFETIME = timedelta(minutes=15)
     LAST_USED_RESOLUTION = timedelta(hours=1)
@@ -61,6 +63,7 @@ class ApiToken(models.Model):
     token_hash = models.CharField("Tokenhash", max_length=64, unique=True)
     created_at = models.DateTimeField("Skapad", auto_now_add=True)
     last_used_at = models.DateTimeField("Senast använd", null=True, blank=True)
+    expires_unused = models.BooleanField("Förfaller oanvänd", default=True)
 
     class Meta:
         verbose_name = "Appinloggning"
@@ -75,10 +78,12 @@ class ApiToken(models.Model):
         return hashlib.sha256(raw_token.encode()).hexdigest()
 
     @classmethod
-    def issue(cls, user, name=""):
+    def issue(cls, user, name="", *, expires_unused=True):
         """Create a token for `user` and return it in clear text - the only time it exists."""
         raw_token = secrets.token_urlsafe(32)
-        cls.objects.create(user=user, name=name[:100], token_hash=cls.hash_token(raw_token))
+        cls.objects.create(
+            user=user, name=name[:100], token_hash=cls.hash_token(raw_token), expires_unused=expires_unused
+        )
         return raw_token
 
     @classmethod
@@ -91,7 +96,7 @@ class ApiToken(models.Model):
         if token is None or not token.user.is_active:
             return None
         now = timezone.now()
-        if token.last_used_at is None and now - token.created_at > cls.UNUSED_LIFETIME:
+        if token.expires_unused and token.last_used_at is None and now - token.created_at > cls.UNUSED_LIFETIME:
             token.delete()
             return None
         if token.last_used_at is None or now - token.last_used_at > cls.LAST_USED_RESOLUTION:

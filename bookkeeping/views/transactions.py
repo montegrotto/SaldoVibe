@@ -1,14 +1,12 @@
 """Verifikationer: listing, entry, detail, attachments and reversal."""
 
 import logging
-from decimal import Decimal
 from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db import transaction as db_transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -44,6 +42,7 @@ from ..reports import (
     get_year_context,
 )
 from ..sie import encode_sie, generate_sie4_content
+from ..vouchers import save_manual_voucher
 from ._base import company_required
 
 logger = logging.getLogger(__name__)
@@ -149,44 +148,15 @@ def transaction_add(request, company):
         form = TransactionForm(request.POST, company=company)
         formset = JournalEntryFormSet(request.POST, form_kwargs={"company": company})
         if form.is_valid() and formset.is_valid():
-            txn_date = form.cleaned_data["date"]
-            if is_date_locked(company, txn_date):
-                messages.error(
-                    request,
-                    "Den valda perioden är låst. Skapa en korrigeringsverifikation i öppen period eller lås upp perioden.",
+            try:
+                save_manual_voucher(
+                    company=company, user=request.user, form=form, formset=formset, attachments=selected_attachments
                 )
+            except ValidationError as exc:
+                messages.error(request, " ".join(exc.messages))
             else:
-                matching_years = AccountingYear.objects.filter(
-                    company=company,
-                    start_date__lte=txn_date,
-                    end_date__gte=txn_date,
-                ).order_by("-start_date", "-id")
-
-                if not matching_years.exists():
-                    messages.error(request, "Inget räkenskapsår matchar valt datum.")
-                elif matching_years.count() > 1:
-                    messages.error(request, "Flera räkenskapsår matchar valt datum. Kontrollera räkenskapsåren.")
-                else:
-                    entries = [f for f in formset if f.cleaned_data and not f.cleaned_data.get("DELETE")]
-                    total_debit = sum(f.cleaned_data.get("debit", Decimal("0")) for f in entries)
-                    total_credit = sum(f.cleaned_data.get("credit", Decimal("0")) for f in entries)
-                    if total_debit != total_credit:
-                        messages.error(
-                            request, f"Verifikationen är inte i balans. Debet: {total_debit} – Kredit: {total_credit}"
-                        )
-                    else:
-                        with db_transaction.atomic():
-                            txn = form.save(commit=False)
-                            txn.accounting_year = matching_years.first()
-                            txn.created_by = request.user
-                            txn.save()
-                            formset.instance = txn
-                            formset.save()
-                            txn.validate_balanced()
-                            if selected_attachments.exists():
-                                txn.attachments.add(*selected_attachments)
-                        messages.success(request, "Verifikationen har sparats.")
-                        saved = True
+                messages.success(request, "Verifikationen har sparats.")
+                saved = True
         else:
             error_messages = []
 

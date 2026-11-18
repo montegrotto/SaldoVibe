@@ -1,11 +1,13 @@
 import html
 import re
+from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from saldovibe.testing import CompanyTestCase
 
@@ -176,3 +178,24 @@ class AppPageTests(CompanyTestCase):
         self.assertFalse(ApiToken.objects.filter(pk=token.pk).exists())
         me = Client().get("/api/v1/me/", headers={"Authorization": f"Bearer {raw_token}"})
         self.assertEqual(me.status_code, 401)
+
+
+class AgentApiKeyTests(CompanyTestCase):
+    """/konton/appen/: the agent API key, shown once and exempt from the unused-token expiry."""
+
+    user_email = "agentnyckel@example.com"
+    company_name = "Agentnyckeln AB"
+
+    def test_key_is_shown_once_in_a_config_snippet_and_outlives_the_qr_lifetime(self):
+        url = reverse("accounts:app")
+        self.client.post(url, {"agent_key": "1", "agent_name": "Claude Desktop"})
+        page = self.client.get(url).content.decode()
+        raw_token = re.search(r'"SALDOVIBE_TOKEN": "([^"]+)"', page).group(1)
+        self.assertIn(f'"SALDOVIBE_COMPANY_ID": "{self.company.pk}"', page)
+        self.assertNotIn(raw_token, self.client.get(url).content.decode())
+
+        token = ApiToken.objects.get(user=self.user)
+        self.assertEqual((token.name, token.expires_unused), ("Claude Desktop", False))
+        ApiToken.objects.filter(pk=token.pk).update(created_at=timezone.now() - timedelta(days=30))
+        me = Client().get("/api/v1/me/", headers={"Authorization": f"Bearer {raw_token}"})
+        self.assertEqual(me.status_code, 200)
