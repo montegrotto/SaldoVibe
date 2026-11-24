@@ -1,7 +1,7 @@
 Django==5.2.19
 python-dotenv==1.2.4
 qrcode==8.2
-certifi==2026.10.23
+certifi==2026.11.20
 xhtml2pdf==0.2.28
 gunicorn==27.0.1
 whitenoise==6.12.0
@@ -25,5 +25,5 @@ Markdown==3.11.3
 # requirements.lock) a direct URL to an immutable artifact, not a VCS checkout.
 # Pinned to a commit, not a branch, so this only moves when deliberately bumped.
 reinvgrabber-extraction @ https://github.com/montegrotto/ReInvGrabber/archive/be5cfec13336d3fd0e5343acc575f650ca7b1122.tar.gz
-pdfplumber==0.11.10
+pdfplumber==0.11.11
 pytesseract==0.3.13
